@@ -67,11 +67,17 @@ function selectProject(projectId) {
 
 // Task Management
 function addTask(title, status) {
+    // Get the highest position number for the given status
+    const maxPosition = Math.max(0, ...tasks
+        .filter(t => t.status === status)
+        .map(t => t.position || 0));
+    
     const task = {
         id: Date.now(),
         projectId: currentProject ? currentProject.id : null,
         title,
         status,
+        position: maxPosition + 1000, // Use increments of 1000 to allow space for reordering
         timeSpent: 0,
         createdAt: new Date().toISOString(),
         timeEntries: [],
@@ -121,27 +127,166 @@ function renderTasks() {
         'Done': document.getElementById('doneTasks')
     };
     
-    // Clear all containers
-    Object.values(containers).forEach(container => container.innerHTML = '');
+    // Clear all containers and set up drag and drop
+    Object.entries(containers).forEach(([status, container]) => {
+        container.innerHTML = '';
+        
+        // Add drop zone event listeners
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            container.classList.add('drag-over');
+            
+            // Find the closest task card
+            const taskCard = e.target.closest('.task-card');
+            if (taskCard) {
+                const rect = taskCard.getBoundingClientRect();
+                const midpoint = rect.top + rect.height / 2;
+                
+                // Remove existing placeholder
+                const existingPlaceholder = container.querySelector('.task-placeholder');
+                if (existingPlaceholder) {
+                    existingPlaceholder.remove();
+                }
+                
+                // Create and insert placeholder
+                const placeholder = document.createElement('div');
+                placeholder.className = 'task-placeholder';
+                
+                if (e.clientY < midpoint) {
+                    taskCard.parentNode.insertBefore(placeholder, taskCard);
+                } else {
+                    taskCard.parentNode.insertBefore(placeholder, taskCard.nextSibling);
+                }
+            }
+        });
+
+        container.addEventListener('dragleave', (e) => {
+            // Only remove drag-over if we're leaving the container, not entering a child
+            if (!e.relatedTarget || !container.contains(e.relatedTarget)) {
+                container.classList.remove('drag-over');
+                // Remove placeholder when leaving container
+                const placeholder = container.querySelector('.task-placeholder');
+                if (placeholder) {
+                    placeholder.remove();
+                }
+            }
+        });
+
+        container.addEventListener('drop', (e) => {
+            e.preventDefault();
+            container.classList.remove('drag-over');
+            
+            const taskId = parseInt(e.dataTransfer.getData('text/plain'));
+            if (taskId) {
+                const task = tasks.find(t => t.id === taskId);
+                const oldStatus = task.status;
+                const statusOrder = ['To Do', 'In Progress', 'To be Tested', 'Done'];
+                
+                // Get the task cards in the container
+                const taskCards = Array.from(container.querySelectorAll('.task-card'));
+                const placeholder = container.querySelector('.task-placeholder');
+                
+                // Calculate new position
+                let newPosition;
+                if (placeholder) {
+                    const placeholderIndex = Array.from(container.children).indexOf(placeholder);
+                    const prevTask = taskCards[placeholderIndex - 1];
+                    const nextTask = taskCards[placeholderIndex];
+                    
+                    if (!prevTask) {
+                        // If at start, use position before first task
+                        newPosition = (nextTask ? tasks.find(t => t.id === parseInt(nextTask.dataset.taskId)).position : 1000) / 2;
+                    } else if (!nextTask) {
+                        // If at end, use position after last task
+                        newPosition = tasks.find(t => t.id === parseInt(prevTask.dataset.taskId)).position + 1000;
+                    } else {
+                        // If between tasks, use middle position
+                        const prevPosition = tasks.find(t => t.id === parseInt(prevTask.dataset.taskId)).position;
+                        const nextPosition = tasks.find(t => t.id === parseInt(nextTask.dataset.taskId)).position;
+                        newPosition = (prevPosition + nextPosition) / 2;
+                    }
+                    
+                    placeholder.remove();
+                } else {
+                    // If no placeholder, add to end
+                    const lastTask = taskCards[taskCards.length - 1];
+                    newPosition = lastTask ? 
+                        tasks.find(t => t.id === parseInt(lastTask.dataset.taskId)).position + 1000 : 
+                        1000;
+                }
+                
+                // Update task
+                updateTask(taskId, { 
+                    status, 
+                    position: newPosition 
+                });
+                
+                // Show confetti for next column moves
+                const oldIndex = statusOrder.indexOf(oldStatus);
+                const newIndex = statusOrder.indexOf(status);
+                
+                if (newIndex === oldIndex + 1) {
+                    const rect = container.getBoundingClientRect();
+                    const x = (rect.left + rect.right) / 2;
+                    const y = (rect.top + rect.bottom) / 2;
+                    
+                    confetti({
+                        particleCount: 100,
+                        spread: 70,
+                        origin: { 
+                            x: x / window.innerWidth, 
+                            y: y / window.innerHeight 
+                        },
+                        colors: ['#4361ee', '#7209b7', '#f72585', '#2ec4b6'],
+                        ticks: 200,
+                        gravity: 1.2,
+                        scalar: 1.2,
+                        shapes: ['circle', 'square'],
+                        zIndex: 9999
+                    });
+                }
+            }
+        });
+    });
     
-    // Filter tasks based on current project
+    // Filter tasks based on current project and sort by position
     const filteredTasks = currentProject
         ? tasks.filter(task => task.projectId === currentProject.id)
         : tasks;
     
+    // Group tasks by status and sort by position
+    const groupedTasks = {};
+    Object.keys(containers).forEach(status => {
+        groupedTasks[status] = filteredTasks
+            .filter(task => task.status === status)
+            .sort((a, b) => (a.position || 0) - (b.position || 0));
+    });
+    
     // Render tasks in their respective columns
-    filteredTasks.forEach(task => {
-        const container = containers[task.status];
-        if (container) {
+    Object.entries(groupedTasks).forEach(([status, statusTasks]) => {
+        const container = containers[status];
+        statusTasks.forEach(task => {
             const taskCard = createTaskCard(task);
             container.appendChild(taskCard);
-        }
+        });
     });
 }
 
 function createTaskCard(task) {
     const card = document.createElement('div');
     card.className = 'task-card';
+    card.draggable = true;
+    card.dataset.taskId = task.id;
+
+    // Add drag event listeners
+    card.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', task.id);
+        card.style.opacity = '0.5';
+    });
+
+    card.addEventListener('dragend', () => {
+        card.style.opacity = '1';
+    });
     
     const timeDisplay = formatTime(task.timeSpent * 3600); // Convert hours to seconds
     const projectName = task.projectId ? projects.find(p => p.id === task.projectId)?.name : 'No Project';

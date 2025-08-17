@@ -168,9 +168,16 @@ body {
 
 .tasks-container {
     min-height: 200px;
+    transition: background-color 0.2s ease;
+}
+
+.tasks-container.drag-over {
+    background-color: var(--primary-light);
+    border-radius: 8px;
 }
 
 .task-card {
+    user-select: none;
     background: white;
     border: 1px solid var(--primary-light);
     border-radius: 8px;
@@ -186,6 +193,30 @@ body {
     transform: translateY(-2px);
     box-shadow: var(--hover-shadow);
     border-color: var(--primary-medium);
+}
+
+.task-placeholder {
+    height: 4px;
+    background-color: var(--primary-color);
+    border-radius: 2px;
+    margin: 8px 0;
+    transition: all 0.2s ease;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 0.6;
+        transform: scaleY(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scaleY(1.5);
+    }
+    100% {
+        opacity: 0.6;
+        transform: scaleY(1);
+    }
 }
 
 .task-header {
