@@ -1,450 +1,130 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Task Management & Timesheet with Workflow</title>
-<style>
-    body {
-        font-family: 'Segoe UI', Tahoma, sans-serif;
-        margin: 0;
-        background: #f4f7fa;
-        color: #333;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeTracker - Task Management</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <h2>TimeTracker</h2>
+            <div class="projects-section">
+                <h3>Projects</h3>
+                <button id="addProjectBtn" class="btn-add"><i class="fas fa-plus"></i> New Project</button>
+                <ul id="projectsList"></ul>
+            </div>
+        </aside>
+        
+        <main class="main-content">
+            <header class="top-bar">
+                <h1 id="currentProjectName">All Tasks</h1>
+                <button id="addTaskBtn" class="btn-primary"><i class="fas fa-plus"></i> Add Task</button>
+            </header>
+            
+            <div class="view-controls">
+                <button id="boardViewBtn" class="view-btn active"><i class="fas fa-columns"></i> Board</button>
+                <button id="timesheetViewBtn" class="view-btn"><i class="fas fa-list"></i> List</button>
+            </div>
 
-    h1 {
-        margin: 0;
-        padding: 20px;
-        background: linear-gradient(90deg, #4facfe, #00f2fe);
-        color: white;
-        text-align: center;
-        font-weight: 500;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    }
+            <div id="boardView" class="board">
+                <div class="column" data-status="To Do">
+                    <h3><i class="fas fa-clipboard-list"></i> To Do</h3>
+                    <div class="tasks-container" id="todoTasks"></div>
+                </div>
+                <div class="column" data-status="In Progress">
+                    <h3><i class="fas fa-spinner"></i> In Progress</h3>
+                    <div class="tasks-container" id="inProgressTasks"></div>
+                </div>
+                <div class="column" data-status="To be Tested">
+                    <h3><i class="fas fa-vial"></i> To be Tested</h3>
+                    <div class="tasks-container" id="toBeTestedTasks"></div>
+                </div>
+                <div class="column" data-status="Done">
+                    <h3><i class="fas fa-check-circle"></i> Done</h3>
+                    <div class="tasks-container" id="doneTasks"></div>
+                </div>
+            </div>
 
-    #statusBar {
-        position: sticky;
-        top: 0;
-        background: #ffffff;
-        padding: 15px 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 1px 5px rgba(0,0,0,0.1);
-        display: flex;
-        justify-content: space-between;
-        font-size: 1.1em;
-        border-bottom: 3px solid #4facfe;
-        z-index: 10;
-    }
-    .status-label { font-weight: bold; color: #666; }
+            <div id="timesheetView" class="timesheet-view" style="display: none;">
+                <div class="timesheet-filters">
+                    <div class="date-filter">
+                        <label>Date Range:</label>
+                        <input type="date" id="startDate">
+                        <span>to</span>
+                        <input type="date" id="endDate">
+                    </div>
+                </div>
+                <table class="timesheet-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Project</th>
+                            <th>Task</th>
+                            <th>Status</th>
+                            <th>Time Spent</th>
+                        </tr>
+                    </thead>
+                    <tbody id="timesheetBody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
 
-    .container { max-width: 1000px; margin: auto; padding: 20px; }
-    .section {
-        background: white;
-        padding: 20px;
-        margin-bottom: 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    input[type="text"] {
-        padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 250px; font-size: 14px;
-    }
-    select {
-        padding: 6px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 14px;
-    }
+    <!-- Modal for adding/editing tasks -->
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Add Task</h2>
+            <form id="taskForm">
+                <div class="form-group">
+                    <label for="taskTitle">Task Title</label>
+                    <input type="text" id="taskTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="taskStatus">Status</label>
+                    <select id="taskStatus">
+                        <option value="To Do">To Do</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="To be Tested">To be Tested</option>
+                        <option value="Done">Done</option>
+                    </select>
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit" class="btn-primary">Save</button>
+                    <button type="button" class="btn-secondary" id="cancelTaskBtn">Cancel</button>
+                    <button type="button" class="btn-delete" id="deleteTaskBtn" style="display: none;">
+                        <i class="fas fa-trash-alt"></i> Delete Task
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-    button {
-        padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer;
-        font-size: 14px; transition: background 0.3s ease, transform 0.2s ease;
-    }
-    button:hover { opacity: 0.9; transform: scale(1.03); }
-    .btn-add { background: #4facfe; color: white; }
-    .btn-start { background: #28a745; color: white; }
-    .btn-stop { background: #dc3545; color: white; }
-    .btn-delete { background: #6c757d; color: white; }
-    .btn-reset { background: #ff5722; color: white; }
+    <!-- Modal for adding/editing projects -->
+    <div id="projectModal" class="modal">
+        <div class="modal-content">
+            <h2 id="projectModalTitle">Add Project</h2>
+            <form id="projectForm">
+                <div class="form-group">
+                    <label for="projectName">Project Name</label>
+                    <input type="text" id="projectName" required>
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit" class="btn-primary">Save</button>
+                    <button type="button" class="btn-secondary" id="cancelProjectBtn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-    table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
-    table th, table td { padding: 10px; text-align: left; }
-    table th { background: #f0f3f5; }
-    tr:nth-child(even) { background: #f9fbfc; }
-
-    .status-Todo { color: #7700ff;font-weight: bold;}
-    .status-InProgress { color: #007bff; font-weight: bold;}
-    .status-ToBeTested { color: #ffa200; font-weight: bold;}
-    .status-Done { color: #28a745; font-weight: bold; }
-
-      input[type="date"] 
-      {
-      padding: 8px 12px;
-      border: 1.5px solid #4facfe;
-      font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
-      border-radius: 5px;
-      background: #bed8ff4b;
-      color: #222;
-      font-size: 15px;
-      outline: none;
-      transition: border 0.2s, box-shadow 0.2s;
-      box-shadow: 0 1.5px 5px rgba(80,150,250,0.06);
-    }
-  input[type="date"]:focus {
-      border: 1.5px solid #00c3ff;
-      box-shadow: 0 0 0 2px rgba(80,200,250,0.18);
-      background: #e9f4fa;
-  }
-  input[type="date"]::-webkit-calendar-picker-indicator {
-      filter: invert(47%) sepia(90%) saturate(421%) hue-rotate(160deg) brightness(92%) contrast(85%);
-      cursor: pointer;
-      height: 1.3em;
-      width: 1.3em;
-  }
-
+    <script src="app.js"></script>
+</body>
+</html>
     
 </style>
 </head>
-<body>
-
-<h1>Time Sheet</h1>
-
-<div class="container">
-  <div class="section" style="display:flex; align-items:flex-end; justify-content:space-between; gap:20px;">
-   <!-- Add New Task Section -->
-<div class="section" style="display:flex; align-items:end; gap:12px;">
-    <h2 style="margin:0 18px 0 0;">Add New Task</h2>
-    <input type="text" id="taskName" placeholder="Task name">
-    <button class="btn-add" onclick="addTask()">Add Task</button>
-</div>
-
-<!-- Status Section -->
-<div class="section" style="display:flex; align-items:center; gap:30px;">
-    <div>
-        <span class="status-label">Current Task:</span>
-        <span id="currentTask">None</span>
-    </div>
-    <div>
-        <span class="status-label">Time Tracked Today:</span>
-        <span id="timeToday">00:00:00</span>
-    </div>
-</div>
-
-</div>
-
-    <div class="section">
-        <h2>Tasks</h2>
-        <table id="taskTable">
-            <thead>
-                <tr>
-                    <th>Task</th>
-                    <th>Status</th>
-                    <th>Time Spent</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-
-    <div class="section">
-        <h2>Timesheet</h2>
-        <div style="margin-bottom:15px; display: flex; align-items: center; gap:10px;">
-        <label for="fromDate"><strong>From:</strong></label>
-        <input type="date" id="fromDate" />
-        <label for="toDate"><strong>To:</strong></label>
-        <input type="date" id="toDate" />
-        <button class="btn-add" onclick="applyDateFilter()">Filter</button>
-        <button class="btn-delete" onclick="clearDateFilter()">Clear</button>
-    </div>
-        <table id="timesheetTable">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Task</th>
-                    <th>Time Worked</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-        <strong>Total Hours: <span id="totalHours">0</span></strong>
-    </div>
-
-    <div class="section" style="text-align:center;">
-        <button class="btn-reset" onclick="resetAllData()">Reset All Data</button>
-    </div>
-</div>
-
-<script>
-let tasks = JSON.parse(localStorage.getItem('tasks_v3')) || [];
-let timesheet = JSON.parse(localStorage.getItem('timesheet_v3')) || [];
-let activeTaskId = null;
-let timerInterval = null;
-let startTime = null;
-
-function saveData() {
-    localStorage.setItem('tasks_v3', JSON.stringify(tasks));
-    localStorage.setItem('timesheet_v3', JSON.stringify(timesheet));
-}
-
-function addTask() {
-    const name = document.getElementById('taskName').value.trim();
-    if (!name) return;
-    tasks.push({ id: Date.now(), name, seconds: 0, running: false, status: "Todo" });
-    document.getElementById('taskName').value = '';
-    saveData();
-    renderTasks();
-    updateStatusBar();
-}
-
-function deleteTask(id) {
-    tasks = tasks.filter(t => t.id !== id);
-    saveData();
-    renderTasks();
-    updateStatusBar();
-}
-
-function changeStatus(id, newStatus, selectElem) {
-    const task = tasks.find(t => t.id === id);
-    if (task) {
-        task.status = newStatus;
-        saveData();
-        // Update the color of the dropdown instantly
-        selectElem.className = "status-select status-" + newStatus.replace(/ /g, "").replace(/ToBeTested/, "ToBeTested");
-    }
-}
-function startTimer(id) {
-    if (activeTaskId) {
-        alert("A task is already running. Stop it first!");
-        return;
-    }
-    const task = tasks.find(t => t.id === id);
-    if (task) {
-        activeTaskId = id;
-        startTime = Date.now();
-        task.running = true;
-        timerInterval = setInterval(() => {
-            updateStatusBar();
-            renderTasks();
-        }, 1000);
-        saveData();
-        renderTasks();
-        updateStatusBar();
-    }
-}
-
-function stopTimer(id) {
-    const task = tasks.find(t => t.id === id);
-    if (task && task.running) {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        task.seconds += elapsed;
-        task.running = false;
-        clearInterval(timerInterval);
-        timerInterval = null;
-        timesheet.push({
-            date: new Date().toLocaleDateString(),
-            task: task.name,
-            seconds: elapsed
-        });
-        activeTaskId = null;
-        startTime = null;
-        saveData();
-        renderTasks();
-        renderTimesheet();
-        updateStatusBar();
-    }
-}
-
-const statusOptions = ["Todo", "In Progress", "To be Tested", "Done"];
-const statusClassMap = {
-    "Todo": "status-Todo",
-    "In Progress": "status-InProgress",
-    "To be Tested": "status-ToBeTested",
-    "Done": "status-Done"
-};
-
-let dateFilterFrom = null;
-let dateFilterTo = null;
-
-function applyDateFilter() {
-    const from = document.getElementById('fromDate').value;
-    const to = document.getElementById('toDate').value;
-    dateFilterFrom = from ? from : null;
-    dateFilterTo = to ? to : null;
-    renderTimesheet();
-}
-
-function clearDateFilter() {
-    dateFilterFrom = null;
-    dateFilterTo = null;
-    document.getElementById('fromDate').value = '';
-    document.getElementById('toDate').value = '';
-    renderTimesheet();
-}
-
-function renderTasks() {
-    const tbody = document.querySelector('#taskTable tbody');
-    tbody.innerHTML = '';
-    tasks.forEach(task => {
-        let displayTime = task.seconds;
-        if (task.running && task.id === activeTaskId && startTime) {
-            displayTime += Math.floor((Date.now() - startTime) / 1000);
-        }
-
-        const statusClass = "status-" + task.status.replace(/ /g, "");
-        const dropdownClass = "status-select status-" + task.status.replace(/ /g, "");
-        const statusDropdown = `<select class="${dropdownClass}" onchange="changeStatus(${task.id}, this.value, this)" >
-      ${statusOptions.map(opt => `<option value="${opt}" ${opt===task.status ? "selected":""}>${opt}</option>`).join('')}
-      </select>`;
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${task.name}</td>
-            <td class="${statusClass}">${statusDropdown}</td>
-            <td>${formatTime(displayTime)}</td>
-            <td>
-                ${task.running 
-                    ? `<button class="btn-stop" onclick="stopTimer(${task.id})">Stop</button>` 
-                    : `<button class="btn-start" onclick="startTimer(${task.id})">Start</button>`}
-                <button class="btn-delete" onclick="deleteTask(${task.id})">Delete</button>
-            </td>`;
-        tbody.appendChild(tr);
-    });
-}
-
-function changeStatus(id, newStatus, selectElem) {
-    const task = tasks.find(t => t.id === id);
-    if (task) {
-        task.status = newStatus;
-        saveData();
-        // Remove old class & add the correct one
-        selectElem.className = "status-select " + statusClassMap[newStatus];
-    }
-}
-
-function renderTimesheet() {
-    const tbody = document.querySelector('#timesheetTable tbody');
-    tbody.innerHTML = '';
-
-    // Group by date+task for totals
-    const summaryMap = {};
-    timesheet.forEach(entry => {
-        // Only include entry if within filter (or if no filter set)
-        if (
-            (!dateFilterFrom || entry.date >= dateFilterFrom) &&
-            (!dateFilterTo || entry.date <= dateFilterTo)
-        ) {
-            const key = entry.date + '|' + entry.task;
-            if (!summaryMap[key]) {
-                summaryMap[key] = { date: entry.date, task: entry.task, seconds: 0 };
-            }
-            summaryMap[key].seconds += entry.seconds;
-        }
-    });
-
-    // newest date first
-    const summaryArr = Object.values(summaryMap).sort((a, b) => b.date.localeCompare(a.date) || a.task.localeCompare(b.task));
-
-    let totalSeconds = 0;
-    summaryArr.forEach(entry => {
-        totalSeconds += entry.seconds;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${formatDisplayDate(entry.date)}</td>
-            <td>${entry.task}</td>
-            <td>${formatTime(entry.seconds)}</td>`;
-        tbody.appendChild(tr);
-    });
-
-    document.getElementById('totalHours').innerText = (totalSeconds / 3600).toFixed(2);
-}
-
-
-function formatTime(sec) {
-    const h = String(Math.floor(sec / 3600)).padStart(2, '0');
-    const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
-    const s = String(sec % 60).padStart(2, '0');
-    return `${h}:${m}:${s}`;
-}
-
-function formatDisplayDate(dateKey) {
-    const [year, month, day] = dateKey.split('-');
-    return `${day}/${month}/${year}`;
-}
-
-function updateStatusBar() {
-    const currentTaskElem = document.getElementById('currentTask');
-    const timeTodayElem = document.getElementById('timeToday');
-
-    let totalTodaySec = timesheet
-        .filter(e => e.date === new Date().toLocaleDateString())
-        .reduce((sum, e) => sum + e.seconds, 0);
-
-    if (activeTaskId && startTime) {
-        const runningSec = Math.floor((Date.now() - startTime) / 1000);
-        totalTodaySec += runningSec;
-        const task = tasks.find(t => t.id === activeTaskId);
-        currentTaskElem.textContent = `${task.name} (${formatTime(runningSec)})`;
-    } else {
-        currentTaskElem.textContent = "None";
-    }
-
-    timeTodayElem.textContent = formatTime(totalTodaySec);
-}
-
-function resetAllData() {
-    if (confirm("Are you sure you want to reset all tasks and timesheet data? This cannot be undone.")) {
-        tasks = [];
-        timesheet = [];
-        activeTaskId = null;
-        startTime = null;
-        clearInterval(timerInterval);
-        timerInterval = null;
-        saveData();
-        renderTasks();
-        renderTimesheet();
-        updateStatusBar();
-        alert("All data has been reset.");
-    }
-}
-
-function getTodayKey() {
-    const today = new Date();
-    return today.toISOString().split('T')[0]; // YYYY-MM-DD
-}
-
-function formatDisplayDate(dateKey) {
-    const [year, month, day] = dateKey.split('-');
-    return `${day}/${month}/${year}`;
-}
-
-function stopTimer(id) {
-    const task = tasks.find(t => t.id === id);
-    if (task && task.running) {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        task.seconds += elapsed;
-        task.running = false;
-        clearInterval(timerInterval);
-        timerInterval = null;
-
-        timesheet.push({
-            date: getTodayKey(),
-            task: task.name,
-            seconds: elapsed
-        });
-
-        activeTaskId = null;
-        startTime = null;
-        saveData();
-        renderTasks();
-        renderTimesheet();
-        updateStatusBar();
-    }
-}
-
-
-
-renderTasks();
-renderTimesheet();
-updateStatusBar();
-</script>
-</body>
 </html>
