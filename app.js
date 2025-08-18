@@ -72,6 +72,12 @@ function selectProject(projectId) {
     document.getElementById('currentProjectName').textContent = currentProject ? currentProject.name : 'All Tasks';
     renderProjects();
     renderTasks();
+    
+    // Restart timer display update if there's an active timer
+    if (activeTimer) {
+        updateTimerDisplay(activeTimer);
+    }
+    
     // Refresh timesheet if it's visible
     if (document.getElementById('timesheetView').style.display === 'block') {
         renderTimesheet();
@@ -301,7 +307,18 @@ function createTaskCard(task) {
         card.style.opacity = '1';
     });
     
-    const timeDisplay = formatTime(task.timeSpent * 3600); // Convert hours to seconds
+    // Calculate the correct time display
+    let timeDisplay;
+    if (task.isTimerRunning) {
+        // If timer is running, calculate current elapsed time
+        const currentTime = new Date().getTime();
+        const elapsedSeconds = Math.floor((currentTime - task.timerStart) / 1000);
+        timeDisplay = formatTime(elapsedSeconds);
+    } else {
+        // If timer is not running, show total time spent
+        timeDisplay = formatTime(task.timeSpent * 3600); // Convert hours to seconds
+    }
+    
     const projectName = task.projectId ? projects.find(p => p.id === task.projectId)?.name : 'No Project';
     
     card.innerHTML = `
@@ -517,6 +534,10 @@ function updateTimerDisplay(taskId) {
             timerDisplay.textContent = formatTime(elapsedSeconds);
             
             requestAnimationFrame(() => updateTimerDisplay(taskId));
+        } else {
+            // If timer display element is not found, try to find it after a short delay
+            // This handles cases where the DOM was re-rendered (e.g., project switch)
+            setTimeout(() => updateTimerDisplay(taskId), 100);
         }
     }
 }
@@ -616,12 +637,18 @@ function renderTimesheet() {
     // Add review input field
     const reviewRow = document.createElement('tr');
     reviewRow.className = 'review-row';
+    
+    // Load existing review for the selected date
+    const existingReview = loadExistingReview(selectedDate);
+    const reviewText = existingReview ? existingReview.text : '';
+    const buttonText = existingReview ? 'Update Review' : 'Save Review';
+    
     reviewRow.innerHTML = `
         <td colspan="5">
             <div class="review-section">
                 <label for="timesheetReview">Review:</label>
-                <textarea id="timesheetReview" placeholder="Add your review, notes, or observations about today's work..."></textarea>
-                <button id="saveReviewBtn" class="btn-save-review">Save Review</button>
+                <textarea id="timesheetReview" placeholder="Add your review, notes, or observations about today's work...">${reviewText}</textarea>
+                <button id="saveReviewBtn" class="btn-save-review">${buttonText}</button>
             </div>
         </td>
     `;
@@ -630,6 +657,21 @@ function renderTimesheet() {
     // Add event listener for save review button
     const saveReviewBtn = reviewRow.querySelector('#saveReviewBtn');
     saveReviewBtn.addEventListener('click', saveTimesheetReview);
+}
+
+// Load existing review function
+function loadExistingReview(selectedDate) {
+    const savedReviews = JSON.parse(localStorage.getItem('timesheetReviews') || '[]');
+    const currentProjectId = currentProject ? currentProject.id : null;
+    
+    return savedReviews.find(review => {
+        const reviewDate = new Date(review.date);
+        const selectedDateOnly = new Date(selectedDate);
+        reviewDate.setHours(0, 0, 0, 0);
+        selectedDateOnly.setHours(0, 0, 0, 0);
+        return reviewDate.getTime() === selectedDateOnly.getTime() && 
+               review.projectId === currentProjectId;
+    });
 }
 
 // Save timesheet review function
@@ -649,15 +691,37 @@ function saveTimesheetReview() {
         
         // Save to localStorage
         const savedReviews = JSON.parse(localStorage.getItem('timesheetReviews') || '[]');
-        savedReviews.push(review);
+        
+        // Check if a review already exists for this date and project
+        const existingReviewIndex = savedReviews.findIndex(r => {
+            const reviewDate = new Date(r.date);
+            const selectedDateOnly = new Date(selectedDate);
+            reviewDate.setHours(0, 0, 0, 0);
+            selectedDateOnly.setHours(0, 0, 0, 0);
+            return reviewDate.getTime() === selectedDateOnly.getTime() && 
+                   r.projectId === review.projectId;
+        });
+        
+        if (existingReviewIndex !== -1) {
+            // Update existing review
+            savedReviews[existingReviewIndex] = review;
+        } else {
+            // Add new review
+            savedReviews.push(review);
+        }
+        
         localStorage.setItem('timesheetReviews', JSON.stringify(savedReviews));
         
-        // Show success message
-        alert('Review saved successfully!');
-        
-        // Clear the textarea
-        document.getElementById('timesheetReview').value = '';
+        // Update button text to show it was saved
+        const saveBtn = document.getElementById('saveReviewBtn');
+        if (saveBtn) {
+            saveBtn.textContent = 'Review Saved!';
+            setTimeout(() => {
+                saveBtn.textContent = 'Update Review';
+            }, 2000);
+        }
     } else {
+        // Show error message only if no text entered
         alert('Please enter a review before saving.');
     }
 }
