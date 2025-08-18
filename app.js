@@ -534,63 +534,61 @@ function renderTimesheet() {
     const timesheetBody = document.getElementById('timesheetBody');
     timesheetBody.innerHTML = '';
 
-    // Create entries array to hold both time entries and tasks
-    const entries = [];
-
     // Filter tasks based on current project
     const filteredTasks = currentProject 
         ? tasks.filter(task => task.projectId === currentProject.id)
         : tasks;
 
-    // Add all tasks, even if they don't have time entries
+    // Create task summary entries (one per task)
+    const taskSummaries = [];
+
     filteredTasks.forEach(task => {
         const projectName = task.projectId 
             ? projects.find(p => p.id === task.projectId)?.name 
             : 'No Project';
 
-        // Add base task entry
-        entries.push({
-            date: new Date(task.createdAt),
-            project: projectName,
-            task: task.title,
-            status: task.status,
-            duration: task.timeSpent * 3600, // Convert hours to seconds
-            taskId: task.id,
-            isRunning: task.isTimerRunning
-        });
-
-        // Add individual time entries if they exist
-        if (task.timeEntries && task.timeEntries.length > 0) {
-            task.timeEntries.forEach(entry => {
-                const entryDate = new Date(entry.date);
-                if (entryDate >= startDate && entryDate <= endDate) {
-                    entries.push({
-                        date: entryDate,
-                        project: projectName,
-                        task: task.title,
-                        status: task.status,
-                        duration: entry.duration,
-                        taskId: task.id,
-                        isRunning: task.isTimerRunning
-                    });
-                }
+        // Only include tasks that have time spent
+        if (task.timeSpent > 0) {
+            taskSummaries.push({
+                date: new Date(task.createdAt),
+                project: projectName,
+                task: task.title,
+                status: task.status,
+                duration: task.timeSpent * 3600, // Convert hours to seconds
+                taskId: task.id,
+                isRunning: task.isTimerRunning
             });
         }
     });
 
-    // Sort entries by date (newest first)
-    entries.sort((a, b) => b.date - a.date);
+    // Sort tasks by date (newest first)
+    taskSummaries.sort((a, b) => b.date - a.date);
 
-    // Render entries
-    entries.forEach(entry => {
+    // Render task summaries
+    taskSummaries.forEach(task => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${entry.date.toLocaleDateString()}</td>
-            <td>${entry.project}</td>
-            <td>${entry.task}</td>
-            <td>${entry.status}</td>
-            <td>${formatTime(entry.duration)}</td>
+            <td>${task.date.toLocaleDateString()}</td>
+            <td>${task.project}</td>
+            <td>${task.task}</td>
+            <td>${task.status}</td>
+            <td>${formatTime(task.duration)}</td>
         `;
         timesheetBody.appendChild(row);
     });
+
+    // Add total row if there are tasks
+    if (taskSummaries.length > 0) {
+        const totalDuration = taskSummaries.reduce((total, task) => total + task.duration, 0);
+        const totalRow = document.createElement('tr');
+        totalRow.className = 'total-row';
+        totalRow.innerHTML = `
+            <td><strong>Total</strong></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td><strong>${formatTime(totalDuration)}</strong></td>
+        `;
+        timesheetBody.appendChild(totalRow);
+    }
 }
