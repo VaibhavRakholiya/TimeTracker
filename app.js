@@ -557,14 +557,25 @@ function renderTimesheet() {
             ? projects.find(p => p.id === task.projectId)?.name 
             : 'No Project';
 
-        // Only include tasks that have time spent
-        if (task.timeSpent > 0) {
+        // Check if task has time entries for the selected date
+        let taskTimeForDate = 0;
+        if (task.timeEntries && task.timeEntries.length > 0) {
+            task.timeEntries.forEach(entry => {
+                const entryDate = new Date(entry.date);
+                if (entryDate >= startDate && entryDate <= endDate) {
+                    taskTimeForDate += entry.duration;
+                }
+            });
+        }
+
+        // Only include tasks that have time spent on the selected date
+        if (taskTimeForDate > 0) {
             taskSummaries.push({
-                date: new Date(task.createdAt),
+                date: selectedDate,
                 project: projectName,
                 task: task.title,
                 status: task.status,
-                duration: task.timeSpent * 3600, // Convert hours to seconds
+                duration: taskTimeForDate,
                 taskId: task.id,
                 isRunning: task.isTimerRunning
             });
