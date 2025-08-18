@@ -28,10 +28,13 @@ body {
     display: flex;
     height: 100vh;
     background: var(--background-color);
+    min-width: 1024px; /* Minimum width for desktop */
 }
 
 .sidebar {
     width: 280px;
+    min-width: 250px;
+    max-width: 320px;
     background: linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
     padding: 28px 24px;
     border-right: 1px solid rgba(43, 33, 106, 0.08);
@@ -40,6 +43,7 @@ body {
     box-shadow: 4px 0 20px rgba(43, 33, 106, 0.08);
     z-index: 10;
     position: relative;
+    flex-shrink: 0;
 }
 
 .sidebar::before {
@@ -189,11 +193,185 @@ body {
     letter-spacing: 0.5px;
 }
 
+/* Responsive Design for PC and Desktop Devices */
+@media screen and (max-width: 1440px) {
+    .sidebar {
+        width: 260px;
+        padding: 24px 20px;
+    }
+    
+    .main-content {
+        padding: 18px;
+    }
+    
+    .board {
+        gap: 14px;
+    }
+    
+    .column {
+        padding: 10px;
+    }
+}
+
+@media screen and (max-width: 1200px) {
+    .sidebar {
+        width: 240px;
+        padding: 20px 16px;
+    }
+    
+    .sidebar h2 {
+        font-size: 22px;
+        margin-bottom: 28px;
+    }
+    
+    .main-content {
+        padding: 16px;
+    }
+    
+    .board {
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px;
+    }
+    
+    .timesheet-table {
+        min-width: 700px;
+    }
+    
+    .timesheet-table th,
+    .timesheet-table td {
+        padding: 10px 12px;
+        font-size: 0.85em;
+    }
+}
+
+@media screen and (max-width: 1024px) {
+    .container {
+        min-width: 900px;
+    }
+    
+    .sidebar {
+        width: 220px;
+        padding: 18px 14px;
+    }
+    
+    .sidebar h2 {
+        font-size: 20px;
+        margin-bottom: 24px;
+    }
+    
+    .projects-section h3 {
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+    
+    .main-content {
+        padding: 14px;
+    }
+    
+    .board {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 10px;
+    }
+    
+    .column {
+        padding: 8px;
+    }
+    
+    .column h3 {
+        font-size: 0.9em;
+        margin-bottom: 10px;
+    }
+    
+    .task-card {
+        padding: 10px;
+        margin-bottom: 6px;
+    }
+    
+    .timesheet-table {
+        min-width: 600px;
+    }
+    
+    .timesheet-filters {
+        padding: 14px 18px;
+    }
+    
+    .date-filter input[type="date"] {
+        min-width: 140px;
+    }
+}
+
+@media screen and (max-width: 900px) {
+    .container {
+        min-width: 800px;
+    }
+    
+    .sidebar {
+        width: 200px;
+        padding: 16px 12px;
+    }
+    
+    .sidebar h2 {
+        font-size: 18px;
+        margin-bottom: 20px;
+    }
+    
+    .main-content {
+        padding: 12px;
+    }
+    
+    .board {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 8px;
+    }
+    
+    .timesheet-table {
+        min-width: 500px;
+    }
+    
+    .top-bar h1 {
+        font-size: 1.5em;
+    }
+    
+    .view-controls {
+        gap: 8px;
+    }
+    
+    .view-btn {
+        padding: 8px 12px;
+        font-size: 0.9em;
+    }
+}
+
+/* Ensure minimum usable sizes */
+@media screen and (max-width: 800px) {
+    .container {
+        min-width: 750px;
+    }
+    
+    .sidebar {
+        width: 180px;
+        padding: 14px 10px;
+    }
+    
+    .main-content {
+        padding: 10px;
+    }
+    
+    .board {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+    
+    .timesheet-table {
+        min-width: 450px;
+    }
+}
+
 .main-content {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
     background: var(--background-color);
+    min-width: 0; /* Allow content to shrink */
 }
 
 .top-bar {
@@ -213,9 +391,10 @@ body {
 
 .board {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 16px;
     padding: 12px 0;
+    min-width: 0;
 }
 
 .column {
@@ -923,6 +1102,7 @@ body {
     padding: 24px;
     box-shadow: var(--card-shadow);
     transition: box-shadow 0.3s ease;
+    overflow-x: auto; /* Enable horizontal scroll for small screens */
 }
 
 .timesheet-view:hover {
@@ -984,6 +1164,7 @@ body {
     border-radius: 8px;
     overflow: hidden;
     box-shadow: var(--card-shadow);
+    min-width: 800px; /* Ensure table doesn't get too narrow */
 }
 
 .timesheet-table th,
