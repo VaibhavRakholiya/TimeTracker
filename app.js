@@ -50,6 +50,19 @@ function renderProjects() {
         li.className = currentProject && currentProject.id === project.id ? 'active' : '';
         projectsList.appendChild(li);
     });
+    
+    // Add the "New Project" item at the end
+    const addProjectLi = document.createElement('li');
+    addProjectLi.id = 'addProjectBtn';
+    addProjectLi.className = 'add-project-item';
+    addProjectLi.onclick = openAddProjectModal;
+    addProjectLi.innerHTML = `
+        <i class="fas fa-plus"></i>
+        <span>New Project</span>
+    `;
+    projectsList.appendChild(addProjectLi);
+    
+
 }
 
 let currentProject = null;
@@ -407,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadData();
     
     document.getElementById('addTaskBtn').onclick = openAddTaskModal;
-    document.getElementById('addProjectBtn').onclick = openAddProjectModal;
+
     
     document.getElementById('cancelTaskBtn').onclick = () => {
         document.getElementById('taskModal').style.display = 'none';
@@ -443,17 +456,12 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTimesheet();
     };
 
-    // Set default dates for timesheet
+    // Set default date for timesheet
     const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(today.getDate() - 30);
-    
-    document.getElementById('startDate').valueAsDate = thirtyDaysAgo;
-    document.getElementById('endDate').valueAsDate = today;
+    document.getElementById('timesheetDate').valueAsDate = today;
 
-    // Add event listeners for date filters
-    document.getElementById('startDate').addEventListener('change', renderTimesheet);
-    document.getElementById('endDate').addEventListener('change', renderTimesheet);
+    // Add event listener for date filter
+    document.getElementById('timesheetDate').addEventListener('change', renderTimesheet);
 });
 
 // Timer Functions
@@ -527,9 +535,11 @@ function padNumber(num) {
 
 // Timesheet Functions
 function renderTimesheet() {
-    const startDate = document.getElementById('startDate').valueAsDate;
-    const endDate = document.getElementById('endDate').valueAsDate;
-    endDate.setHours(23, 59, 59, 999); // Include the entire end date
+    const selectedDate = document.getElementById('timesheetDate').valueAsDate;
+    const startDate = new Date(selectedDate);
+    const endDate = new Date(selectedDate);
+    startDate.setHours(0, 0, 0, 0); // Start of the day
+    endDate.setHours(23, 59, 59, 999); // End of the day
 
     const timesheetBody = document.getElementById('timesheetBody');
     timesheetBody.innerHTML = '';
@@ -590,5 +600,53 @@ function renderTimesheet() {
             <td><strong>${formatTime(totalDuration)}</strong></td>
         `;
         timesheetBody.appendChild(totalRow);
+    }
+
+    // Add review input field
+    const reviewRow = document.createElement('tr');
+    reviewRow.className = 'review-row';
+    reviewRow.innerHTML = `
+        <td colspan="5">
+            <div class="review-section">
+                <label for="timesheetReview">Review:</label>
+                <textarea id="timesheetReview" placeholder="Add your review, notes, or observations about today's work..."></textarea>
+                <button id="saveReviewBtn" class="btn-save-review">Save Review</button>
+            </div>
+        </td>
+    `;
+    timesheetBody.appendChild(reviewRow);
+    
+    // Add event listener for save review button
+    const saveReviewBtn = reviewRow.querySelector('#saveReviewBtn');
+    saveReviewBtn.addEventListener('click', saveTimesheetReview);
+}
+
+// Save timesheet review function
+function saveTimesheetReview() {
+    const reviewText = document.getElementById('timesheetReview').value;
+    const selectedDate = document.getElementById('timesheetDate').valueAsDate;
+    
+    if (reviewText.trim()) {
+        // Create review object
+        const review = {
+            id: Date.now(),
+            text: reviewText,
+            date: selectedDate.toISOString(),
+            projectId: currentProject ? currentProject.id : null,
+            createdAt: new Date().toISOString()
+        };
+        
+        // Save to localStorage
+        const savedReviews = JSON.parse(localStorage.getItem('timesheetReviews') || '[]');
+        savedReviews.push(review);
+        localStorage.setItem('timesheetReviews', JSON.stringify(savedReviews));
+        
+        // Show success message
+        alert('Review saved successfully!');
+        
+        // Clear the textarea
+        document.getElementById('timesheetReview').value = '';
+    } else {
+        alert('Please enter a review before saving.');
     }
 }
