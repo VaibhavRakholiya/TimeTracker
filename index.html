@@ -12,6 +12,19 @@
     <div class="container">
         <aside class="sidebar">
             <h2>TimeTracker</h2>
+            
+            <div class="user-section">
+                <h3>User</h3>
+                <div class="user-selector">
+                    <input type="text" id="userInput" placeholder="Enter username" value="default">
+                    <button id="loadUserBtn" class="btn-load-user">Switch User</button>
+                </div>
+                            <button id="saveDataBtn" class="btn-save-data">
+                <i class="fas fa-database"></i>
+                <span>Update Database</span>
+            </button>
+            </div>
+            
             <div class="projects-section">
                 <h3>Projects</h3>
                 <ul id="projectsList">
@@ -93,6 +106,10 @@
                         <option value="To be Tested">To be Tested</option>
                         <option value="Done">Done</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="taskDueDate">Due Date</label>
+                    <input type="date" id="taskDueDate">
                 </div>
                 <div class="modal-buttons">
                     <button type="submit" class="btn-primary">Save</button>

@@ -1,0 +1,30 @@
+{
+  "projects": [
+    {
+      "id": 1704067200000,
+      "name": "Example Project",
+      "userId": "demo",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "tasks": [
+    {
+      "id": 1704067200001,
+      "projectId": 1704067200000,
+      "title": "Sample Task",
+      "status": "To Do",
+      "dueDate": "2024-01-15",
+      "userId": "demo",
+      "position": 1000,
+      "timeSpent": 0,
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "timeEntries": [],
+      "reviews": [],
+      "isTimerRunning": false,
+      "timerStart": null
+    }
+  ],
+  "lastUpdated": "2024-01-01T00:00:00.000Z",
+  "version": "1.0",
+  "isTemplate": true
+}
