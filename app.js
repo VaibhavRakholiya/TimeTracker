@@ -2,154 +2,30 @@
 let projects = [];
 let tasks = [];
 let activeTimer = null;
-let currentUser = 'default'; // Default user identifier
 
-// Load data from central database (data.json) and localStorage
-async function loadData() {
-    try {
-        // Always try to load from central database first
-        let response = await fetch('data.json');
-        let databaseData = null;
-        
-        if (response.ok) {
-            databaseData = await response.json();
-            console.log('Loaded data from central database');
-            
-            // Check if this is still a template
-            if (databaseData.isTemplate) {
-                console.log('Database is still template, initializing with empty data');
-                projects = [];
-                tasks = [];
-            } else {
-                // Load all data from database
-                projects = databaseData.projects || [];
-                tasks = databaseData.tasks || [];
-            }
-        } else {
-            console.log('No database file found, starting with empty data');
-            projects = [];
-            tasks = [];
-        }
-        
-        // Check if we have localStorage data that's newer
-        const localData = localStorage.getItem('timetracker_local_data');
-        if (localData) {
-            const localParsed = JSON.parse(localData);
-            const localTimestamp = new Date(localParsed.lastUpdated || 0);
-            const dbTimestamp = new Date(databaseData?.lastUpdated || 0);
-            
-            if (localTimestamp > dbTimestamp) {
-                console.log('Local data is newer, merging with database data');
-                // Merge local data with database data
-                const mergedData = mergeData(databaseData, localParsed);
-                projects = mergedData.projects;
-                tasks = mergedData.tasks;
-                
-                // Save merged data back to localStorage
-                await saveDataToLocal(mergedData);
-            }
-        }
-        
-        renderProjects();
-        renderTasks();
-    } catch (error) {
-        console.log('Error loading data, starting with empty data:', error);
-        projects = [];
-        tasks = [];
-        renderProjects();
-        renderTasks();
-    }
-}
-
-// Save data to localStorage (for internal use)
-async function saveDataToLocal(data) {
-    try {
-        // Store data in localStorage for persistence
-        localStorage.setItem('timetracker_local_data', JSON.stringify(data));
-        console.log('Local data updated successfully');
-        return true;
-    } catch (error) {
-        console.error('Error saving local data:', error);
-        return false;
-    }
-}
-
-// Get current data for database update
-function getCurrentDataForRepo() {
-    const currentData = {
-        projects: projects,
-        tasks: tasks,
-        lastUpdated: new Date().toISOString(),
-        version: "1.0",
-        isTemplate: false
-    };
-    return JSON.stringify(currentData, null, 2);
-}
-
-// Merge local data with database data
-function mergeData(databaseData, localData) {
-    const merged = {
-        projects: [...(databaseData?.projects || [])],
-        tasks: [...(databaseData?.tasks || [])],
-        lastUpdated: new Date().toISOString(),
-        version: "1.0",
-        isTemplate: false
-    };
+// Load data from localStorage
+function loadData() {
+    const savedProjects = localStorage.getItem('projects');
+    const savedTasks = localStorage.getItem('tasks');
     
-    // Merge projects (local takes precedence for conflicts)
-    localData.projects?.forEach(localProject => {
-        const existingIndex = merged.projects.findIndex(p => p.id === localProject.id);
-        if (existingIndex !== -1) {
-            merged.projects[existingIndex] = localProject;
-        } else {
-            merged.projects.push(localProject);
-        }
-    });
+    projects = savedProjects ? JSON.parse(savedProjects) : [];
+    tasks = savedTasks ? JSON.parse(savedTasks) : [];
     
-    // Merge tasks (local takes precedence for conflicts)
-    localData.tasks?.forEach(localTask => {
-        const existingIndex = merged.tasks.findIndex(t => t.id === localTask.id);
-        if (existingIndex !== -1) {
-            merged.tasks[existingIndex] = localTask;
-        } else {
-            merged.tasks.push(localTask);
-        }
-    });
-    
-    return merged;
+    renderProjects();
+    renderTasks();
 }
 
-// Save data to localStorage and prepare for database sync
-async function saveData() {
-    try {
-        const data = {
-            projects: projects,
-            tasks: tasks,
-            lastUpdated: new Date().toISOString(),
-            version: '1.0',
-            isTemplate: false
-        };
-        
-        // Save to localStorage
-        await saveDataToLocal(data);
-        
-        console.log('Data saved to localStorage successfully');
-        
-        // Show notification that data needs to be synced to database
-        showSyncNotification();
-    } catch (error) {
-        console.error('Error saving data:', error);
-        alert('Error saving data. Please try again.');
-    }
+// Save data to localStorage
+function saveData() {
+    localStorage.setItem('projects', JSON.stringify(projects));
+    localStorage.setItem('tasks', JSON.stringify(tasks));
 }
 
 // Project Management
 function addProject(name) {
     const project = {
         id: Date.now(),
-        name: name,
-        userId: currentUser,
-        createdAt: new Date().toISOString()
+        name: name
     };
     projects.push(project);
     saveData();
@@ -221,7 +97,6 @@ function addTask(title, status, dueDate) {
         title,
         status,
         dueDate: dueDate || null,
-        userId: currentUser,
         position: maxPosition + 1000, // Use increments of 1000 to allow space for reordering
         timeSpent: 0,
         createdAt: new Date().toISOString(),
@@ -458,7 +333,9 @@ function createTaskCard(task) {
             ${task.dueDate ? `
             <div class="due-date-section">
                 <i class="fas fa-calendar-alt"></i>
-                <span class="due-date ${isOverdue(task.dueDate) ? 'overdue' : ''}">${formatDueDate(task.dueDate)}</span>
+                <span class="due-date ${isOverdue(task.dueDate) ? 'overdue' : ''}">
+                    Due: ${formatDueDate(task.dueDate)}
+                </span>
             </div>
             ` : ''}
             <div class="timer-section">
@@ -540,17 +417,17 @@ function openEditTaskModal(task) {
     
     modal.style.display = 'block';
     
-    form.onsubmit = (e) => {
-        e.preventDefault();
-        const updates = {
-            title: document.getElementById('taskTitle').value,
-            status: document.getElementById('taskStatus').value,
-            dueDate: document.getElementById('taskDueDate').value || null
+            form.onsubmit = (e) => {
+            e.preventDefault();
+            const updates = {
+                title: document.getElementById('taskTitle').value,
+                status: document.getElementById('taskStatus').value,
+                dueDate: document.getElementById('taskDueDate').value || null
+            };
+            
+            updateTask(task.id, updates);
+            modal.style.display = 'none';
         };
-        
-        updateTask(task.id, updates);
-        modal.style.display = 'none';
-    };
 }
 
 function openAddProjectModal() {
@@ -614,15 +491,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add event listener for date filter
     document.getElementById('timesheetDate').addEventListener('change', renderTimesheet);
-    
-    // Add event listeners for user management
-    document.getElementById('loadUserBtn').addEventListener('click', loadUserData);
-    document.getElementById('saveDataBtn').addEventListener('click', showDataForCopy);
-    document.getElementById('userInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            loadUserData();
-        }
-    });
 });
 
 // Timer Functions
@@ -735,15 +603,16 @@ function renderTimesheet() {
 
         // Only include tasks that have time spent on the selected date
         if (taskTimeForDate > 0) {
-            taskSummaries.push({
-                date: selectedDate,
-                project: projectName,
-                task: task.title,
-                status: task.status,
-                duration: taskTimeForDate,
-                taskId: task.id,
-                isRunning: task.isTimerRunning
-            });
+                    taskSummaries.push({
+            date: selectedDate,
+            project: projectName,
+            task: task.title,
+            status: task.status,
+            dueDate: task.dueDate,
+            duration: taskTimeForDate,
+            taskId: task.id,
+            isRunning: task.isTimerRunning
+        });
         }
     });
 
@@ -758,6 +627,7 @@ function renderTimesheet() {
             <td>${task.project}</td>
             <td>${task.task}</td>
             <td>${task.status}</td>
+            <td>${task.dueDate ? formatDueDate(task.dueDate) : '-'}</td>
             <td>${formatTime(task.duration)}</td>
         `;
         timesheetBody.appendChild(row);
@@ -770,6 +640,7 @@ function renderTimesheet() {
         totalRow.className = 'total-row';
         totalRow.innerHTML = `
             <td><strong>Total</strong></td>
+            <td></td>
             <td></td>
             <td></td>
             <td></td>
@@ -788,7 +659,7 @@ function renderTimesheet() {
     const buttonText = existingReview ? 'Update Review' : 'Save Review';
     
     reviewRow.innerHTML = `
-        <td colspan="5">
+        <td colspan="6">
             <div class="review-section">
                 <label for="timesheetReview">Review:</label>
                 <textarea id="timesheetReview" placeholder="Add your review, notes, or observations about today's work...">${reviewText}</textarea>
@@ -805,66 +676,17 @@ function renderTimesheet() {
 
 // Load existing review function
 function loadExistingReview(selectedDate) {
+    const savedReviews = JSON.parse(localStorage.getItem('timesheetReviews') || '[]');
     const currentProjectId = currentProject ? currentProject.id : null;
     
-    // Find task with reviews for the current project and user
-    const taskWithReviews = tasks.find(t => 
-        t.projectId === currentProjectId && 
-        t.userId === currentUser &&
-        t.reviews && t.reviews.length > 0
-    );
-    
-    if (taskWithReviews) {
-        return taskWithReviews.reviews.find(review => {
-            const reviewDate = new Date(review.date);
-            const selectedDateOnly = new Date(selectedDate);
-            reviewDate.setHours(0, 0, 0, 0);
-            selectedDateOnly.setHours(0, 0, 0, 0);
-            return reviewDate.getTime() === selectedDateOnly.getTime();
-        });
-    }
-    
-    return null;
-}
-
-// Load user data function
-async function loadUserData() {
-    const userInput = document.getElementById('userInput').value.trim();
-    if (!userInput) {
-        alert('Please enter a username');
-        return;
-    }
-    
-    currentUser = userInput;
-    
-    try {
-        // Load all data from database and localStorage
-        await loadData();
-        
-        // Filter data for the current user
-        projects = projects.filter(p => p.userId === currentUser);
-        tasks = tasks.filter(t => t.userId === currentUser);
-        
-        // Reset current project when switching users
-        currentProject = null;
-        
-        renderProjects();
-        renderTasks();
-        
-        // Update timesheet if visible
-        if (document.getElementById('timesheetView').style.display === 'block') {
-            renderTimesheet();
-        }
-        
-        console.log(`Loaded data for user: ${currentUser}`);
-    } catch (error) {
-        console.log(`Error loading data for user: ${currentUser}`, error);
-        projects = [];
-        tasks = [];
-        currentProject = null;
-        renderProjects();
-        renderTasks();
-    }
+    return savedReviews.find(review => {
+        const reviewDate = new Date(review.date);
+        const selectedDateOnly = new Date(selectedDate);
+        reviewDate.setHours(0, 0, 0, 0);
+        selectedDateOnly.setHours(0, 0, 0, 0);
+        return reviewDate.getTime() === selectedDateOnly.getTime() && 
+               review.projectId === currentProjectId;
+    });
 }
 
 // Save timesheet review function
@@ -879,40 +701,31 @@ function saveTimesheetReview() {
             text: reviewText,
             date: selectedDate.toISOString(),
             projectId: currentProject ? currentProject.id : null,
-            userId: currentUser,
             createdAt: new Date().toISOString()
         };
         
-        // Add review to tasks data structure instead of localStorage
-        const taskWithReview = tasks.find(t => 
-            t.projectId === review.projectId && 
-            t.userId === currentUser
-        );
+        // Save to localStorage
+        const savedReviews = JSON.parse(localStorage.getItem('timesheetReviews') || '[]');
         
-        if (taskWithReview) {
-            if (!taskWithReview.reviews) {
-                taskWithReview.reviews = [];
-            }
-            
-            // Check if review already exists for this date
-            const existingReviewIndex = taskWithReview.reviews.findIndex(r => {
-                const reviewDate = new Date(r.date);
-                const selectedDateOnly = new Date(selectedDate);
-                reviewDate.setHours(0, 0, 0, 0);
-                selectedDateOnly.setHours(0, 0, 0, 0);
-                return reviewDate.getTime() === selectedDateOnly.getTime();
-            });
-            
-            if (existingReviewIndex !== -1) {
-                // Update existing review
-                taskWithReview.reviews[existingReviewIndex] = review;
-            } else {
-                // Add new review
-                taskWithReview.reviews.push(review);
-            }
-            
-            saveData(); // Save the updated data
+        // Check if a review already exists for this date and project
+        const existingReviewIndex = savedReviews.findIndex(r => {
+            const reviewDate = new Date(r.date);
+            const selectedDateOnly = new Date(selectedDate);
+            reviewDate.setHours(0, 0, 0, 0);
+            selectedDateOnly.setHours(0, 0, 0, 0);
+            return reviewDate.getTime() === selectedDateOnly.getTime() && 
+                   r.projectId === review.projectId;
+        });
+        
+        if (existingReviewIndex !== -1) {
+            // Update existing review
+            savedReviews[existingReviewIndex] = review;
+        } else {
+            // Add new review
+            savedReviews.push(review);
         }
+        
+        localStorage.setItem('timesheetReviews', JSON.stringify(savedReviews));
         
         // Update button text to show it was saved
         const saveBtn = document.getElementById('saveReviewBtn');
@@ -928,67 +741,38 @@ function saveTimesheetReview() {
     }
 }
 
-// Show data to user for manual copy to database
-function showDataForCopy() {
-    const dataString = getCurrentDataForRepo();
+// Due date helper functions
+function formatDueDate(dueDate) {
+    const date = new Date(dueDate);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
     
-    // Create a modal to show the data
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.style.display = 'block';
+    // Reset time for comparison
+    today.setHours(0, 0, 0, 0);
+    tomorrow.setHours(0, 0, 0, 0);
+    date.setHours(0, 0, 0, 0);
     
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width: 800px; max-height: 80vh;">
-            <div class="modal-header">
-                <h2>Update Central Database</h2>
-                <span class="close" onclick="this.parentElement.parentElement.parentElement.remove()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p><strong>Copy the data below and paste it into your data.json file to update the central database:</strong></p>
-                <p style="color: #666; font-size: 14px;">This will sync all user data across the system.</p>
-                <textarea id="dataTextarea" style="width: 100%; height: 400px; font-family: monospace; font-size: 12px; border: 1px solid #ccc; padding: 10px;" readonly>${dataString}</textarea>
-                <div style="margin-top: 15px;">
-                    <button onclick="copyDataToClipboard()" class="btn btn-primary">Copy to Clipboard</button>
-                    <button onclick="this.parentElement.parentElement.parentElement.remove()" class="btn btn-secondary">Close</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
+    if (date.getTime() === today.getTime()) {
+        return 'Today';
+    } else if (date.getTime() === tomorrow.getTime()) {
+        return 'Tomorrow';
+    } else {
+        return date.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric',
+            year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+        });
+    }
 }
 
-// Show sync notification
-function showSyncNotification() {
-    // Create a small notification
-    const notification = document.createElement('div');
-    notification.className = 'sync-notification';
-    notification.innerHTML = `
-        <i class="fas fa-sync-alt"></i>
-        <span>Data saved locally. Use "Copy Data to Repo" to sync with database.</span>
-    `;
+function isOverdue(dueDate) {
+    const due = new Date(dueDate);
+    const today = new Date();
     
-    document.body.appendChild(notification);
+    // Reset time for comparison
+    due.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
     
-    // Remove after 3 seconds
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-        }
-    }, 3000);
-}
-
-// Copy data to clipboard
-function copyDataToClipboard() {
-    const textarea = document.getElementById('dataTextarea');
-    textarea.select();
-    document.execCommand('copy');
-    
-    // Show feedback
-    const copyBtn = textarea.nextElementSibling;
-    const originalText = copyBtn.textContent;
-    copyBtn.textContent = 'Copied!';
-    setTimeout(() => {
-        copyBtn.textContent = originalText;
-    }, 2000);
+    return due < today;
 }
