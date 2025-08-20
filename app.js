@@ -1,35 +1,45 @@
 // Data structure
 let projects = [];
 let tasks = [];
+let backlogItems = [];
 let activeTimer = null;
 
 // Load data from localStorage
 function loadData() {
     const savedProjects = localStorage.getItem('projects');
     const savedTasks = localStorage.getItem('tasks');
+    const savedBacklogItems = localStorage.getItem('backlogItems');
     
     projects = savedProjects ? JSON.parse(savedProjects) : [];
     tasks = savedTasks ? JSON.parse(savedTasks) : [];
+    backlogItems = savedBacklogItems ? JSON.parse(savedBacklogItems) : [];
     
     renderProjects();
     renderTasks();
+    renderBacklogItems();
 }
 
 // Save data to localStorage
 function saveData() {
     localStorage.setItem('projects', JSON.stringify(projects));
     localStorage.setItem('tasks', JSON.stringify(tasks));
+    localStorage.setItem('backlogItems', JSON.stringify(backlogItems));
 }
 
 // Project Management
-function addProject(name) {
+function addProject(name, emoji = '🎯') {
     const project = {
         id: Date.now(),
-        name: name
+        name: name,
+        emoji: emoji,
+        position: projects.length * 1000 // Add position for ordering
     };
     projects.push(project);
     saveData();
     renderProjects();
+    
+    // Show toast message
+    showToast(`Project created: ${emoji} ${name}`, 'success', 4000);
 }
 
 function renderProjects() {
@@ -38,16 +48,42 @@ function renderProjects() {
     
     // Add "All Tasks" option
     const allTasksLi = document.createElement('li');
-    allTasksLi.textContent = 'All Tasks';
-    allTasksLi.onclick = () => selectProject(null);
     allTasksLi.className = !currentProject ? 'active' : '';
+    allTasksLi.draggable = false;
+    allTasksLi.innerHTML = `
+        <span class="project-name">All Tasks</span>
+    `;
+    allTasksLi.onclick = () => selectProject(null);
     projectsList.appendChild(allTasksLi);
     
-    projects.forEach(project => {
+    // Sort projects by position
+    const sortedProjects = [...projects].sort((a, b) => (a.position || 0) - (b.position || 0));
+    
+    sortedProjects.forEach((project, index) => {
         const li = document.createElement('li');
-        li.textContent = project.name;
-        li.onclick = () => selectProject(project.id);
         li.className = currentProject && currentProject.id === project.id ? 'active' : '';
+        li.dataset.projectId = project.id;
+        li.dataset.position = project.position;
+        li.draggable = true;
+        
+        li.innerHTML = `
+            <span class="project-emoji">${project.emoji || '🎯'}</span>
+            <span class="project-name">${project.name}</span>
+        `;
+        
+        // Add click handler for project selection
+        li.querySelector('.project-name').onclick = () => selectProject(project.id);
+        
+        // Add drag and drop event listeners
+        li.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', project.id);
+            li.classList.add('dragging');
+        });
+        
+        li.addEventListener('dragend', () => {
+            li.classList.remove('dragging');
+        });
+        
         projectsList.appendChild(li);
     });
     
@@ -55,6 +91,7 @@ function renderProjects() {
     const addProjectLi = document.createElement('li');
     addProjectLi.id = 'addProjectBtn';
     addProjectLi.className = 'add-project-item';
+    addProjectLi.draggable = false;
     addProjectLi.onclick = openAddProjectModal;
     addProjectLi.innerHTML = `
         <i class="fas fa-plus"></i>
@@ -62,7 +99,78 @@ function renderProjects() {
     `;
     projectsList.appendChild(addProjectLi);
     
+    // Add drag and drop event listeners to the projects list
+    setupProjectDragAndDrop();
+}
 
+// Project drag and drop setup
+function setupProjectDragAndDrop() {
+    const projectsList = document.getElementById('projectsList');
+    
+    projectsList.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const draggingElement = document.querySelector('.dragging');
+        if (!draggingElement) return;
+        
+        const afterElement = getDragAfterElement(projectsList, e.clientY);
+        if (afterElement) {
+            projectsList.insertBefore(draggingElement, afterElement);
+        } else {
+            projectsList.appendChild(draggingElement);
+        }
+    });
+    
+    projectsList.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const draggedProjectId = parseInt(e.dataTransfer.getData('text/plain'));
+        const draggedElement = document.querySelector('.dragging');
+        
+        if (draggedElement && draggedProjectId) {
+            // Get the new position of the dragged project
+            const newIndex = Array.from(projectsList.children).findIndex(child => 
+                child.dataset.projectId === draggedProjectId.toString()
+            );
+            
+            // Update project positions
+            updateProjectPositions(newIndex, draggedProjectId);
+        }
+    });
+}
+
+// Helper function to determine where to place the dragged element
+function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('li:not(.dragging):not(#addProjectBtn):not([draggable="false"])')];
+    
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+// Update project positions after drag and drop
+function updateProjectPositions(newIndex, draggedProjectId) {
+    // Get all projects except the dragged one
+    const otherProjects = projects.filter(p => p.id !== draggedProjectId);
+    
+    // Sort by current position
+    otherProjects.sort((a, b) => (a.position || 0) - (b.position || 0));
+    
+    // Insert the dragged project at the new position
+    otherProjects.splice(newIndex, 0, projects.find(p => p.id === draggedProjectId));
+    
+    // Update positions for all projects (excluding "All Tasks" and "New Project")
+    otherProjects.forEach((project, index) => {
+        project.position = (index + 1) * 1000;
+    });
+    
+    saveData();
+    renderProjects();
 }
 
 let currentProject = null;
@@ -107,6 +215,9 @@ function addTask(title, status, dueDate) {
     tasks.push(task);
     saveData();
     renderTasks();
+    
+    // Show toast message
+    showToast(`Task created: ${title}`, 'success', 3000);
 }
 
 function updateTask(taskId, updates) {
@@ -417,17 +528,17 @@ function openEditTaskModal(task) {
     
     modal.style.display = 'block';
     
-            form.onsubmit = (e) => {
-            e.preventDefault();
-            const updates = {
-                title: document.getElementById('taskTitle').value,
-                status: document.getElementById('taskStatus').value,
-                dueDate: document.getElementById('taskDueDate').value || null
-            };
-            
-            updateTask(task.id, updates);
-            modal.style.display = 'none';
+    form.onsubmit = (e) => {
+        e.preventDefault();
+        const updates = {
+            title: document.getElementById('taskTitle').value,
+            status: document.getElementById('taskStatus').value,
+            dueDate: document.getElementById('taskDueDate').value || null
         };
+        
+        updateTask(task.id, updates);
+        modal.style.display = 'none';
+    };
 }
 
 function openAddProjectModal() {
@@ -436,10 +547,14 @@ function openAddProjectModal() {
     form.reset();
     modal.style.display = 'block';
     
+    // Setup emoji picker
+    setupEmojiPicker();
+    
     form.onsubmit = (e) => {
         e.preventDefault();
         const name = document.getElementById('projectName').value;
-        addProject(name);
+        const emoji = document.getElementById('projectEmoji').value || '🎯';
+        addProject(name, emoji);
         modal.style.display = 'none';
     };
 }
@@ -448,9 +563,10 @@ function openAddProjectModal() {
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
     
-    document.getElementById('addTaskBtn').onclick = openAddTaskModal;
-
+    // Setup sidebar toggle
+    setupSidebarToggle();
     
+    // Setup cancel button for task modal
     document.getElementById('cancelTaskBtn').onclick = () => {
         document.getElementById('taskModal').style.display = 'none';
     };
@@ -471,7 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // View switching
     document.getElementById('boardViewBtn').onclick = () => {
-        document.getElementById('boardView').style.display = 'grid';
+        document.getElementById('boardView').style.display = 'flex';
         document.getElementById('timesheetView').style.display = 'none';
         document.getElementById('boardViewBtn').classList.add('active');
         document.getElementById('timesheetViewBtn').classList.remove('active');
@@ -491,7 +607,169 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add event listener for date filter
     document.getElementById('timesheetDate').addEventListener('change', renderTimesheet);
+    
+    // Add keyboard support for backlog inputs
+    document.querySelectorAll('.backlog-input').forEach(input => {
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const status = input.dataset.status;
+                addBacklogItem(status);
+            }
+        });
+    });
+    
+    // Initial render of backlog items
+    renderBacklogItems();
 });
+
+// Render backlog items
+function renderBacklogItems() {
+    const backlogContainer = document.getElementById('backlogItems');
+    if (!backlogContainer) return;
+    
+    backlogContainer.innerHTML = '';
+    
+    // Filter backlog items for current project
+    const filteredBacklogItems = currentProject 
+        ? backlogItems.filter(item => item.projectId === currentProject.id)
+        : backlogItems;
+    
+    filteredBacklogItems.forEach(item => {
+        const backlogItemElement = document.createElement('div');
+        backlogItemElement.className = 'backlog-item';
+        backlogItemElement.dataset.itemId = item.id;
+        
+        backlogItemElement.innerHTML = `
+            <div class="backlog-text">${item.text}</div>
+            <div class="backlog-actions">
+                <button class="backlog-action-btn convert-btn" onclick="convertBacklogToTask(${item.id})" title="Convert to Task">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                <button class="backlog-action-btn delete-btn" onclick="deleteBacklogItem(${item.id})" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        backlogContainer.appendChild(backlogItemElement);
+    });
+}
+
+// Convert backlog item to task
+function convertBacklogToTask(backlogItemId) {
+    const backlogItem = backlogItems.find(item => item.id === backlogItemId);
+    if (backlogItem) {
+        // Create a new task from the backlog item
+        const newTask = {
+            id: Date.now(),
+            title: backlogItem.text,
+            status: 'To Do', // Default status when converting
+            projectId: backlogItem.projectId,
+            createdAt: new Date().toISOString(),
+            timeSpent: 0,
+            timeEntries: [],
+            isTimerRunning: false,
+            timerStart: null,
+            dueDate: null
+        };
+        
+        // Add the task
+        tasks.push(newTask);
+        
+        // Remove the backlog item
+        deleteBacklogItem(backlogItemId);
+        
+        // Save data and re-render
+        saveData();
+        renderTasks();
+        
+        // Show success feedback
+        showToast('Backlog item converted to task successfully!', 'success', 3000);
+    }
+}
+
+// Delete backlog item
+function deleteBacklogItem(backlogItemId) {
+    const index = backlogItems.findIndex(item => item.id === backlogItemId);
+    if (index !== -1) {
+        backlogItems.splice(index, 1);
+        saveData();
+        renderBacklogItems();
+        
+        // Show success feedback
+        showToast('Backlog item deleted successfully!', 'success', 3000);
+    }
+}
+
+// Show toast notification function
+function showToast(message, type = 'info', duration = 4000) {
+    // Remove existing toasts to prevent overlap
+    const existingToasts = document.querySelectorAll('.toast-notification');
+    existingToasts.forEach(toast => {
+        if (toast.dataset.message === message) {
+            document.body.removeChild(toast);
+        }
+    });
+    
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast-notification toast-${type}`;
+    toast.dataset.message = message;
+    
+    // Add icon based on type
+    let icon = '';
+    switch (type) {
+        case 'success':
+            icon = '<i class="fas fa-check-circle"></i>';
+            break;
+        case 'error':
+            icon = '<i class="fas fa-exclamation-circle"></i>';
+            break;
+        case 'warning':
+            icon = '<i class="fas fa-exclamation-triangle"></i>';
+            break;
+        case 'info':
+        default:
+            icon = '<i class="fas fa-info-circle"></i>';
+            break;
+    }
+    
+    toast.innerHTML = `
+        <div class="toast-content">
+            <div class="toast-icon">${icon}</div>
+            <div class="toast-message">${message}</div>
+            <button class="toast-close" onclick="this.parentElement.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="toast-progress"></div>
+    `;
+    
+    // Add to page
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 100);
+    
+    // Auto remove after duration
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            if (document.body.contains(toast)) {
+                document.body.removeChild(toast);
+            }
+        }, 300);
+    }, duration);
+    
+    // Progress bar animation
+    const progressBar = toast.querySelector('.toast-progress');
+    progressBar.style.transition = `width ${duration}ms linear`;
+    setTimeout(() => {
+        progressBar.style.width = '0%';
+    }, 100);
+}
 
 // Timer Functions
 function startTimer(taskId) {
@@ -508,6 +786,9 @@ function startTimer(taskId) {
         updateTimerDisplay(taskId);
         saveData();
         renderTasks();
+        
+        // Show toast message
+        showToast(`Timer started for: ${task.title}`, 'success', 3000);
     }
 }
 
@@ -573,6 +854,71 @@ function renderTimesheet() {
     const endDate = new Date(selectedDate);
     startDate.setHours(0, 0, 0, 0); // Start of the day
     endDate.setHours(23, 59, 59, 999); // End of the day
+
+    // Get all time entries for the selected date
+    const allTimeEntries = [];
+    tasks.forEach(task => {
+        if (task.timeEntries && task.timeEntries.length > 0) {
+            task.timeEntries.forEach(entry => {
+                const entryDate = new Date(entry.date);
+                if (entryDate >= startDate && entryDate <= endDate) {
+                    allTimeEntries.push({
+                        date: entryDate,
+                        duration: entry.duration,
+                        taskTitle: task.title,
+                        projectName: task.projectId ? projects.find(p => p.id === task.projectId)?.name : 'No Project'
+                    });
+                }
+            });
+        }
+    });
+
+    // Sort time entries by date (chronological order)
+    allTimeEntries.sort((a, b) => a.date - b.date);
+
+    // Display clock-in and clock-out summary
+    const timesheetView = document.querySelector('.timesheet-view');
+    let clockSummary = timesheetView.querySelector('.clock-summary');
+    
+    if (!clockSummary) {
+        clockSummary = document.createElement('div');
+        clockSummary.className = 'clock-summary';
+        timesheetView.insertBefore(clockSummary, timesheetView.firstChild);
+    }
+
+    if (allTimeEntries.length > 0) {
+        const firstEntry = allTimeEntries[0];
+        const lastEntry = allTimeEntries[allTimeEntries.length - 1];
+        
+
+        
+        clockSummary.innerHTML = `
+            <div class="clock-summary-content">
+                <div class="clock-time">
+                    <div class="clock-in">
+                        <i class="fas fa-sign-in-alt"></i>
+                        <span class="label">Clock In:</span>
+                        <span class="time">${firstEntry.date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                    </div>
+                    <div class="clock-out">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span class="label">Clock Out:</span>
+                        <span class="time">${lastEntry.date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                    </div>
+                </div>
+
+            </div>
+        `;
+    } else {
+        clockSummary.innerHTML = `
+            <div class="clock-summary-content">
+                <div class="no-entries">
+                    <i class="fas fa-calendar-times"></i>
+                    <span>No time entries for ${selectedDate.toLocaleDateString()}</span>
+                </div>
+            </div>
+        `;
+    }
 
     const timesheetBody = document.getElementById('timesheetBody');
     timesheetBody.innerHTML = '';
@@ -741,6 +1087,35 @@ function saveTimesheetReview() {
     }
 }
 
+// Add backlog item function
+function addBacklogItem(status) {
+    const input = document.querySelector(`.backlog-input[data-status="${status}"]`);
+    const itemText = input.value.trim();
+    
+    if (itemText) {
+        const backlogItem = {
+            id: Date.now(),
+            text: itemText,
+            projectId: currentProject ? currentProject.id : null,
+            createdAt: new Date().toISOString(),
+            status: status
+        };
+        
+        backlogItems.push(backlogItem);
+        saveData();
+        renderBacklogItems();
+        
+        // Show toast message
+        showToast(`Backlog item added: ${itemText}`, 'success', 3000);
+        
+        // Clear the input field
+        input.value = '';
+        
+        // Focus back to the input for quick adding
+        input.focus();
+    }
+}
+
 // Due date helper functions
 function formatDueDate(dueDate) {
     const date = new Date(dueDate);
@@ -775,4 +1150,26 @@ function isOverdue(dueDate) {
     today.setHours(0, 0, 0, 0);
     
     return due < today;
+}
+
+// Sidebar toggle functionality
+function setupSidebarToggle() {
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebar = document.querySelector('.sidebar');
+    
+    if (sidebarToggle && sidebar) {
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            
+            // Update button icon
+            const icon = sidebarToggle.querySelector('i');
+            if (sidebar.classList.contains('collapsed')) {
+                icon.className = 'fas fa-chevron-right';
+                sidebarToggle.title = 'Show Sidebar';
+            } else {
+                icon.className = 'fas fa-bars';
+                sidebarToggle.title = 'Hide Sidebar';
+            }
+        });
+    }
 }

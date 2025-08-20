@@ -20,13 +20,18 @@
                         <span>New Project</span>
                     </li>
                 </ul>
+
             </div>
         </aside>
         
         <main class="main-content">
             <header class="top-bar">
-                <h1 id="currentProjectName">All Tasks</h1>
-                <button id="addTaskBtn" class="btn-primary"><i class="fas fa-plus"></i> Add Task</button>
+                <div class="top-bar-left">
+                    <button id="sidebarToggle" class="sidebar-toggle-btn">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1 id="currentProjectName">All Tasks</h1>
+                </div>
             </header>
             
             <div class="view-controls">
@@ -35,20 +40,43 @@
             </div>
 
             <div id="boardView" class="board">
+                <div class="column" data-status="Backlog">
+                    <div class="column-header">
+                        <h3><i class="fas fa-list-ul"></i> Backlog</h3>
+                    </div>
+                    <div class="backlog-input-container">
+                        <input type="text" class="backlog-input" placeholder="Add backlog item..." data-status="Backlog">
+                        <button class="backlog-add-btn" onclick="addBacklogItem('Backlog')">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="backlog-container" id="backlogItems"></div>
+                </div>
                 <div class="column" data-status="To Do">
-                    <h3><i class="fas fa-clipboard-list"></i> To Do</h3>
+                    <div class="column-header">
+                        <h3><i class="fas fa-clipboard-list"></i> To Do</h3>
+                        <button class="add-task-btn" onclick="openAddTaskModal()">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
                     <div class="tasks-container" id="todoTasks"></div>
                 </div>
                 <div class="column" data-status="In Progress">
-                    <h3><i class="fas fa-spinner"></i> In Progress</h3>
+                    <div class="column-header">
+                        <h3><i class="fas fa-spinner"></i> In Progress</h3>
+                    </div>
                     <div class="tasks-container" id="inProgressTasks"></div>
                 </div>
                 <div class="column" data-status="To be Tested">
-                    <h3><i class="fas fa-vial"></i> To be Tested</h3>
+                    <div class="column-header">
+                        <h3><i class="fas fa-vial"></i> To be Tested</h3>
+                    </div>
                     <div class="tasks-container" id="toBeTestedTasks"></div>
                 </div>
                 <div class="column" data-status="Done">
-                    <h3><i class="fas fa-check-circle"></i> Done</h3>
+                    <div class="column-header">
+                        <h3><i class="fas fa-check-circle"></i> Done</h3>
+                    </div>
                     <div class="tasks-container" id="doneTasks"></div>
                 </div>
             </div>
@@ -118,6 +146,26 @@
                 <div class="form-group">
                     <label for="projectName">Project Name</label>
                     <input type="text" id="projectName" required>
+                </div>
+                <div class="form-group">
+                    <label for="projectEmoji">Project Emoji</label>
+                    <div class="emoji-picker-container">
+                        <input type="text" id="projectEmoji" placeholder="🎯" maxlength="2" class="emoji-input">
+                        <div class="emoji-suggestions">
+                            <span class="emoji-option" data-emoji="🎯">🎯</span>
+                            <span class="emoji-option" data-emoji="💻">💻</span>
+                            <span class="emoji-option" data-emoji="📱">📱</span>
+                            <span class="emoji-option" data-emoji="🎨">🎨</span>
+                            <span class="emoji-option" data-emoji="📊">📊</span>
+                            <span class="emoji-option" data-emoji="🚀">🚀</span>
+                            <span class="emoji-option" data-emoji="🔧">🔧</span>
+                            <span class="emoji-option" data-emoji="📝">📝</span>
+                            <span class="emoji-option" data-emoji="🎮">🎮</span>
+                            <span class="emoji-option" data-emoji="📚">📚</span>
+                            <span class="emoji-option" data-emoji="💡">💡</span>
+                            <span class="emoji-option" data-emoji="⭐">⭐</span>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-buttons">
                     <button type="submit" class="btn-primary">Save</button>
