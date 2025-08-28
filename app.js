@@ -108,7 +108,7 @@ function startQuoteRotation() {
     // Set interval for quote rotation
     quoteInterval = setInterval(() => {
         displayQuote();
-    }, 60000);
+    }, 30000);
 }
 
 // Display a quote with animation
@@ -755,6 +755,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('beforeunload', () => {
         if (quoteInterval) {
             clearInterval(quoteInterval);
+        }
+    });
+    
+    // Change quote when tab becomes visible
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && quotes.length > 0) {
+            // Change quote immediately when tab becomes visible
+            displayQuote();
         }
     });
 });
