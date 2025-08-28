@@ -3,6 +3,9 @@ let projects = [];
 let tasks = [];
 let backlogItems = [];
 let activeTimer = null;
+let quotes = [];
+let currentQuoteIndex = 0;
+let quoteInterval = null;
 
 // Load data from localStorage
 function loadData() {
@@ -14,6 +17,9 @@ function loadData() {
     tasks = savedTasks ? JSON.parse(savedTasks) : [];
     backlogItems = savedBacklogItems ? JSON.parse(savedBacklogItems) : [];
     
+    // Clean old Done tasks before rendering
+    cleanOldDoneTasks();
+    
     renderProjects();
     renderTasks();
     renderBacklogItems();
@@ -24,6 +30,126 @@ function saveData() {
     localStorage.setItem('projects', JSON.stringify(projects));
     localStorage.setItem('tasks', JSON.stringify(tasks));
     localStorage.setItem('backlogItems', JSON.stringify(backlogItems));
+}
+
+// Clean old Done tasks (older than 5 days)
+function cleanOldDoneTasks() {
+    const fiveDaysAgo = new Date();
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    
+    const initialCount = tasks.length;
+    
+    // Filter out Done tasks older than 5 days
+    tasks = tasks.filter(task => {
+        if (task.status === 'Done') {
+            // Check if task was moved to Done more than 5 days ago
+            // We'll use the last time entry or createdAt as reference
+            let lastActivity = new Date(task.createdAt);
+            
+            // If there are time entries, use the last one
+            if (task.timeEntries && task.timeEntries.length > 0) {
+                const lastEntry = task.timeEntries[task.timeEntries.length - 1];
+                if (lastEntry.endTime) {
+                    lastActivity = new Date(lastEntry.endTime);
+                }
+            }
+            
+            // Keep task if it's newer than 5 days ago
+            return lastActivity > fiveDaysAgo;
+        }
+        return true; // Keep all non-Done tasks
+    });
+    
+    const deletedCount = initialCount - tasks.length;
+    
+    if (deletedCount > 0) {
+        // Save the cleaned data
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+        
+        // Show toast notification
+        showToast(`${deletedCount} old completed task${deletedCount > 1 ? 's' : ''} cleaned up`, 'info', 4000);
+        
+        // Re-render tasks to reflect changes
+        renderTasks();
+    }
+}
+
+// Load quotes from JSON file
+async function loadQuotes() {
+    try {
+        const response = await fetch('quotes.json');
+        if (!response.ok) {
+            throw new Error('Failed to load quotes');
+        }
+        quotes = await response.json();
+        if (quotes.length > 0) {
+            startQuoteRotation();
+        }
+    } catch (error) {
+        console.error('Error loading quotes:', error);
+        // Fallback quotes if JSON loading fails
+        quotes = [
+            { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+            { text: "Success is not final, failure is not fatal: it is the courage to continue that counts.", author: "Winston Churchill" }
+        ];
+        startQuoteRotation();
+    }
+}
+
+// Start quote rotation every 30 seconds
+function startQuoteRotation() {
+    if (quoteInterval) {
+        clearInterval(quoteInterval);
+    }
+    
+    // Show first quote immediately
+    displayQuote();
+    
+    // Set interval for quote rotation
+    quoteInterval = setInterval(() => {
+        displayQuote();
+    }, 60000);
+}
+
+// Display a quote with animation
+function displayQuote() {
+    if (quotes.length === 0) return;
+    
+    const quoteText = document.getElementById('quoteText');
+    const quoteAuthor = document.getElementById('quoteAuthor');
+    
+    if (!quoteText || !quoteAuthor) return;
+    
+    // Add fade-out animation
+    quoteText.classList.add('fade-out');
+    quoteAuthor.classList.add('fade-out');
+    
+    // Wait for fade-out to complete, then change quote
+    setTimeout(() => {
+        // Get next quote
+        currentQuoteIndex = (currentQuoteIndex + 1) % quotes.length;
+        const quote = quotes[currentQuoteIndex];
+        
+        // Update content
+        quoteText.textContent = quote.text;
+        quoteAuthor.textContent = `— ${quote.author}`;
+        
+        // Remove fade-out class and trigger fade-in animation
+        quoteText.classList.remove('fade-out');
+        quoteAuthor.classList.remove('fade-out');
+        
+        // Reset animation by re-adding elements
+        quoteText.style.animation = 'none';
+        quoteAuthor.style.animation = 'none';
+        
+        // Trigger reflow
+        quoteText.offsetHeight;
+        quoteAuthor.offsetHeight;
+        
+        // Re-enable animation
+        quoteText.style.animation = '';
+        quoteAuthor.style.animation = '';
+    }, 400); // Wait for fade-out animation
 }
 
 // Project Management
@@ -563,6 +689,9 @@ function openAddProjectModal() {
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
     
+    // Load and start quote rotation
+    loadQuotes();
+    
     // Setup sidebar toggle
     setupSidebarToggle();
     
@@ -620,6 +749,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initial render of backlog items
     renderBacklogItems();
+    
+    // Cleanup quote interval on page unload
+    window.addEventListener('beforeunload', () => {
+        if (quoteInterval) {
+            clearInterval(quoteInterval);
+        }
+    });
 });
 
 // Render backlog items
