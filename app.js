@@ -168,6 +168,59 @@ function addProject(name, emoji = '🎯') {
     showToast(`Project created: ${emoji} ${name}`, 'success', 4000);
 }
 
+function updateProject(projectId, name, emoji) {
+    const projectIndex = projects.findIndex(p => p.id === projectId);
+    if (projectIndex !== -1) {
+        const oldName = projects[projectIndex].name;
+        projects[projectIndex] = {
+            ...projects[projectIndex],
+            name: name,
+            emoji: emoji
+        };
+        saveData();
+        renderProjects();
+        
+        // Update current project if it's the one being edited
+        if (currentProject && currentProject.id === projectId) {
+            currentProject = projects[projectIndex];
+            document.getElementById('currentProjectName').textContent = name;
+        }
+        
+        // Show toast message
+        showToast(`Project updated: ${emoji} ${name}`, 'success', 4000);
+    }
+}
+
+function deleteProject(projectId) {
+    const projectIndex = projects.findIndex(p => p.id === projectId);
+    if (projectIndex !== -1) {
+        const projectName = projects[projectIndex].name;
+        
+        // Remove all tasks associated with this project
+        tasks = tasks.filter(task => task.projectId !== projectId);
+        
+        // Remove all backlog items associated with this project
+        backlogItems = backlogItems.filter(item => item.projectId !== projectId);
+        
+        // Remove the project
+        projects.splice(projectIndex, 1);
+        
+        // If the deleted project was selected, switch to "All Tasks"
+        if (currentProject && currentProject.id === projectId) {
+            currentProject = null;
+            document.getElementById('currentProjectName').textContent = 'All Tasks';
+        }
+        
+        saveData();
+        renderProjects();
+        renderTasks();
+        renderBacklogItems();
+        
+        // Show toast message
+        showToast(`Project deleted: ${projectName}`, 'info', 4000);
+    }
+}
+
 function renderProjects() {
     const projectsList = document.getElementById('projectsList');
     projectsList.innerHTML = '';
@@ -195,10 +248,21 @@ function renderProjects() {
         li.innerHTML = `
             <span class="project-emoji">${project.emoji || '🎯'}</span>
             <span class="project-name">${project.name}</span>
+            <div class="project-actions">
+                <button class="project-edit-btn" title="Project Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+            </div>
         `;
         
         // Add click handler for project selection
         li.querySelector('.project-name').onclick = () => selectProject(project.id);
+        
+        // Add click handler for edit button
+        li.querySelector('.project-edit-btn').onclick = (e) => {
+            e.stopPropagation();
+            openEditProjectModal(project);
+        };
         
         // Add drag and drop event listeners
         li.addEventListener('dragstart', (e) => {
@@ -670,20 +734,105 @@ function openEditTaskModal(task) {
 
 function openAddProjectModal() {
     const modal = document.getElementById('projectModal');
+    const modalTitle = document.getElementById('projectModalTitle');
     const form = document.getElementById('projectForm');
+    const saveBtn = document.getElementById('saveProjectBtn');
+    const deleteBtn = document.getElementById('deleteProjectBtn');
+    
+    // Set modal to add mode
+    modalTitle.textContent = 'Add Project';
+    saveBtn.textContent = 'Save';
+    deleteBtn.style.display = 'none';
+    
+    // Clear form and show modal
     form.reset();
     modal.style.display = 'block';
     
-    // Setup emoji picker
-    setupEmojiPicker();
+    // Setup emoji picker with default emoji
+    setupEmojiPicker('🎯');
     
+    // Set form submission for adding
     form.onsubmit = (e) => {
         e.preventDefault();
         const name = document.getElementById('projectName').value;
-        const emoji = document.getElementById('projectEmoji').value || '🎯';
+        const emoji = document.getElementById('selectedEmoji').textContent || '🎯';
         addProject(name, emoji);
         modal.style.display = 'none';
     };
+}
+
+function openEditProjectModal(project) {
+    const modal = document.getElementById('projectModal');
+    const modalTitle = document.getElementById('projectModalTitle');
+    const form = document.getElementById('projectForm');
+    const nameInput = document.getElementById('projectName');
+    const saveBtn = document.getElementById('saveProjectBtn');
+    const deleteBtn = document.getElementById('deleteProjectBtn');
+    
+    // Set modal to edit mode
+    modalTitle.textContent = 'Edit Project';
+    saveBtn.textContent = 'Update';
+    deleteBtn.style.display = 'block';
+    
+    // Populate form with existing project data
+    nameInput.value = project.name;
+    
+    // Setup emoji picker with current project emoji
+    setupEmojiPicker(project.emoji || '🎯');
+    
+    // Set form submission for editing
+    form.onsubmit = (e) => {
+        e.preventDefault();
+        const name = nameInput.value;
+        const emoji = document.getElementById('selectedEmoji').textContent || '🎯';
+        updateProject(project.id, name, emoji);
+        modal.style.display = 'none';
+    };
+    
+    // Set delete button functionality
+    deleteBtn.onclick = () => {
+        if (confirm(`Are you sure you want to delete the project "${project.name}"? This will also delete all associated tasks and backlog items.`)) {
+            deleteProject(project.id);
+            modal.style.display = 'none';
+        }
+    };
+    
+    // Show modal
+    modal.style.display = 'block';
+}
+
+// Setup emoji picker functionality
+function setupEmojiPicker(initialEmoji = '🎯') {
+    const emojiOptions = document.querySelectorAll('.emoji-option');
+    const selectedEmojiDisplay = document.getElementById('selectedEmoji');
+    
+    // Remove previous selections
+    emojiOptions.forEach(option => option.classList.remove('selected'));
+    
+    // Set initial emoji
+    selectedEmojiDisplay.textContent = initialEmoji;
+    
+    // Select the initial emoji in the grid
+    const initialOption = Array.from(emojiOptions).find(option => option.dataset.emoji === initialEmoji);
+    if (initialOption) {
+        initialOption.classList.add('selected');
+    }
+    
+    // Add click event to each emoji option
+    emojiOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            const emoji = option.dataset.emoji;
+            
+            // Remove selection from all options
+            emojiOptions.forEach(opt => opt.classList.remove('selected'));
+            
+            // Add selection to clicked option
+            option.classList.add('selected');
+            
+            // Update display
+            selectedEmojiDisplay.textContent = emoji;
+        });
+    });
 }
 
 // Event Listeners

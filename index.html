@@ -156,10 +156,9 @@
                     <input type="text" id="projectName" required>
                 </div>
                 <div class="form-group">
-                    <label for="projectEmoji">Project Emoji</label>
-                    <div class="emoji-picker-container">
-                        <input type="text" id="projectEmoji" placeholder="🎯" maxlength="2" class="emoji-input">
-                        <div class="emoji-suggestions">
+                    <label>Project Emoji</label>
+                    <div class="emoji-picker">
+                        <div class="emoji-grid">
                             <span class="emoji-option" data-emoji="🎯">🎯</span>
                             <span class="emoji-option" data-emoji="💻">💻</span>
                             <span class="emoji-option" data-emoji="📱">📱</span>
@@ -172,12 +171,33 @@
                             <span class="emoji-option" data-emoji="📚">📚</span>
                             <span class="emoji-option" data-emoji="💡">💡</span>
                             <span class="emoji-option" data-emoji="⭐">⭐</span>
+                            <span class="emoji-option" data-emoji="🏠">🏠</span>
+                            <span class="emoji-option" data-emoji="🎵">🎵</span>
+                            <span class="emoji-option" data-emoji="🎬">🎬</span>
+                            <span class="emoji-option" data-emoji="🏃">🏃</span>
+                            <span class="emoji-option" data-emoji="🎪">🎪</span>
+                            <span class="emoji-option" data-emoji="🏢">🏢</span>
+                            <span class="emoji-option" data-emoji="🌍">🌍</span>
+                            <span class="emoji-option" data-emoji="🎓">🎓</span>
+                            <span class="emoji-option" data-emoji="💼">💼</span>
+                            <span class="emoji-option" data-emoji="🔬">🔬</span>
+                            <span class="emoji-option" data-emoji="🎭">🎭</span>
+                            <span class="emoji-option" data-emoji="🏆">🏆</span>
+                            <span class="emoji-option" data-emoji="💎">💎</span>
+                            <span class="emoji-option" data-emoji="🌟">🌟</span>
+                        </div>
+                        <div class="selected-emoji-display">
+                            <span id="selectedEmoji">🎯</span>
+                            <small>Click an emoji above to select</small>
                         </div>
                     </div>
                 </div>
                 <div class="modal-buttons">
-                    <button type="submit" class="btn-primary">Save</button>
+                    <button type="submit" class="btn-primary" id="saveProjectBtn">Save</button>
                     <button type="button" class="btn-secondary" id="cancelProjectBtn">Cancel</button>
+                    <button type="button" class="btn-delete" id="deleteProjectBtn" style="display: none;">
+                        <i class="fas fa-trash-alt"></i> Delete Project
+                    </button>
                 </div>
             </form>
         </div>
