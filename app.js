@@ -306,6 +306,7 @@ function selectProject(projectId) {
     document.getElementById('currentProjectName').textContent = currentProject ? currentProject.name : 'All Tasks';
     renderProjects();
     renderTasks();
+    renderBacklogItems(); // Refresh backlog items when switching projects
     
     // Restart timer display update if there's an active timer
     if (activeTimer) {
@@ -765,18 +766,36 @@ function renderBacklogItems() {
     
     backlogContainer.innerHTML = '';
     
+    // Update backlog input placeholder based on current project
+    updateBacklogInputPlaceholder();
+    
     // Filter backlog items for current project
-    const filteredBacklogItems = currentProject 
-        ? backlogItems.filter(item => item.projectId === currentProject.id)
-        : backlogItems;
+    let filteredBacklogItems = [];
+    
+    if (currentProject) {
+        // Show only backlog items for the selected project
+        filteredBacklogItems = backlogItems.filter(item => item.projectId === currentProject.id);
+    } else {
+        // If no project is selected (All Tasks), show backlog items from all projects
+        filteredBacklogItems = backlogItems;
+    }
     
     filteredBacklogItems.forEach(item => {
         const backlogItemElement = document.createElement('div');
         backlogItemElement.className = 'backlog-item';
         backlogItemElement.dataset.itemId = item.id;
         
+        // Get project name for display when showing all projects
+        let displayText = item.text;
+        if (!currentProject && item.projectId) {
+            const project = projects.find(p => p.id === item.projectId);
+            if (project) {
+                displayText = `${project.emoji || '🎯'} ${item.text}`;
+            }
+        }
+        
         backlogItemElement.innerHTML = `
-            <div class="backlog-text">${item.text}</div>
+            <div class="backlog-text">${displayText}</div>
             <div class="backlog-actions">
                 <button class="backlog-action-btn convert-btn" onclick="convertBacklogToTask(${item.id})" title="Convert to Task">
                     <i class="fas fa-arrow-right"></i>
@@ -789,6 +808,18 @@ function renderBacklogItems() {
         
         backlogContainer.appendChild(backlogItemElement);
     });
+}
+
+// Update backlog input placeholder based on current project
+function updateBacklogInputPlaceholder() {
+    const backlogInput = document.getElementById('backlogInput');
+    if (backlogInput) {
+        if (currentProject) {
+            backlogInput.placeholder = `Add backlog item to ${currentProject.name}...`;
+        } else {
+            backlogInput.placeholder = 'Add backlog item to All Tasks...';
+        }
+    }
 }
 
 // Convert backlog item to task
@@ -1241,8 +1272,9 @@ function addBacklogItem(status) {
         saveData();
         renderBacklogItems();
         
-        // Show toast message
-        showToast(`Backlog item added: ${itemText}`, 'success', 3000);
+        // Show toast message with project context
+        const projectName = currentProject ? currentProject.name : 'All Tasks';
+        showToast(`Backlog item added to ${projectName}: ${itemText}`, 'success', 3000);
         
         // Clear the input field
         input.value = '';
