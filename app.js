@@ -152,6 +152,127 @@ function displayQuote() {
     }, 400); // Wait for fade-out animation
 }
 
+// Display a specific quote by index
+function displayQuoteByIndex(index, direction = 'next') {
+    if (quotes.length === 0 || index < 0 || index >= quotes.length) return;
+    
+    const quoteText = document.getElementById('quoteText');
+    const quoteAuthor = document.getElementById('quoteAuthor');
+    
+    if (!quoteText || !quoteAuthor) return;
+    
+    // Add fade-out animation
+    quoteText.classList.add('fade-out');
+    quoteAuthor.classList.add('fade-out');
+    
+    // Wait for fade-out to complete, then change quote
+    setTimeout(() => {
+        currentQuoteIndex = index;
+        const quote = quotes[currentQuoteIndex];
+        
+        // Update content
+        quoteText.textContent = quote.text;
+        quoteAuthor.textContent = `— ${quote.author}`;
+        
+        // Remove fade-out class and trigger fade-in animation
+        quoteText.classList.remove('fade-out');
+        quoteAuthor.classList.remove('fade-out');
+        quoteText.classList.add('fade-in');
+        quoteAuthor.classList.add('fade-in');
+        
+        // Remove fade-in classes after animation completes
+        setTimeout(() => {
+            quoteText.classList.remove('fade-in');
+            quoteAuthor.classList.remove('fade-in');
+        }, 400);
+    }, 300); // Wait for fade-out animation
+}
+
+// Setup swipe functionality for quotes
+function setupQuoteSwipe() {
+    const quoteContainer = document.querySelector('.quote-container');
+    if (!quoteContainer) return;
+    
+    let startX = 0;
+    let startY = 0;
+    let endX = 0;
+    let endY = 0;
+    let isSwiping = false;
+    
+    // Touch events for mobile
+    quoteContainer.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        isSwiping = true;
+    });
+    
+    quoteContainer.addEventListener('touchmove', (e) => {
+        if (!isSwiping) return;
+        endX = e.touches[0].clientX;
+        endY = e.touches[0].clientY;
+    });
+    
+    quoteContainer.addEventListener('touchend', (e) => {
+        if (!isSwiping) return;
+        isSwiping = false;
+        
+        const deltaX = endX - startX;
+        const deltaY = endY - startY;
+        
+        // Check if it's a horizontal swipe (minimum 50px distance)
+        if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY)) {
+            if (deltaX > 0) {
+                // Swipe right - go to previous quote
+                const prevIndex = currentQuoteIndex === 0 ? quotes.length - 1 : currentQuoteIndex - 1;
+                displayQuoteByIndex(prevIndex, 'prev');
+            } else {
+                // Swipe left - go to next quote
+                const nextIndex = (currentQuoteIndex + 1) % quotes.length;
+                displayQuoteByIndex(nextIndex, 'next');
+            }
+        }
+    });
+    
+    // Mouse events for desktop (drag)
+    quoteContainer.addEventListener('mousedown', (e) => {
+        startX = e.clientX;
+        startY = e.clientY;
+        isSwiping = true;
+    });
+    
+    quoteContainer.addEventListener('mousemove', (e) => {
+        if (!isSwiping) return;
+        endX = e.clientX;
+        endY = e.clientY;
+    });
+    
+    quoteContainer.addEventListener('mouseup', (e) => {
+        if (!isSwiping) return;
+        isSwiping = false;
+        
+        const deltaX = endX - startX;
+        const deltaY = endY - startY;
+        
+        // Check if it's a horizontal drag (minimum 50px distance)
+        if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY)) {
+            if (deltaX > 0) {
+                // Drag right - go to previous quote
+                const prevIndex = currentQuoteIndex === 0 ? quotes.length - 1 : currentQuoteIndex - 1;
+                displayQuoteByIndex(prevIndex, 'prev');
+            } else {
+                // Drag left - go to next quote
+                const nextIndex = (currentQuoteIndex + 1) % quotes.length;
+                displayQuoteByIndex(nextIndex, 'next');
+            }
+        }
+    });
+    
+    // Prevent text selection during drag
+    quoteContainer.addEventListener('selectstart', (e) => {
+        if (isSwiping) e.preventDefault();
+    });
+}
+
 // Project Management
 function addProject(name, emoji = '🎯') {
     const project = {
@@ -842,6 +963,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load and start quote rotation
     loadQuotes();
     
+    // Setup quote swipe functionality
+    setupQuoteSwipe();
+    
     // Setup sidebar toggle
     setupSidebarToggle();
     
@@ -1106,6 +1230,7 @@ function startTimer(taskId) {
     if (task) {
         task.isTimerRunning = true;
         task.timerStart = new Date().getTime();
+        task.warningShown = false; // Reset warning flag for new timer session
         activeTimer = taskId;
         updateTimerDisplay(taskId);
         saveData();
@@ -1134,6 +1259,7 @@ function stopTimer(taskId) {
         // Reset timer
         task.isTimerRunning = false;
         task.timerStart = null;
+        task.warningShown = false; // Reset warning flag
         activeTimer = null;
         
         saveData();
@@ -1144,10 +1270,27 @@ function stopTimer(taskId) {
 function updateTimerDisplay(taskId) {
     const task = tasks.find(t => t.id === taskId);
     if (task && task.isTimerRunning) {
+        const currentTime = new Date().getTime();
+        const elapsedSeconds = Math.floor((currentTime - task.timerStart) / 1000);
+        
+        // Auto-stop timer if it's been running for more than 3 hours (10800 seconds)
+        if (elapsedSeconds > 10800) {
+            showToast(`Timer auto-stopped for: ${task.title} (3+ hours)`, 'warning', 5000);
+            stopTimer(taskId);
+            return;
+        }
+        
+        // Show warning when approaching 3-hour limit (at 2.5 hours)
+        if (elapsedSeconds > 9000 && elapsedSeconds <= 10800) {
+            // Only show this warning once per timer session
+            if (!task.warningShown) {
+                showToast(`Warning: Timer for "${task.title}" has been running for over 2.5 hours`, 'warning', 4000);
+                task.warningShown = true;
+            }
+        }
+        
         const timerDisplay = document.getElementById(`timer-${taskId}`);
         if (timerDisplay) {
-            const currentTime = new Date().getTime();
-            const elapsedSeconds = Math.floor((currentTime - task.timerStart) / 1000);
             timerDisplay.textContent = formatTime(elapsedSeconds);
             
             requestAnimationFrame(() => updateTimerDisplay(taskId));
