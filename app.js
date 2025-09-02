@@ -7,29 +7,100 @@ let quotes = [];
 let currentQuoteIndex = 0;
 let quoteInterval = null;
 
-// Load data from localStorage
-function loadData() {
-    const savedProjects = localStorage.getItem('projects');
-    const savedTasks = localStorage.getItem('tasks');
-    const savedBacklogItems = localStorage.getItem('backlogItems');
-    
-    projects = savedProjects ? JSON.parse(savedProjects) : [];
-    tasks = savedTasks ? JSON.parse(savedTasks) : [];
-    backlogItems = savedBacklogItems ? JSON.parse(savedBacklogItems) : [];
-    
-    // Clean old Done tasks before rendering
-    cleanOldDoneTasks();
-    
-    renderProjects();
-    renderTasks();
-    renderBacklogItems();
+// Load data from Firebase REST API or localStorage
+async function loadData() {
+    console.log('📥 Loading data from Firebase...');
+    try {
+        if (window.firebaseRESTIntegration) {
+            console.log('🔄 Using Firebase REST API integration');
+            // Load from Firebase via REST API
+            projects = await window.firebaseRESTIntegration.loadData('projects');
+            tasks = await window.firebaseRESTIntegration.loadData('tasks');
+            backlogItems = await window.firebaseRESTIntegration.loadData('backlogItems');
+            timeEntries = await window.firebaseRESTIntegration.loadData('timeEntries');
+            timesheetReviews = await window.firebaseRESTIntegration.loadData('timesheetReviews');
+            
+            console.log(`📊 Loaded data:`, {
+                projects: projects.length,
+                tasks: tasks.length,
+                backlogItems: backlogItems.length,
+                timeEntries: timeEntries.length,
+                timesheetReviews: timesheetReviews.length
+            });
+        } else {
+            console.log('📱 Firebase integration not available, using localStorage');
+            // Fallback to localStorage
+            const savedProjects = localStorage.getItem('projects');
+            const savedTasks = localStorage.getItem('tasks');
+            const savedBacklogItems = localStorage.getItem('backlogItems');
+            const savedTimeEntries = localStorage.getItem('timeEntries');
+            const savedTimesheetReviews = localStorage.getItem('timesheetReviews');
+            
+            projects = savedProjects ? JSON.parse(savedProjects) : [];
+            tasks = savedTasks ? JSON.parse(savedTasks) : [];
+            backlogItems = savedBacklogItems ? JSON.parse(savedBacklogItems) : [];
+            timeEntries = savedTimeEntries ? JSON.parse(savedTimeEntries) : [];
+            timesheetReviews = savedTimesheetReviews ? JSON.parse(savedTimesheetReviews) : [];
+        }
+        
+        // Clean old Done tasks before rendering
+        cleanOldDoneTasks();
+        
+        renderProjects();
+        renderTasks();
+        renderBacklogItems();
+    } catch (error) {
+        console.error('❌ Error loading data:', error);
+        // Fallback to localStorage
+        const savedProjects = localStorage.getItem('projects');
+        const savedTasks = localStorage.getItem('tasks');
+        const savedBacklogItems = localStorage.getItem('backlogItems');
+        const savedTimeEntries = localStorage.getItem('timeEntries');
+        const savedTimesheetReviews = localStorage.getItem('timesheetReviews');
+        
+        projects = savedProjects ? JSON.parse(savedProjects) : [];
+        tasks = savedTasks ? JSON.parse(savedTasks) : [];
+        backlogItems = savedBacklogItems ? JSON.parse(savedBacklogItems) : [];
+        timeEntries = savedTimeEntries ? JSON.parse(savedTimeEntries) : [];
+        timesheetReviews = savedTimesheetReviews ? JSON.parse(savedTimesheetReviews) : [];
+        
+        renderProjects();
+        renderTasks();
+        renderBacklogItems();
+    }
 }
 
-// Save data to localStorage
-function saveData() {
-    localStorage.setItem('projects', JSON.stringify(projects));
-    localStorage.setItem('tasks', JSON.stringify(tasks));
-    localStorage.setItem('backlogItems', JSON.stringify(backlogItems));
+// Save data to Firebase REST API or localStorage
+async function saveData() {
+    console.log('💾 Saving data to Firebase...');
+    try {
+        if (window.firebaseRESTIntegration) {
+            console.log('🔄 Using Firebase REST API integration for saving');
+            // Save to Firebase via REST API
+            await window.firebaseRESTIntegration.saveData('projects', projects);
+            await window.firebaseRESTIntegration.saveData('tasks', tasks);
+            await window.firebaseRESTIntegration.saveData('backlogItems', backlogItems);
+            await window.firebaseRESTIntegration.saveData('timeEntries', timeEntries);
+            await window.firebaseRESTIntegration.saveData('timesheetReviews', timesheetReviews);
+            console.log('✅ All data saved to Firebase successfully');
+        } else {
+            console.log('📱 Firebase integration not available, saving to localStorage');
+            // Fallback to localStorage
+            localStorage.setItem('projects', JSON.stringify(projects));
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            localStorage.setItem('backlogItems', JSON.stringify(backlogItems));
+            localStorage.setItem('timeEntries', JSON.stringify(timeEntries));
+            localStorage.setItem('timesheetReviews', JSON.stringify(timesheetReviews));
+        }
+    } catch (error) {
+        console.error('❌ Error saving data:', error);
+        // Fallback to localStorage
+        localStorage.setItem('projects', JSON.stringify(projects));
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+        localStorage.setItem('backlogItems', JSON.stringify(backlogItems));
+        localStorage.setItem('timeEntries', JSON.stringify(timeEntries));
+        localStorage.setItem('timesheetReviews', JSON.stringify(timesheetReviews));
+    }
 }
 
 // Clean old Done tasks (older than 5 days)
@@ -274,31 +345,60 @@ function setupQuoteSwipe() {
 }
 
 // Project Management
-function addProject(name, emoji = '🎯') {
+async function addProject(name, emoji = '🎯') {
+    console.log(`🆕 Creating new project: ${emoji} ${name}`);
+    
+    // Get current projects from database
+    const existingProjects = await window.firebaseRESTIntegration.loadData('projects');
+    
     const project = {
         id: Date.now(),
         name: name,
         emoji: emoji,
-        position: projects.length * 1000 // Add position for ordering
+        position: existingProjects.length * 1000 // Add position for ordering
     };
-    projects.push(project);
-    saveData();
+    
+    console.log(`📝 Project object created:`, project);
+    
+    // Add project directly to database
+    const updatedProjects = [...existingProjects, project];
+    console.log(`💾 Saving project directly to Firebase...`);
+    await window.firebaseRESTIntegration.saveData('projects', updatedProjects);
+    console.log(`✅ Project saved to database successfully`);
+    
+    // Update local array and render
+    projects = updatedProjects;
     renderProjects();
     
     // Show toast message
     showToast(`Project created: ${emoji} ${name}`, 'success', 4000);
 }
 
-function updateProject(projectId, name, emoji) {
-    const projectIndex = projects.findIndex(p => p.id === projectId);
+async function updateProject(projectId, name, emoji) {
+    console.log(`🔄 Updating project ${projectId} with: ${emoji} ${name}`);
+    
+    // Get current projects from database
+    const existingProjects = await window.firebaseRESTIntegration.loadData('projects');
+    const projectIndex = existingProjects.findIndex(p => p.id === projectId);
+    
     if (projectIndex !== -1) {
-        const oldName = projects[projectIndex].name;
-        projects[projectIndex] = {
-            ...projects[projectIndex],
+        const oldName = existingProjects[projectIndex].name;
+        
+        // Update project in the array
+        const updatedProjects = [...existingProjects];
+        updatedProjects[projectIndex] = {
+            ...updatedProjects[projectIndex],
             name: name,
             emoji: emoji
         };
-        saveData();
+        
+        // Save updated projects directly to database
+        console.log(`💾 Saving updated project to Firebase...`);
+        await window.firebaseRESTIntegration.saveData('projects', updatedProjects);
+        console.log(`✅ Project updated in database successfully`);
+        
+        // Update local array and render
+        projects = updatedProjects;
         renderProjects();
         
         // Update current project if it's the one being edited
@@ -309,22 +409,43 @@ function updateProject(projectId, name, emoji) {
         
         // Show toast message
         showToast(`Project updated: ${emoji} ${name}`, 'success', 4000);
+    } else {
+        console.error(`❌ Project with ID ${projectId} not found`);
     }
 }
 
-function deleteProject(projectId) {
-    const projectIndex = projects.findIndex(p => p.id === projectId);
+async function deleteProject(projectId) {
+    console.log(`🗑️ Deleting project ${projectId}`);
+    
+    // Get current data from database
+    const existingProjects = await window.firebaseRESTIntegration.loadData('projects');
+    const existingTasks = await window.firebaseRESTIntegration.loadData('tasks');
+    const existingBacklogItems = await window.firebaseRESTIntegration.loadData('backlogItems');
+    
+    const projectIndex = existingProjects.findIndex(p => p.id === projectId);
     if (projectIndex !== -1) {
-        const projectName = projects[projectIndex].name;
+        const projectName = existingProjects[projectIndex].name;
         
         // Remove all tasks associated with this project
-        tasks = tasks.filter(task => task.projectId !== projectId);
+        const updatedTasks = existingTasks.filter(task => task.projectId !== projectId);
         
         // Remove all backlog items associated with this project
-        backlogItems = backlogItems.filter(item => item.projectId !== projectId);
+        const updatedBacklogItems = existingBacklogItems.filter(item => item.projectId !== projectId);
         
         // Remove the project
-        projects.splice(projectIndex, 1);
+        const updatedProjects = existingProjects.filter(p => p.id !== projectId);
+        
+        // Save all updated data directly to database
+        console.log(`💾 Saving updated data to Firebase after project deletion...`);
+        await window.firebaseRESTIntegration.saveData('projects', updatedProjects);
+        await window.firebaseRESTIntegration.saveData('tasks', updatedTasks);
+        await window.firebaseRESTIntegration.saveData('backlogItems', updatedBacklogItems);
+        console.log(`✅ Project and associated data deleted from database successfully`);
+        
+        // Update local arrays
+        projects = updatedProjects;
+        tasks = updatedTasks;
+        backlogItems = updatedBacklogItems;
         
         // If the deleted project was selected, switch to "All Tasks"
         if (currentProject && currentProject.id === projectId) {
@@ -332,13 +453,14 @@ function deleteProject(projectId) {
             document.getElementById('currentProjectName').textContent = 'All Tasks';
         }
         
-        saveData();
         renderProjects();
         renderTasks();
         renderBacklogItems();
         
         // Show toast message
         showToast(`Project deleted: ${projectName}`, 'info', 4000);
+    } else {
+        console.error(`❌ Project with ID ${projectId} not found`);
     }
 }
 
@@ -465,7 +587,7 @@ function getDragAfterElement(container, y) {
 }
 
 // Update project positions after drag and drop
-function updateProjectPositions(newIndex, draggedProjectId) {
+async function updateProjectPositions(newIndex, draggedProjectId) {
     // Get all projects except the dragged one
     const otherProjects = projects.filter(p => p.id !== draggedProjectId);
     
@@ -480,7 +602,7 @@ function updateProjectPositions(newIndex, draggedProjectId) {
         project.position = (index + 1) * 1000;
     });
     
-    saveData();
+    await saveData();
     renderProjects();
 }
 
@@ -505,60 +627,117 @@ function selectProject(projectId) {
 }
 
 // Task Management
-function addTask(title, status, dueDate) {
-    // Get the highest position number for the given status
-    const maxPosition = Math.max(0, ...tasks
-        .filter(t => t.status === status)
-        .map(t => t.position || 0));
+async function addTask(title, status, dueDate) {
+    console.log(`🆕 Creating new task: ${title} (${status})`);
     
-    const task = {
-        id: Date.now(),
-        projectId: currentProject ? currentProject.id : null,
-        title,
-        status,
-        dueDate: dueDate || null,
-        position: maxPosition + 1000, // Use increments of 1000 to allow space for reordering
-        timeSpent: 0,
-        createdAt: new Date().toISOString(),
-        timeEntries: [],
-        isTimerRunning: false,
-        timerStart: null
-    };
-    tasks.push(task);
-    saveData();
-    renderTasks();
+    // Check if Firebase integration is available
+    if (!window.firebaseRESTIntegration) {
+        console.error('❌ Firebase integration not available');
+        throw new Error('Firebase integration not available. Please refresh the page.');
+    }
     
-    // Show toast message
-    showToast(`Task created: ${title}`, 'success', 3000);
+    try {
+        // Get the highest position number for the given status from database
+        console.log('📥 Loading existing tasks from database...');
+        const existingTasks = await window.firebaseRESTIntegration.loadData('tasks');
+        console.log(`📊 Found ${existingTasks.length} existing tasks`);
+        
+        const maxPosition = Math.max(0, ...existingTasks
+            .filter(t => t.status === status)
+            .map(t => t.position || 0));
+        
+        const task = {
+            id: Date.now(),
+            projectId: currentProject ? currentProject.id : null,
+            title,
+            status,
+            dueDate: dueDate || null,
+            position: maxPosition + 1000, // Use increments of 1000 to allow space for reordering
+            timeSpent: 0,
+            createdAt: new Date().toISOString(),
+            timeEntries: [],
+            isTimerRunning: false,
+            timerStart: null
+        };
+        
+        console.log(`📝 Task object created:`, task);
+        
+        // Add task directly to database
+        const updatedTasks = [...existingTasks, task];
+        console.log(`💾 Saving task directly to Firebase...`);
+        await window.firebaseRESTIntegration.saveData('tasks', updatedTasks);
+        console.log(`✅ Task saved to database successfully`);
+        
+        // Update local array and render
+        tasks = updatedTasks;
+        renderTasks();
+        
+        // Show toast message
+        showToast(`Task created: ${title}`, 'success', 3000);
+    } catch (error) {
+        console.error('❌ Error in addTask:', error);
+        throw error; // Re-throw to be caught by the form handler
+    }
 }
 
-function updateTask(taskId, updates) {
-    const taskIndex = tasks.findIndex(t => t.id === taskId);
+async function updateTask(taskId, updates) {
+    console.log(`🔄 Updating task ${taskId} with:`, updates);
+    
+    // Get current tasks from database
+    const existingTasks = await window.firebaseRESTIntegration.loadData('tasks');
+    const taskIndex = existingTasks.findIndex(t => t.id === taskId);
+    
     if (taskIndex !== -1) {
-        tasks[taskIndex] = { ...tasks[taskIndex], ...updates };
-        saveData();
+        // Update task in the array
+        const updatedTasks = [...existingTasks];
+        updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], ...updates };
+        
+        // Save updated tasks directly to database
+        console.log(`💾 Saving updated task to Firebase...`);
+        await window.firebaseRESTIntegration.saveData('tasks', updatedTasks);
+        console.log(`✅ Task updated in database successfully`);
+        
+        // Update local array and render
+        tasks = updatedTasks;
         renderTasks();
+    } else {
+        console.error(`❌ Task with ID ${taskId} not found`);
     }
 }
 
 // Handle menu visibility
-function deleteTask(taskId) {
+async function deleteTask(taskId) {
     // Show confirmation dialog
     if (confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
+        console.log(`🗑️ Deleting task ${taskId}`);
+        
         // If timer is running for this task, stop it
         if (activeTimer === taskId) {
-            stopTimer(taskId);
+            await stopTimer(taskId);
         }
         
-        // Remove task from array
-        tasks = tasks.filter(t => t.id !== taskId);
-        saveData();
+        // Get current tasks from database
+        const existingTasks = await window.firebaseRESTIntegration.loadData('tasks');
+        
+        // Remove task from the array
+        const updatedTasks = existingTasks.filter(t => t.id !== taskId);
+        
+        // Save updated tasks directly to database
+        console.log(`💾 Saving updated tasks to Firebase after deletion...`);
+        await window.firebaseRESTIntegration.saveData('tasks', updatedTasks);
+        console.log(`✅ Task deleted from database successfully`);
+        
+        // Update local array and render
+        tasks = updatedTasks;
         renderTasks();
         
         // Close any open menus
         document.querySelectorAll('.menu-dropdown.show').forEach(menu => {
             menu.classList.remove('show');
         });
+        
+        // Show toast message
+        showToast('Task deleted', 'success', 3000);
     }
 }
 
@@ -783,13 +962,54 @@ function createTaskCard(task) {
     
     // Add timer button events
     const timerBtn = card.querySelector('.btn-start-timer, .btn-stop-timer');
-    timerBtn.onclick = (e) => {
+    timerBtn.onclick = async (e) => {
         e.stopPropagation();
         const taskId = parseInt(e.target.closest('button').dataset.taskId);
-        if (task.isTimerRunning) {
-            stopTimer(taskId);
-        } else {
-            startTimer(taskId);
+        
+        console.log(`🔄 Timer button clicked for task ${taskId}`);
+        console.log(`🔍 Firebase integration available:`, !!window.firebaseRESTIntegration);
+        
+        try {
+            // Check current timer state from the database
+            if (window.firebaseRESTIntegration) {
+                console.log(`📡 Loading current tasks from database...`);
+                const currentTasks = await window.firebaseRESTIntegration.loadData('tasks');
+                console.log(`📋 Loaded ${currentTasks.length} tasks from database`);
+                
+                const currentTask = currentTasks.find(t => t.id === taskId);
+                console.log(`🎯 Found task:`, {
+                    id: currentTask?.id,
+                    title: currentTask?.title,
+                    isTimerRunning: currentTask?.isTimerRunning
+                });
+                
+                if (currentTask && currentTask.isTimerRunning) {
+                    console.log(`🛑 Stopping timer for task ${taskId}`);
+                    await stopTimer(taskId);
+                } else {
+                    console.log(`▶️ Starting timer for task ${taskId}`);
+                    await startTimer(taskId);
+                }
+            } else {
+                console.log(`⚠️ Firebase not available, using local state`);
+                // Fallback to local state if Firebase not available
+                if (task.isTimerRunning) {
+                    console.log(`🛑 Stopping timer (local) for task ${taskId}`);
+                    await stopTimer(taskId);
+                } else {
+                    console.log(`▶️ Starting timer (local) for task ${taskId}`);
+                    await startTimer(taskId);
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error handling timer button click:', error);
+            console.error('❌ Error details:', {
+                message: error.message,
+                stack: error.stack,
+                taskId: taskId,
+                firebaseAvailable: !!window.firebaseRESTIntegration
+            });
+            showToast(`Error with timer operation: ${error.message}`, 'error', 5000);
         }
     };
     
@@ -808,14 +1028,31 @@ function openAddTaskModal() {
     // Hide delete button for new tasks
     deleteBtn.style.display = 'none';
     
-    form.onsubmit = (e) => {
+    form.onsubmit = async (e) => {
         e.preventDefault();
+        console.log('📝 Task form submitted');
+        
         const title = document.getElementById('taskTitle').value;
         const status = document.getElementById('taskStatus').value;
         const dueDate = document.getElementById('taskDueDate').value;
         
-        addTask(title, status, dueDate);
-        modal.style.display = 'none';
+        console.log('📋 Form data:', { title, status, dueDate });
+        
+        if (!title.trim()) {
+            console.error('❌ Task title is required');
+            showToast('Task title is required', 'error');
+            return;
+        }
+        
+        try {
+            console.log('🚀 Calling addTask function...');
+            await addTask(title, status, dueDate);
+            console.log('✅ Task creation completed, closing modal');
+            modal.style.display = 'none';
+        } catch (error) {
+            console.error('❌ Error creating task:', error);
+            showToast('Error creating task: ' + error.message, 'error');
+        }
     };
 }
 
@@ -831,16 +1068,16 @@ function openEditTaskModal(task) {
     
     // Show and setup delete button
     deleteBtn.style.display = 'flex';
-    deleteBtn.onclick = () => {
+    deleteBtn.onclick = async () => {
         if (confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
-            deleteTask(task.id);
+            await deleteTask(task.id);
             modal.style.display = 'none';
         }
     };
     
     modal.style.display = 'block';
     
-    form.onsubmit = (e) => {
+    form.onsubmit = async (e) => {
         e.preventDefault();
         const updates = {
             title: document.getElementById('taskTitle').value,
@@ -848,7 +1085,7 @@ function openEditTaskModal(task) {
             dueDate: document.getElementById('taskDueDate').value || null
         };
         
-        updateTask(task.id, updates);
+        await updateTask(task.id, updates);
         modal.style.display = 'none';
     };
 }
@@ -873,11 +1110,11 @@ function openAddProjectModal() {
     setupEmojiPicker('🎯');
     
     // Set form submission for adding
-    form.onsubmit = (e) => {
+    form.onsubmit = async (e) => {
         e.preventDefault();
         const name = document.getElementById('projectName').value;
         const emoji = document.getElementById('selectedEmoji').textContent || '🎯';
-        addProject(name, emoji);
+        await addProject(name, emoji);
         modal.style.display = 'none';
     };
 }
@@ -902,18 +1139,18 @@ function openEditProjectModal(project) {
     setupEmojiPicker(project.emoji || '🎯');
     
     // Set form submission for editing
-    form.onsubmit = (e) => {
+    form.onsubmit = async (e) => {
         e.preventDefault();
         const name = nameInput.value;
         const emoji = document.getElementById('selectedEmoji').textContent || '🎯';
-        updateProject(project.id, name, emoji);
+        await updateProject(project.id, name, emoji);
         modal.style.display = 'none';
     };
     
     // Set delete button functionality
-    deleteBtn.onclick = () => {
+    deleteBtn.onclick = async () => {
         if (confirm(`Are you sure you want to delete the project "${project.name}"? This will also delete all associated tasks and backlog items.`)) {
-            deleteProject(project.id);
+            await deleteProject(project.id);
             modal.style.display = 'none';
         }
     };
@@ -957,8 +1194,28 @@ function setupEmojiPicker(initialEmoji = '🎯') {
 }
 
 // Event Listeners
-document.addEventListener('DOMContentLoaded', () => {
-    loadData();
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🚀 DOM Content Loaded - Initializing TimeTracker...');
+    
+    // Wait for Firebase integration to be available
+    let attempts = 0;
+    const maxAttempts = 50; // Wait up to 5 seconds (50 * 100ms)
+    
+    while (!window.firebaseRESTIntegration && attempts < maxAttempts) {
+        console.log(`⏳ Waiting for Firebase integration... (attempt ${attempts + 1}/${maxAttempts})`);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+    }
+    
+    // Check if Firebase integration is available
+    if (window.firebaseRESTIntegration) {
+        console.log('✅ Firebase REST integration is available');
+    } else {
+        console.error('❌ Firebase REST integration is NOT available after waiting');
+        console.log('Available window objects:', Object.keys(window).filter(key => key.includes('firebase')));
+    }
+    
+    await loadData();
     
     // Load and start quote rotation
     loadQuotes();
@@ -968,6 +1225,288 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Setup sidebar toggle
     setupSidebarToggle();
+    
+    // Add global test functions for debugging
+    window.testTaskCreation = async () => {
+        console.log('🧪 Testing task creation...');
+        try {
+            await addTask('Test Task', 'To Do', null);
+            console.log('✅ Test task creation successful');
+        } catch (error) {
+            console.error('❌ Test task creation failed:', error);
+        }
+    };
+    
+    window.testTimer = async (taskId) => {
+        console.log('🧪 Testing timer operations...');
+        try {
+            if (!taskId) {
+                // Find the first task
+                const firstTask = tasks[0];
+                if (firstTask) {
+                    taskId = firstTask.id;
+                    console.log(`Using first task: ${firstTask.title} (ID: ${taskId})`);
+                } else {
+                    console.error('❌ No tasks available for timer test');
+                    return;
+                }
+            }
+            
+            console.log(`Starting timer for task ${taskId}...`);
+            await startTimer(taskId);
+            
+            setTimeout(async () => {
+                console.log(`Stopping timer for task ${taskId}...`);
+                await stopTimer(taskId);
+                console.log('✅ Timer test completed');
+            }, 3000); // Stop after 3 seconds
+            
+        } catch (error) {
+            console.error('❌ Timer test failed:', error);
+        }
+    };
+    
+    window.debugTimer = async (taskId) => {
+        console.log('🔍 Debugging timer state...');
+        try {
+            if (!taskId) {
+                const firstTask = tasks[0];
+                if (firstTask) {
+                    taskId = firstTask.id;
+                } else {
+                    console.error('❌ No tasks available');
+                    return;
+                }
+            }
+            
+            // Check local state
+            const localTask = tasks.find(t => t.id === taskId);
+            console.log('📱 Local task state:', {
+                id: localTask?.id,
+                title: localTask?.title,
+                isTimerRunning: localTask?.isTimerRunning,
+                timerStart: localTask?.timerStart
+            });
+            
+            // Check database state
+            if (window.firebaseRESTIntegration) {
+                const dbTasks = await window.firebaseRESTIntegration.loadData('tasks');
+                const dbTask = dbTasks.find(t => t.id === taskId);
+                console.log('🗄️ Database task state:', {
+                    id: dbTask?.id,
+                    title: dbTask?.title,
+                    isTimerRunning: dbTask?.isTimerRunning,
+                    timerStart: dbTask?.timerStart
+                });
+            }
+            
+            console.log('⏰ Active timer:', activeTimer);
+            
+        } catch (error) {
+            console.error('❌ Debug failed:', error);
+        }
+    };
+    
+    window.testTimerButton = async (taskId) => {
+        console.log('🧪 Testing timer button functionality...');
+        try {
+            if (!taskId) {
+                const firstTask = tasks[0];
+                if (firstTask) {
+                    taskId = firstTask.id;
+                    console.log(`Using first task: ${firstTask.title} (ID: ${taskId})`);
+                } else {
+                    console.error('❌ No tasks available for timer test');
+                    return;
+                }
+            }
+            
+            console.log(`🔄 Simulating timer button click for task ${taskId}`);
+            
+            // Simulate the timer button click logic
+            if (window.firebaseRESTIntegration) {
+                console.log(`📡 Loading current tasks from database...`);
+                const currentTasks = await window.firebaseRESTIntegration.loadData('tasks');
+                console.log(`📋 Loaded ${currentTasks.length} tasks from database`);
+                
+                const currentTask = currentTasks.find(t => t.id === taskId);
+                console.log(`🎯 Found task:`, {
+                    id: currentTask?.id,
+                    title: currentTask?.title,
+                    isTimerRunning: currentTask?.isTimerRunning
+                });
+                
+                if (currentTask && currentTask.isTimerRunning) {
+                    console.log(`🛑 Would stop timer for task ${taskId}`);
+                    // await stopTimer(taskId);
+                } else {
+                    console.log(`▶️ Would start timer for task ${taskId}`);
+                    // await startTimer(taskId);
+                }
+            } else {
+                console.error('❌ Firebase integration not available');
+            }
+            
+        } catch (error) {
+            console.error('❌ Timer button test failed:', error);
+        }
+    };
+    
+    window.fixTaskProperties = async () => {
+        console.log('🔧 Fixing task properties...');
+        try {
+            if (!window.firebaseRESTIntegration) {
+                console.error('❌ Firebase integration not available');
+                return;
+            }
+            
+            const existingTasks = await window.firebaseRESTIntegration.loadData('tasks');
+            let needsUpdate = false;
+            
+            const fixedTasks = existingTasks.map(task => {
+                const fixedTask = { ...task };
+                
+                // Initialize missing properties
+                if (!fixedTask.timeEntries) {
+                    fixedTask.timeEntries = [];
+                    needsUpdate = true;
+                    console.log(`📝 Fixed timeEntries for task: ${fixedTask.title}`);
+                }
+                
+                if (fixedTask.timeSpent === undefined) {
+                    fixedTask.timeSpent = 0;
+                    needsUpdate = true;
+                    console.log(`📝 Fixed timeSpent for task: ${fixedTask.title}`);
+                }
+                
+                if (fixedTask.isTimerRunning === undefined) {
+                    fixedTask.isTimerRunning = false;
+                    needsUpdate = true;
+                    console.log(`📝 Fixed isTimerRunning for task: ${fixedTask.title}`);
+                }
+                
+                if (fixedTask.timerStart === undefined) {
+                    fixedTask.timerStart = null;
+                    needsUpdate = true;
+                    console.log(`📝 Fixed timerStart for task: ${fixedTask.title}`);
+                }
+                
+                return fixedTask;
+            });
+            
+            if (needsUpdate) {
+                console.log('💾 Saving fixed tasks to database...');
+                await window.firebaseRESTIntegration.saveData('tasks', fixedTasks);
+                tasks = fixedTasks;
+                console.log('✅ Task properties fixed and saved');
+            } else {
+                console.log('✅ All tasks already have correct properties');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error fixing task properties:', error);
+        }
+    };
+    
+    window.testBacklogOperations = async () => {
+        console.log('🧪 Testing backlog operations...');
+        try {
+            if (!window.firebaseRESTIntegration) {
+                console.error('❌ Firebase integration not available');
+                return;
+            }
+            
+            // Test adding a backlog item
+            console.log('📝 Testing backlog item creation...');
+            const testBacklogItem = {
+                id: Date.now(),
+                text: 'Test Backlog Item',
+                projectId: currentProject ? currentProject.id : null,
+                createdAt: new Date().toISOString(),
+                status: 'Backlog'
+            };
+            
+            const existingBacklogItems = await window.firebaseRESTIntegration.loadData('backlogItems');
+            const updatedBacklogItems = [...existingBacklogItems, testBacklogItem];
+            
+            await window.firebaseRESTIntegration.saveData('backlogItems', updatedBacklogItems);
+            console.log('✅ Test backlog item created');
+            
+            // Test converting to task
+            console.log('🔄 Testing backlog to task conversion...');
+            await convertBacklogToTask(testBacklogItem.id);
+            console.log('✅ Test backlog item converted to task');
+            
+        } catch (error) {
+            console.error('❌ Backlog operations test failed:', error);
+        }
+    };
+    
+    window.debugBacklogButtons = () => {
+        console.log('🔍 Debugging backlog buttons...');
+        const backlogItems = document.querySelectorAll('.backlog-item');
+        console.log(`📋 Found ${backlogItems.length} backlog items in DOM`);
+        
+        backlogItems.forEach((item, index) => {
+            const itemId = item.dataset.itemId;
+            const convertBtn = item.querySelector('.convert-btn');
+            const deleteBtn = item.querySelector('.delete-btn');
+            
+            console.log(`📝 Backlog item ${index + 1}:`, {
+                itemId: itemId,
+                hasConvertBtn: !!convertBtn,
+                hasDeleteBtn: !!deleteBtn,
+                convertBtnDataId: convertBtn?.dataset.itemId,
+                deleteBtnDataId: deleteBtn?.dataset.itemId
+            });
+        });
+        
+        // Check if event listeners are attached
+        const allConvertBtns = document.querySelectorAll('.backlog-action-btn.convert-btn');
+        const allDeleteBtns = document.querySelectorAll('.backlog-action-btn.delete-btn');
+        
+        console.log(`🔘 Convert buttons found: ${allConvertBtns.length}`);
+        console.log(`🔘 Delete buttons found: ${allDeleteBtns.length}`);
+    };
+    
+    window.debugSidebar = () => {
+        console.log('🔍 Debugging sidebar...');
+        const sidebar = document.querySelector('.sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        
+        console.log('📱 Sidebar elements:', {
+            sidebar: !!sidebar,
+            sidebarToggle: !!sidebarToggle,
+            sidebarCollapsed: sidebar?.classList.contains('collapsed')
+        });
+        
+        if (sidebar) {
+            console.log('📏 Sidebar styles:', {
+                width: getComputedStyle(sidebar).width,
+                display: getComputedStyle(sidebar).display,
+                visibility: getComputedStyle(sidebar).visibility
+            });
+        }
+        
+        if (sidebarToggle) {
+            const icon = sidebarToggle.querySelector('i');
+            console.log('🔘 Toggle button:', {
+                icon: icon?.className,
+                title: sidebarToggle.title
+            });
+        }
+        
+        // Test toggle functionality
+        if (sidebar && sidebarToggle) {
+            console.log('🧪 Testing sidebar toggle...');
+            const wasCollapsed = sidebar.classList.contains('collapsed');
+            sidebarToggle.click();
+            setTimeout(() => {
+                const isCollapsed = sidebar.classList.contains('collapsed');
+                console.log(`✅ Toggle test: ${wasCollapsed ? 'collapsed' : 'expanded'} → ${isCollapsed ? 'collapsed' : 'expanded'}`);
+            }, 100);
+        }
+    };
     
     // Setup cancel button for task modal
     document.getElementById('cancelTaskBtn').onclick = () => {
@@ -1078,14 +1617,42 @@ function renderBacklogItems() {
         backlogItemElement.innerHTML = `
             <div class="backlog-text">${displayText}</div>
             <div class="backlog-actions">
-                <button class="backlog-action-btn convert-btn" onclick="convertBacklogToTask(${item.id})" title="Convert to Task">
+                <button class="backlog-action-btn convert-btn" data-item-id="${item.id}" title="Convert to Task">
                     <i class="fas fa-arrow-right"></i>
                 </button>
-                <button class="backlog-action-btn delete-btn" onclick="deleteBacklogItem(${item.id})" title="Delete">
+                <button class="backlog-action-btn delete-btn" data-item-id="${item.id}" title="Delete">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
         `;
+        
+        // Add event listeners for the buttons
+        const convertBtn = backlogItemElement.querySelector('.convert-btn');
+        const deleteBtn = backlogItemElement.querySelector('.delete-btn');
+        
+        convertBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const itemId = parseInt(e.target.closest('button').dataset.itemId);
+            console.log(`🔄 Convert button clicked for backlog item ${itemId}`);
+            try {
+                await convertBacklogToTask(itemId);
+            } catch (error) {
+                console.error('❌ Error converting backlog item:', error);
+                showToast('Error converting backlog item', 'error', 3000);
+            }
+        });
+        
+        deleteBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const itemId = parseInt(e.target.closest('button').dataset.itemId);
+            console.log(`🗑️ Delete button clicked for backlog item ${itemId}`);
+            try {
+                await deleteBacklogItem(itemId);
+            } catch (error) {
+                console.error('❌ Error deleting backlog item:', error);
+                showToast('Error deleting backlog item', 'error', 3000);
+            }
+        });
         
         backlogContainer.appendChild(backlogItemElement);
     });
@@ -1104,48 +1671,113 @@ function updateBacklogInputPlaceholder() {
 }
 
 // Convert backlog item to task
-function convertBacklogToTask(backlogItemId) {
-    const backlogItem = backlogItems.find(item => item.id === backlogItemId);
-    if (backlogItem) {
-        // Create a new task from the backlog item
-        const newTask = {
-            id: Date.now(),
-            title: backlogItem.text,
-            status: 'To Do', // Default status when converting
-            projectId: backlogItem.projectId,
-            createdAt: new Date().toISOString(),
-            timeSpent: 0,
-            timeEntries: [],
-            isTimerRunning: false,
-            timerStart: null,
-            dueDate: null
-        };
+async function convertBacklogToTask(backlogItemId) {
+    console.log(`🔄 Converting backlog item ${backlogItemId} to task`);
+    
+    // Check if Firebase integration is available
+    if (!window.firebaseRESTIntegration) {
+        console.error('❌ Firebase integration not available');
+        throw new Error('Firebase integration not available. Please refresh the page.');
+    }
+    
+    try {
+        // Get current data from database
+        const [existingTasks, existingBacklogItems] = await Promise.all([
+            window.firebaseRESTIntegration.loadData('tasks'),
+            window.firebaseRESTIntegration.loadData('backlogItems')
+        ]);
         
-        // Add the task
-        tasks.push(newTask);
-        
-        // Remove the backlog item
-        deleteBacklogItem(backlogItemId);
-        
-        // Save data and re-render
-        saveData();
-        renderTasks();
-        
-        // Show success feedback
-        showToast('Backlog item converted to task successfully!', 'success', 3000);
+        const backlogItem = existingBacklogItems.find(item => item.id === backlogItemId);
+        if (backlogItem) {
+            console.log(`📝 Converting backlog item: ${backlogItem.text}`);
+            
+            // Get the highest position number for "To Do" status
+            const maxPosition = Math.max(0, ...existingTasks
+                .filter(t => t.status === 'To Do')
+                .map(t => t.position || 0));
+            
+            // Create a new task from the backlog item
+            const newTask = {
+                id: Date.now(),
+                title: backlogItem.text,
+                status: 'To Do', // Default status when converting
+                projectId: backlogItem.projectId,
+                position: maxPosition + 1000,
+                createdAt: new Date().toISOString(),
+                timeSpent: 0,
+                timeEntries: [],
+                isTimerRunning: false,
+                timerStart: null,
+                dueDate: null
+            };
+            
+            // Add the task to the tasks array
+            const updatedTasks = [...existingTasks, newTask];
+            
+            // Remove the backlog item
+            const updatedBacklogItems = existingBacklogItems.filter(item => item.id !== backlogItemId);
+            
+            // Save both updated arrays to database
+            console.log(`💾 Saving updated tasks and backlog items to Firebase...`);
+            await Promise.all([
+                window.firebaseRESTIntegration.saveData('tasks', updatedTasks),
+                window.firebaseRESTIntegration.saveData('backlogItems', updatedBacklogItems)
+            ]);
+            
+            // Update local arrays and re-render
+            tasks = updatedTasks;
+            backlogItems = updatedBacklogItems;
+            renderTasks();
+            renderBacklogItems();
+            
+            console.log(`✅ Backlog item converted to task successfully`);
+            showToast('Backlog item converted to task successfully!', 'success', 3000);
+        } else {
+            console.error(`❌ Backlog item with ID ${backlogItemId} not found`);
+        }
+    } catch (error) {
+        console.error('❌ Error converting backlog item to task:', error);
+        throw error;
     }
 }
 
 // Delete backlog item
-function deleteBacklogItem(backlogItemId) {
-    const index = backlogItems.findIndex(item => item.id === backlogItemId);
-    if (index !== -1) {
-        backlogItems.splice(index, 1);
-        saveData();
-        renderBacklogItems();
+async function deleteBacklogItem(backlogItemId) {
+    console.log(`🗑️ Deleting backlog item ${backlogItemId}`);
+    
+    // Check if Firebase integration is available
+    if (!window.firebaseRESTIntegration) {
+        console.error('❌ Firebase integration not available');
+        throw new Error('Firebase integration not available. Please refresh the page.');
+    }
+    
+    try {
+        // Get current backlog items from database
+        const existingBacklogItems = await window.firebaseRESTIntegration.loadData('backlogItems');
+        const backlogItem = existingBacklogItems.find(item => item.id === backlogItemId);
         
-        // Show success feedback
-        showToast('Backlog item deleted successfully!', 'success', 3000);
+        if (backlogItem) {
+            console.log(`📝 Deleting backlog item: ${backlogItem.text}`);
+            
+            // Remove the backlog item
+            const updatedBacklogItems = existingBacklogItems.filter(item => item.id !== backlogItemId);
+            
+            // Save updated array to database
+            console.log(`💾 Saving updated backlog items to Firebase...`);
+            await window.firebaseRESTIntegration.saveData('backlogItems', updatedBacklogItems);
+            
+            // Update local array and re-render
+            backlogItems = updatedBacklogItems;
+            renderBacklogItems();
+            
+            console.log(`✅ Backlog item deleted successfully`);
+            showToast('Backlog item deleted successfully!', 'success', 3000);
+        } else {
+            console.error(`❌ Backlog item with ID ${backlogItemId} not found`);
+        }
+    } catch (error) {
+        console.error('❌ Error deleting backlog item:', error);
+        throw error;
     }
 }
 
@@ -1220,50 +1852,134 @@ function showToast(message, type = 'info', duration = 4000) {
 }
 
 // Timer Functions
-function startTimer(taskId) {
-    // Stop any running timer first
-    if (activeTimer) {
-        stopTimer(activeTimer);
+async function startTimer(taskId) {
+    console.log(`▶️ Starting timer for task ${taskId}`);
+    
+    // Check if Firebase integration is available
+    if (!window.firebaseRESTIntegration) {
+        console.error('❌ Firebase integration not available');
+        throw new Error('Firebase integration not available. Please refresh the page.');
     }
+    
+    try {
+        // Stop any running timer first
+        if (activeTimer) {
+            console.log(`⏹️ Stopping previous timer for task ${activeTimer}`);
+            await stopTimer(activeTimer);
+        }
 
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-        task.isTimerRunning = true;
-        task.timerStart = new Date().getTime();
-        task.warningShown = false; // Reset warning flag for new timer session
-        activeTimer = taskId;
-        updateTimerDisplay(taskId);
-        saveData();
-        renderTasks();
+        // Get current tasks from database
+        const existingTasks = await window.firebaseRESTIntegration.loadData('tasks');
+        const taskIndex = existingTasks.findIndex(t => t.id === taskId);
         
-        // Show toast message
-        showToast(`Timer started for: ${task.title}`, 'success', 3000);
+        if (taskIndex !== -1) {
+            const task = existingTasks[taskIndex];
+            
+            // Initialize missing properties if they don't exist
+            if (!task.timeEntries) {
+                task.timeEntries = [];
+                console.log(`📝 Initialized timeEntries array for task ${taskId}`);
+            }
+            if (task.timeSpent === undefined) {
+                task.timeSpent = 0;
+                console.log(`📝 Initialized timeSpent for task ${taskId}`);
+            }
+            
+            // Update task with timer state
+            task.isTimerRunning = true;
+            task.timerStart = new Date().getTime();
+            task.warningShown = false; // Reset warning flag for new timer session
+            activeTimer = taskId;
+            
+            // Update the task in the array
+            const updatedTasks = [...existingTasks];
+            updatedTasks[taskIndex] = task;
+            
+            // Save updated tasks directly to database
+            console.log(`💾 Saving updated task with timer state to Firebase...`);
+            await window.firebaseRESTIntegration.saveData('tasks', updatedTasks);
+            console.log(`✅ Timer started and data saved to database successfully`);
+            
+            // Update local array and render
+            tasks = updatedTasks;
+            updateTimerDisplay(taskId);
+            renderTasks();
+            
+            // Show toast message
+            showToast(`Timer started for: ${task.title}`, 'success', 3000);
+        } else {
+            console.error(`❌ Task with ID ${taskId} not found`);
+        }
+    } catch (error) {
+        console.error('❌ Error starting timer:', error);
+        throw error;
     }
 }
 
-function stopTimer(taskId) {
-    const task = tasks.find(t => t.id === taskId);
-    if (task && task.isTimerRunning) {
-        const endTime = new Date().getTime();
-        const duration = (endTime - task.timerStart) / 1000; // Convert to seconds
+async function stopTimer(taskId) {
+    console.log(`⏹️ Stopping timer for task ${taskId}`);
+    
+    // Check if Firebase integration is available
+    if (!window.firebaseRESTIntegration) {
+        console.error('❌ Firebase integration not available');
+        throw new Error('Firebase integration not available. Please refresh the page.');
+    }
+    
+    try {
+        // Get current tasks from database
+        const existingTasks = await window.firebaseRESTIntegration.loadData('tasks');
+        const taskIndex = existingTasks.findIndex(t => t.id === taskId);
         
-        // Add time entry
-        task.timeEntries.push({
-            date: new Date().toISOString(),
-            duration: duration
-        });
+        if (taskIndex !== -1 && existingTasks[taskIndex].isTimerRunning) {
+            const task = existingTasks[taskIndex];
+            const endTime = new Date().getTime();
+            const duration = (endTime - task.timerStart) / 1000; // Convert to seconds
+            
+            console.log(`⏱️ Timer duration: ${duration} seconds`);
+            
+            // Initialize timeEntries if it doesn't exist
+            if (!task.timeEntries) {
+                task.timeEntries = [];
+                console.log(`📝 Initialized timeEntries array for task ${taskId}`);
+            }
+            
+            // Add time entry
+            const timeEntry = {
+                date: new Date().toISOString(),
+                duration: duration
+            };
+            task.timeEntries.push(timeEntry);
 
-        // Update total time spent
-        task.timeSpent += duration / 3600; // Convert seconds to hours
-        
-        // Reset timer
-        task.isTimerRunning = false;
-        task.timerStart = null;
-        task.warningShown = false; // Reset warning flag
-        activeTimer = null;
-        
-        saveData();
-        renderTasks();
+            // Update total time spent
+            task.timeSpent += duration / 3600; // Convert seconds to hours
+            
+            // Reset timer
+            task.isTimerRunning = false;
+            task.timerStart = null;
+            task.warningShown = false; // Reset warning flag
+            activeTimer = null;
+            
+            // Update the task in the array
+            const updatedTasks = [...existingTasks];
+            updatedTasks[taskIndex] = task;
+            
+            // Save updated tasks directly to database
+            console.log(`💾 Saving updated task with timer data to Firebase...`);
+            await window.firebaseRESTIntegration.saveData('tasks', updatedTasks);
+            console.log(`✅ Timer stopped and data saved to database successfully`);
+            
+            // Update local array and render
+            tasks = updatedTasks;
+            renderTasks();
+            
+            // Show toast message
+            showToast(`Timer stopped: ${formatTime(duration)}`, 'success', 3000);
+        } else {
+            console.log(`ℹ️ Task ${taskId} not found or timer not running`);
+        }
+    } catch (error) {
+        console.error('❌ Error stopping timer:', error);
+        throw error;
     }
 }
 
@@ -1555,32 +2271,59 @@ function saveTimesheetReview() {
 }
 
 // Add backlog item function
-function addBacklogItem(status) {
+async function addBacklogItem(status) {
+    console.log(`📝 Adding backlog item to ${status}`);
+    
     const input = document.querySelector(`.backlog-input[data-status="${status}"]`);
     const itemText = input.value.trim();
     
     if (itemText) {
-        const backlogItem = {
-            id: Date.now(),
-            text: itemText,
-            projectId: currentProject ? currentProject.id : null,
-            createdAt: new Date().toISOString(),
-            status: status
-        };
+        // Check if Firebase integration is available
+        if (!window.firebaseRESTIntegration) {
+            console.error('❌ Firebase integration not available');
+            throw new Error('Firebase integration not available. Please refresh the page.');
+        }
         
-        backlogItems.push(backlogItem);
-        saveData();
-        renderBacklogItems();
-        
-        // Show toast message with project context
-        const projectName = currentProject ? currentProject.name : 'All Tasks';
-        showToast(`Backlog item added to ${projectName}: ${itemText}`, 'success', 3000);
-        
-        // Clear the input field
-        input.value = '';
-        
-        // Focus back to the input for quick adding
-        input.focus();
+        try {
+            // Get current backlog items from database
+            const existingBacklogItems = await window.firebaseRESTIntegration.loadData('backlogItems');
+            
+            const backlogItem = {
+                id: Date.now(),
+                text: itemText,
+                projectId: currentProject ? currentProject.id : null,
+                createdAt: new Date().toISOString(),
+                status: status
+            };
+            
+            console.log(`📝 Creating backlog item: ${itemText}`);
+            
+            // Add the new backlog item to the array
+            const updatedBacklogItems = [...existingBacklogItems, backlogItem];
+            
+            // Save updated array to database
+            console.log(`💾 Saving updated backlog items to Firebase...`);
+            await window.firebaseRESTIntegration.saveData('backlogItems', updatedBacklogItems);
+            
+            // Update local array and re-render
+            backlogItems = updatedBacklogItems;
+            renderBacklogItems();
+            
+            // Show toast message with project context
+            const projectName = currentProject ? currentProject.name : 'All Tasks';
+            showToast(`Backlog item added to ${projectName}: ${itemText}`, 'success', 3000);
+            
+            // Clear the input field
+            input.value = '';
+            
+            // Focus back to the input for quick adding
+            input.focus();
+            
+            console.log(`✅ Backlog item added successfully`);
+        } catch (error) {
+            console.error('❌ Error adding backlog item:', error);
+            throw error;
+        }
     }
 }
 
@@ -1625,19 +2368,32 @@ function setupSidebarToggle() {
     const sidebarToggle = document.getElementById('sidebarToggle');
     const sidebar = document.querySelector('.sidebar');
     
+    console.log('🔧 Setting up sidebar toggle...');
+    console.log('📱 Toggle button:', !!sidebarToggle);
+    console.log('📱 Sidebar element:', !!sidebar);
+    
     if (sidebarToggle && sidebar) {
-        sidebarToggle.addEventListener('click', () => {
+        sidebarToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.log('🖱️ Sidebar toggle clicked');
+            
             sidebar.classList.toggle('collapsed');
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            console.log('🔄 Sidebar toggled, collapsed:', isCollapsed);
             
             // Update button icon
             const icon = sidebarToggle.querySelector('i');
-            if (sidebar.classList.contains('collapsed')) {
-                icon.className = 'fas fa-chevron-right';
-                sidebarToggle.title = 'Show Sidebar';
-            } else {
-                icon.className = 'fas fa-bars';
-                sidebarToggle.title = 'Hide Sidebar';
+            if (icon) {
+                icon.className = isCollapsed ? 'fas fa-bars' : 'fas fa-chevron-left';
+                sidebarToggle.title = isCollapsed ? 'Show Sidebar' : 'Hide Sidebar';
             }
         });
+        
+        // Initial icon update
+        const icon = sidebarToggle.querySelector('i');
+        if (icon) {
+            icon.className = 'fas fa-chevron-left';
+            sidebarToggle.title = 'Hide Sidebar';
+        }
     }
 }

@@ -6,7 +6,13 @@
     <title>TimeTracker - Task Management</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Firebase REST API Integration - No SDK Required -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <!-- Firebase Configuration -->
+    <script src="firebase-config.js"></script>
+    <script src="firebase-rest-integration.js"></script>
 </head>
 <body>
     <!-- Inspiring Quote Section -->
@@ -16,10 +22,17 @@
             <div class="quote-author" id="quoteAuthor"></div>
         </div>
     </div>
+
+
     
     <div class="container">
         <aside class="sidebar">
-            <h2>TimeTracker</h2>
+            <div class="sidebar-header">
+                <h2>TimeTracker</h2>
+            </div>
+            
+
+            
             <div class="projects-section">
                 <h3>Projects</h3>
                 <ul id="projectsList">
