@@ -876,12 +876,37 @@ function renderTasks() {
         ? tasks.filter(task => task.projectId === currentProject.id)
         : tasks;
     
-    // Group tasks by status and sort by position
+    // Group tasks by status and sort by position or deadline
     const groupedTasks = {};
     Object.keys(containers).forEach(status => {
-        groupedTasks[status] = filteredTasks
-            .filter(task => task.status === status)
-            .sort((a, b) => (a.position || 0) - (b.position || 0));
+        let statusTasks = filteredTasks.filter(task => task.status === status);
+        
+        if (isSortedByDeadline) {
+            // Sort by deadline (tasks with due dates first, then by date, then by position)
+            statusTasks.sort((a, b) => {
+                // Tasks without due dates go to the end
+                if (!a.dueDate && !b.dueDate) {
+                    return (a.position || 0) - (b.position || 0);
+                }
+                if (!a.dueDate) return 1;
+                if (!b.dueDate) return -1;
+                
+                // Sort by due date
+                const dateA = new Date(a.dueDate);
+                const dateB = new Date(b.dueDate);
+                if (dateA.getTime() !== dateB.getTime()) {
+                    return dateA - dateB;
+                }
+                
+                // If same date, sort by position
+                return (a.position || 0) - (b.position || 0);
+            });
+        } else {
+            // Default sort by position
+            statusTasks.sort((a, b) => (a.position || 0) - (b.position || 0));
+        }
+        
+        groupedTasks[status] = statusTasks;
     });
     
     // Render tasks in their respective columns
@@ -1069,10 +1094,8 @@ function openEditTaskModal(task) {
     // Show and setup delete button
     deleteBtn.style.display = 'flex';
     deleteBtn.onclick = async () => {
-        if (confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
-            await deleteTask(task.id);
-            modal.style.display = 'none';
-        }
+        await deleteTask(task.id);
+        modal.style.display = 'none';
     };
     
     modal.style.display = 'block';
@@ -1225,6 +1248,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Setup sidebar toggle
     setupSidebarToggle();
+    
+    // Setup sort button
+    setupSortButton();
     
     // Add global test functions for debugging
     window.testTaskCreation = async () => {
@@ -1508,6 +1534,91 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
     
+    window.debugTimesheetReview = async () => {
+        console.log('🔍 Debugging timesheet review...');
+        
+        // Check Firebase integration availability
+        console.log('📋 Firebase integration available:', !!window.firebaseRESTIntegration);
+        
+        if (!window.firebaseRESTIntegration) {
+            console.error('❌ Firebase integration not available!');
+            return;
+        }
+        
+        // Test Firebase connection
+        try {
+            console.log('📋 Testing Firebase connection...');
+            const reviews = await window.firebaseRESTIntegration.loadData('timesheetReviews');
+            console.log('📋 All reviews from Firebase:', reviews);
+        } catch (error) {
+            console.error('❌ Error loading reviews from Firebase:', error);
+        }
+        
+        // Test current project context
+        console.log('📋 Current project:', currentProject);
+        
+        // Test date handling
+        const today = new Date();
+        console.log('📋 Today\'s date:', today);
+        
+        // Test loading existing review
+        try {
+            const existingReview = await loadExistingReview(today);
+            console.log('📋 Existing review for today:', existingReview);
+        } catch (error) {
+            console.error('❌ Error loading existing review:', error);
+        }
+        
+        // Test saving a review
+        try {
+            console.log('📋 Testing review save...');
+            const testReview = {
+                id: Date.now(),
+                text: 'Test review from debug function',
+                date: today.toISOString(),
+                projectId: currentProject ? currentProject.id : null,
+                createdAt: new Date().toISOString()
+            };
+            
+            const savedReviews = await window.firebaseRESTIntegration.loadData('timesheetReviews') || [];
+            savedReviews.push(testReview);
+            await window.firebaseRESTIntegration.saveData('timesheetReviews', savedReviews);
+            console.log('✅ Test review saved successfully');
+        } catch (error) {
+            console.error('❌ Error saving test review:', error);
+        }
+    };
+    
+    window.debugFirebaseConnection = async () => {
+        console.log('🔍 Debugging Firebase connection...');
+        
+        if (!window.firebaseRESTIntegration) {
+            console.error('❌ Firebase integration not available!');
+            return;
+        }
+        
+        try {
+            console.log('📋 Testing Firebase connection...');
+            const result = await window.firebaseRESTIntegration.testConnection();
+            console.log('📋 Firebase connection test result:', result);
+        } catch (error) {
+            console.error('❌ Firebase connection test failed:', error);
+        }
+        
+        try {
+            console.log('📋 Testing data save...');
+            const testData = { test: 'data', timestamp: Date.now() };
+            await window.firebaseRESTIntegration.saveData('test', [testData]);
+            console.log('✅ Test data saved successfully');
+            
+            console.log('📋 Testing data load...');
+            const loadedData = await window.firebaseRESTIntegration.loadData('test');
+            console.log('📋 Test data loaded:', loadedData);
+        } catch (error) {
+            console.error('❌ Firebase data operations failed:', error);
+        }
+    };
+    
     // Setup cancel button for task modal
     document.getElementById('cancelTaskBtn').onclick = () => {
         document.getElementById('taskModal').style.display = 'none';
@@ -1531,16 +1642,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('boardViewBtn').onclick = () => {
         document.getElementById('boardView').style.display = 'flex';
         document.getElementById('timesheetView').style.display = 'none';
+        document.getElementById('reviewsView').style.display = 'none';
         document.getElementById('boardViewBtn').classList.add('active');
         document.getElementById('timesheetViewBtn').classList.remove('active');
+        document.getElementById('reviewsViewBtn').classList.remove('active');
     };
 
     document.getElementById('timesheetViewBtn').onclick = () => {
         document.getElementById('boardView').style.display = 'none';
         document.getElementById('timesheetView').style.display = 'block';
+        document.getElementById('reviewsView').style.display = 'none';
         document.getElementById('boardViewBtn').classList.remove('active');
         document.getElementById('timesheetViewBtn').classList.add('active');
+        document.getElementById('reviewsViewBtn').classList.remove('active');
         renderTimesheet();
+    };
+
+    document.getElementById('reviewsViewBtn').onclick = () => {
+        document.getElementById('boardView').style.display = 'none';
+        document.getElementById('timesheetView').style.display = 'none';
+        document.getElementById('reviewsView').style.display = 'block';
+        document.getElementById('boardViewBtn').classList.remove('active');
+        document.getElementById('timesheetViewBtn').classList.remove('active');
+        document.getElementById('reviewsViewBtn').classList.add('active');
+        renderReviewsView();
     };
 
     // Set default date for timesheet
@@ -2031,6 +2156,15 @@ function padNumber(num) {
 }
 
 // Timesheet Functions
+let isUserTypingReview = false;
+let isSortedByDeadline = false;
+
+// Make isUserTypingReview globally accessible for Firebase integration
+window.isUserTypingReview = isUserTypingReview;
+
+// Reviews View Functions
+let currentWeekStart = null;
+
 function renderTimesheet() {
     const selectedDate = document.getElementById('timesheetDate').valueAsDate;
     const startDate = new Date(selectedDate);
@@ -2178,95 +2312,231 @@ function renderTimesheet() {
         timesheetBody.appendChild(totalRow);
     }
 
-    // Add review input field
-    const reviewRow = document.createElement('tr');
-    reviewRow.className = 'review-row';
+    // Check if review section already exists and user is typing
+    const existingReviewRow = timesheetBody.querySelector('.review-row');
+    const existingTextarea = document.getElementById('timesheetReview');
     
-    // Load existing review for the selected date
-    const existingReview = loadExistingReview(selectedDate);
-    const reviewText = existingReview ? existingReview.text : '';
-    const buttonText = existingReview ? 'Update Review' : 'Save Review';
-    
-    reviewRow.innerHTML = `
-        <td colspan="6">
-            <div class="review-section">
-                <label for="timesheetReview">Review:</label>
-                <textarea id="timesheetReview" placeholder="Add your review, notes, or observations about today's work...">${reviewText}</textarea>
-                <button id="saveReviewBtn" class="btn-save-review">${buttonText}</button>
-            </div>
-        </td>
-    `;
-    timesheetBody.appendChild(reviewRow);
-    
-    // Add event listener for save review button
-    const saveReviewBtn = reviewRow.querySelector('#saveReviewBtn');
-    saveReviewBtn.addEventListener('click', saveTimesheetReview);
+    if (existingReviewRow && existingTextarea && (isUserTypingReview || existingTextarea.value.trim())) {
+        // User is typing or has content, preserve the existing review section
+        console.log('📝 Preserving existing review section (user is typing or has content)');
+        
+        // Re-attach event listeners to the existing textarea
+        existingTextarea.addEventListener('input', () => {
+            isUserTypingReview = true;
+            window.isUserTypingReview = true;
+            console.log('📝 User is typing in existing review field');
+        });
+        
+        existingTextarea.addEventListener('blur', () => {
+            setTimeout(() => {
+                isUserTypingReview = false;
+                window.isUserTypingReview = false;
+                console.log('📝 User stopped typing in existing review field');
+            }, 1000);
+        });
+        
+        timesheetBody.appendChild(existingReviewRow);
+    } else {
+        // Create new review section
+        const reviewRow = document.createElement('tr');
+        reviewRow.className = 'review-row';
+        
+        // Create review section immediately with loading state
+        reviewRow.innerHTML = `
+            <td colspan="6">
+                <div class="review-section">
+                    <label for="timesheetReview">Review:</label>
+                    <textarea id="timesheetReview" placeholder="Loading existing review..."></textarea>
+                    <button id="saveReviewBtn" class="btn-save-review">Save Review</button>
+                </div>
+            </td>
+        `;
+        
+        // Add event listener for save review button immediately
+        const saveReviewBtn = reviewRow.querySelector('#saveReviewBtn');
+        if (saveReviewBtn) {
+            saveReviewBtn.addEventListener('click', saveTimesheetReview);
+        }
+        
+        // Add event listeners to track user typing
+        const textarea = reviewRow.querySelector('#timesheetReview');
+        if (textarea) {
+            textarea.addEventListener('input', () => {
+                isUserTypingReview = true;
+                window.isUserTypingReview = true;
+                console.log('📝 User is typing in review field');
+            });
+            
+            textarea.addEventListener('blur', () => {
+                // Reset flag after a short delay to allow for async operations
+                setTimeout(() => {
+                    isUserTypingReview = false;
+                    window.isUserTypingReview = false;
+                    console.log('📝 User stopped typing in review field');
+                }, 1000);
+            });
+        }
+        
+        timesheetBody.appendChild(reviewRow);
+        
+        // Load existing review for the selected date (async) and update without recreating elements
+        loadExistingReview(selectedDate).then(existingReview => {
+            const textarea = document.getElementById('timesheetReview');
+            const button = document.getElementById('saveReviewBtn');
+            
+            if (textarea && button) {
+                // Only update if textarea is empty (user hasn't started typing)
+                if (!textarea.value.trim()) {
+                    textarea.value = existingReview ? existingReview.text : '';
+                    textarea.placeholder = "Add your review, notes, or observations about today's work...";
+                    button.textContent = existingReview ? 'Update Review' : 'Save Review';
+                }
+            }
+        }).catch(error => {
+            console.error('❌ Error loading existing review:', error);
+            const textarea = document.getElementById('timesheetReview');
+            const button = document.getElementById('saveReviewBtn');
+            
+            if (textarea && button) {
+                textarea.placeholder = "Add your review, notes, or observations about today's work...";
+                button.textContent = 'Save Review';
+            }
+        });
+    }
 }
 
 // Load existing review function
-function loadExistingReview(selectedDate) {
-    const savedReviews = JSON.parse(localStorage.getItem('timesheetReviews') || '[]');
-    const currentProjectId = currentProject ? currentProject.id : null;
-    
-    return savedReviews.find(review => {
-        const reviewDate = new Date(review.date);
-        const selectedDateOnly = new Date(selectedDate);
-        reviewDate.setHours(0, 0, 0, 0);
-        selectedDateOnly.setHours(0, 0, 0, 0);
-        return reviewDate.getTime() === selectedDateOnly.getTime() && 
-               review.projectId === currentProjectId;
-    });
-}
-
-// Save timesheet review function
-function saveTimesheetReview() {
-    const reviewText = document.getElementById('timesheetReview').value;
-    const selectedDate = document.getElementById('timesheetDate').valueAsDate;
-    
-    if (reviewText.trim()) {
-        // Create review object
-        const review = {
-            id: Date.now(),
-            text: reviewText,
-            date: selectedDate.toISOString(),
-            projectId: currentProject ? currentProject.id : null,
-            createdAt: new Date().toISOString()
-        };
+async function loadExistingReview(selectedDate) {
+    try {
+        // Check if Firebase integration is available
+        if (!window.firebaseRESTIntegration) {
+            console.error('❌ Firebase integration not available');
+            return null;
+        }
         
-        // Save to localStorage
-        const savedReviews = JSON.parse(localStorage.getItem('timesheetReviews') || '[]');
+        console.log('📋 Loading existing review for date:', selectedDate);
+        const savedReviews = await window.firebaseRESTIntegration.loadData('timesheetReviews') || [];
+        const currentProjectId = currentProject ? currentProject.id : null;
         
-        // Check if a review already exists for this date and project
-        const existingReviewIndex = savedReviews.findIndex(r => {
-            const reviewDate = new Date(r.date);
+        console.log('📋 All saved reviews:', savedReviews);
+        console.log('📋 Current project ID:', currentProjectId);
+        
+        const foundReview = savedReviews.find(review => {
+            const reviewDate = new Date(review.date);
             const selectedDateOnly = new Date(selectedDate);
             reviewDate.setHours(0, 0, 0, 0);
             selectedDateOnly.setHours(0, 0, 0, 0);
-            return reviewDate.getTime() === selectedDateOnly.getTime() && 
-                   r.projectId === review.projectId;
+            const dateMatch = reviewDate.getTime() === selectedDateOnly.getTime();
+            const projectMatch = review.projectId === currentProjectId;
+            
+            console.log('📋 Checking review:', {
+                reviewDate: reviewDate.toDateString(),
+                selectedDate: selectedDateOnly.toDateString(),
+                dateMatch,
+                projectMatch,
+                reviewProjectId: review.projectId
+            });
+            
+            return dateMatch && projectMatch;
         });
         
-        if (existingReviewIndex !== -1) {
-            // Update existing review
-            savedReviews[existingReviewIndex] = review;
+        console.log('📋 Found review:', foundReview);
+        return foundReview;
+    } catch (error) {
+        console.error('❌ Error loading existing review:', error);
+        return null;
+    }
+}
+
+// Save timesheet review function
+async function saveTimesheetReview() {
+    try {
+        console.log('💾 Starting to save timesheet review...');
+        
+        // Check if Firebase integration is available
+        if (!window.firebaseRESTIntegration) {
+            console.error('❌ Firebase integration not available');
+            showToast('Firebase integration not available. Please refresh the page.', 'error');
+            return;
+        }
+        
+        const reviewText = document.getElementById('timesheetReview').value;
+        const selectedDate = document.getElementById('timesheetDate').valueAsDate;
+        
+        console.log('💾 Saving timesheet review:', { 
+            reviewText: reviewText?.substring(0, 50) + '...', 
+            selectedDate,
+            currentProject: currentProject?.name || 'All Tasks'
+        });
+        
+        if (reviewText.trim()) {
+            // Create review object
+            const review = {
+                id: Date.now(),
+                text: reviewText,
+                date: selectedDate.toISOString(),
+                projectId: currentProject ? currentProject.id : null,
+                createdAt: new Date().toISOString()
+            };
+            
+            console.log('💾 Review object created:', review);
+            
+            // Load existing reviews from Firebase
+            console.log('💾 Loading existing reviews from Firebase...');
+            const savedReviews = await window.firebaseRESTIntegration.loadData('timesheetReviews') || [];
+            console.log('💾 Existing reviews loaded:', savedReviews.length, 'reviews');
+            
+            // Check if a review already exists for this date and project
+            const existingReviewIndex = savedReviews.findIndex(r => {
+                const reviewDate = new Date(r.date);
+                const selectedDateOnly = new Date(selectedDate);
+                reviewDate.setHours(0, 0, 0, 0);
+                selectedDateOnly.setHours(0, 0, 0, 0);
+                return reviewDate.getTime() === selectedDateOnly.getTime() && 
+                       r.projectId === review.projectId;
+            });
+            
+            console.log('💾 Existing review index:', existingReviewIndex);
+            
+            if (existingReviewIndex !== -1) {
+                // Update existing review
+                savedReviews[existingReviewIndex] = review;
+                console.log('💾 Updating existing review');
+            } else {
+                // Add new review
+                savedReviews.push(review);
+                console.log('💾 Adding new review');
+            }
+            
+            // Save to Firebase
+            console.log('💾 Saving to Firebase...');
+            await window.firebaseRESTIntegration.saveData('timesheetReviews', savedReviews);
+            console.log('💾 Review saved to Firebase successfully');
+            
+            // Update button text to show it was saved
+            const saveBtn = document.getElementById('saveReviewBtn');
+            if (saveBtn) {
+                saveBtn.textContent = 'Review Saved!';
+                saveBtn.style.backgroundColor = '#28a745';
+                setTimeout(() => {
+                    saveBtn.textContent = 'Update Review';
+                    saveBtn.style.backgroundColor = '';
+                }, 2000);
+            }
+            
+            showToast('Review saved successfully!', 'success');
         } else {
-            // Add new review
-            savedReviews.push(review);
+            // Show error message only if no text entered
+            showToast('Please enter a review before saving.', 'error');
         }
-        
-        localStorage.setItem('timesheetReviews', JSON.stringify(savedReviews));
-        
-        // Update button text to show it was saved
-        const saveBtn = document.getElementById('saveReviewBtn');
-        if (saveBtn) {
-            saveBtn.textContent = 'Review Saved!';
-            setTimeout(() => {
-                saveBtn.textContent = 'Update Review';
-            }, 2000);
-        }
-    } else {
-        // Show error message only if no text entered
-        alert('Please enter a review before saving.');
+    } catch (error) {
+        console.error('❌ Error saving timesheet review:', error);
+        console.error('❌ Error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
+        showToast(`Failed to save review: ${error.message}`, 'error');
     }
 }
 
@@ -2395,5 +2665,307 @@ function setupSidebarToggle() {
             icon.className = 'fas fa-chevron-left';
             sidebarToggle.title = 'Hide Sidebar';
         }
+    }
+}
+
+function setupSortButton() {
+    const sortBtn = document.getElementById('sortByDeadlineBtn');
+    
+    if (sortBtn) {
+        sortBtn.addEventListener('click', () => {
+            console.log('🔄 Toggling sort by deadline...');
+            isSortedByDeadline = !isSortedByDeadline;
+            
+            // Update button appearance
+            if (isSortedByDeadline) {
+                sortBtn.classList.add('active');
+                sortBtn.querySelector('i').className = 'fas fa-sort-amount-up';
+                sortBtn.querySelector('span').textContent = 'Sort by Position';
+                sortBtn.title = 'Sort tasks by position (default)';
+                showToast('Tasks sorted by deadline', 'info', 2000);
+            } else {
+                sortBtn.classList.remove('active');
+                sortBtn.querySelector('i').className = 'fas fa-sort-amount-down';
+                sortBtn.querySelector('span').textContent = 'Sort by Deadline';
+                sortBtn.title = 'Sort tasks by deadline';
+                showToast('Tasks sorted by position', 'info', 2000);
+            }
+            
+            // Re-render tasks with new sorting
+            renderTasks();
+        });
+        
+        console.log('✅ Sort button setup complete');
+    } else {
+        console.error('❌ Sort button not found');
+    }
+}
+
+// Reviews View Functions
+function getWeekStart(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    const weekStart = new Date(d.setDate(diff));
+    weekStart.setHours(0, 0, 0, 0);
+    return weekStart;
+}
+
+function getWeekEnd(weekStart) {
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    return weekEnd;
+}
+
+function formatWeekDisplay(weekStart) {
+    const weekEnd = getWeekEnd(weekStart);
+    const startStr = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endStr = weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `Week of ${startStr} - ${endStr}`;
+}
+
+async function renderReviewsView() {
+    console.log('📋 Rendering reviews view...');
+    
+    // Initialize current week if not set
+    if (!currentWeekStart) {
+        currentWeekStart = getWeekStart(new Date());
+    }
+    
+    // Update week display
+    document.getElementById('currentWeekDisplay').textContent = formatWeekDisplay(currentWeekStart);
+    
+    // Load and display weekly review
+    await renderWeeklyReview();
+    
+    // Load and display daily reviews
+    await renderDailyReviews();
+    
+    // Setup navigation buttons
+    setupWeekNavigation();
+    
+    // Setup weekly review button
+    setupWeeklyReviewButton();
+}
+
+async function renderWeeklyReview() {
+    const container = document.getElementById('weeklyReviewContainer');
+    const weekEnd = getWeekEnd(currentWeekStart);
+    
+    try {
+        // Load weekly reviews from Firebase
+        const weeklyReviews = await firebaseIntegration.loadData('weeklyReviews') || [];
+        
+        // Find weekly review for current week and project
+        const currentProjectId = currentProject ? currentProject.id : null;
+        const weeklyReview = weeklyReviews.find(review => {
+            const reviewDate = new Date(review.weekStart);
+            const isSameWeek = reviewDate.getTime() === currentWeekStart.getTime();
+            const isSameProject = review.projectId === currentProjectId;
+            return isSameWeek && isSameProject;
+        });
+        
+        if (weeklyReview) {
+            container.innerHTML = `
+                <div class="review-content">
+                    <div class="review-text">${weeklyReview.text}</div>
+                    <div class="review-meta">
+                        <span>Created: ${new Date(weeklyReview.createdAt).toLocaleDateString()}</span>
+                        <div class="review-actions">
+                            <button onclick="editWeeklyReview('${weeklyReview.id}')">Edit</button>
+                            <button onclick="deleteWeeklyReview('${weeklyReview.id}')">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.classList.add('has-content');
+        } else {
+            container.innerHTML = '<div class="no-reviews">No weekly review for this week yet. Click "Add Weekly Review" to create one.</div>';
+            container.classList.remove('has-content');
+        }
+    } catch (error) {
+        console.error('❌ Error loading weekly review:', error);
+        container.innerHTML = '<div class="no-reviews">Error loading weekly review.</div>';
+        container.classList.remove('has-content');
+    }
+}
+
+async function renderDailyReviews() {
+    const container = document.getElementById('dailyReviewsContainer');
+    const weekEnd = getWeekEnd(currentWeekStart);
+    
+    try {
+        // Load daily reviews from Firebase
+        const dailyReviews = await firebaseIntegration.loadData('timesheetReviews') || [];
+        const currentProjectId = currentProject ? currentProject.id : null;
+        
+        // Filter reviews for current week and project
+        const weekReviews = dailyReviews.filter(review => {
+            const reviewDate = new Date(review.date);
+            const isInWeek = reviewDate >= currentWeekStart && reviewDate <= weekEnd;
+            const isSameProject = review.projectId === currentProjectId;
+            return isInWeek && isSameProject;
+        });
+        
+        if (weekReviews.length > 0) {
+            // Sort by date (newest first)
+            weekReviews.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            container.innerHTML = weekReviews.map(review => {
+                const reviewDate = new Date(review.date);
+                const projectName = review.projectId ? projects.find(p => p.id === review.projectId)?.name : 'No Project';
+                
+                return `
+                    <div class="daily-review-card">
+                        <div class="daily-review-date">${reviewDate.toLocaleDateString('en-US', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        })}</div>
+                        <div class="daily-review-text">${review.text}</div>
+                        <div class="daily-review-project">Project: ${projectName}</div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            container.innerHTML = '<div class="no-reviews">No daily reviews for this week yet.</div>';
+        }
+    } catch (error) {
+        console.error('❌ Error loading daily reviews:', error);
+        container.innerHTML = '<div class="no-reviews">Error loading daily reviews.</div>';
+    }
+}
+
+function setupWeekNavigation() {
+    const prevBtn = document.getElementById('prevWeekBtn');
+    const nextBtn = document.getElementById('nextWeekBtn');
+    
+    prevBtn.onclick = () => {
+        currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+        renderReviewsView();
+    };
+    
+    nextBtn.onclick = () => {
+        currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+        renderReviewsView();
+    };
+}
+
+function setupWeeklyReviewButton() {
+    const addBtn = document.getElementById('addWeeklyReviewBtn');
+    
+    addBtn.onclick = () => {
+        openWeeklyReviewModal();
+    };
+}
+
+function openWeeklyReviewModal() {
+    // Create modal for weekly review
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    
+    const weekEnd = getWeekEnd(currentWeekStart);
+    const weekDisplay = formatWeekDisplay(currentWeekStart);
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <h2>Weekly Review - ${weekDisplay}</h2>
+            <form id="weeklyReviewForm">
+                <div class="form-group">
+                    <label for="weeklyReviewText">Weekly Review:</label>
+                    <textarea id="weeklyReviewText" placeholder="Reflect on this week's accomplishments, challenges, and goals for next week..." rows="8"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="cancelWeeklyReviewBtn" class="btn-secondary">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Weekly Review</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Setup form submission
+    document.getElementById('weeklyReviewForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const text = document.getElementById('weeklyReviewText').value.trim();
+        
+        if (text) {
+            await saveWeeklyReview(text);
+            document.body.removeChild(modal);
+            renderReviewsView();
+        } else {
+            showToast('Please enter a weekly review before saving.', 'error');
+        }
+    };
+    
+    // Setup cancel button
+    document.getElementById('cancelWeeklyReviewBtn').onclick = () => {
+        document.body.removeChild(modal);
+    };
+}
+
+async function saveWeeklyReview(text) {
+    try {
+        console.log('💾 Starting to save weekly review...');
+        
+        // Check if Firebase integration is available
+        if (!window.firebaseRESTIntegration) {
+            console.error('❌ Firebase integration not available');
+            showToast('Firebase integration not available. Please refresh the page.', 'error');
+            return;
+        }
+        
+        const weeklyReview = {
+            id: Date.now(),
+            text: text,
+            weekStart: currentWeekStart.toISOString(),
+            projectId: currentProject ? currentProject.id : null,
+            createdAt: new Date().toISOString()
+        };
+        
+        console.log('💾 Weekly review object created:', weeklyReview);
+        
+        // Load existing weekly reviews
+        console.log('💾 Loading existing weekly reviews from Firebase...');
+        const existingReviews = await window.firebaseRESTIntegration.loadData('weeklyReviews') || [];
+        console.log('💾 Existing weekly reviews loaded:', existingReviews.length, 'reviews');
+        
+        // Check if review already exists for this week and project
+        const existingIndex = existingReviews.findIndex(r => {
+            const reviewDate = new Date(r.weekStart);
+            return reviewDate.getTime() === currentWeekStart.getTime() && 
+                   r.projectId === weeklyReview.projectId;
+        });
+        
+        console.log('💾 Existing weekly review index:', existingIndex);
+        
+        if (existingIndex !== -1) {
+            // Update existing review
+            existingReviews[existingIndex] = weeklyReview;
+            console.log('💾 Updating existing weekly review');
+        } else {
+            // Add new review
+            existingReviews.push(weeklyReview);
+            console.log('💾 Adding new weekly review');
+        }
+        
+        // Save to Firebase
+        console.log('💾 Saving weekly review to Firebase...');
+        await window.firebaseRESTIntegration.saveData('weeklyReviews', existingReviews);
+        
+        showToast('Weekly review saved successfully!', 'success');
+        console.log('✅ Weekly review saved to Firebase');
+    } catch (error) {
+        console.error('❌ Error saving weekly review:', error);
+        console.error('❌ Error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
+        showToast(`Failed to save weekly review: ${error.message}`, 'error');
     }
 }

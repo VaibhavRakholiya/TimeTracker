@@ -130,21 +130,9 @@ class FirebaseRESTIntegration {
 
     // Real-time listeners using Server-Sent Events (if supported) or polling
     setupRealtimeListener(dataType, callback) {
-        // For REST API, we'll use polling as a fallback
-        // In a real implementation, you might use WebSockets or Server-Sent Events
-        console.log(`👂 Setting up polling listener for: ${dataType}`);
-        
-        const pollInterval = setInterval(async () => {
-            try {
-                const data = await this.loadData(dataType);
-                callback(data);
-            } catch (error) {
-                console.error(`❌ Error in polling listener for ${dataType}:`, error);
-            }
-        }, 5000); // Poll every 5 seconds
-
-        // Store interval ID for cleanup
-        this[`${dataType}Interval`] = pollInterval;
+        console.log(`⏸️ Realtime listener disabled for: ${dataType} (auto-refresh disabled)`);
+        // Realtime listeners are disabled to prevent continuous refreshing
+        // Data will only be loaded when explicitly requested
     }
 
     // Cleanup polling intervals
@@ -186,37 +174,14 @@ class FirebaseRESTIntegration {
     }
 
     setupRealtimeListeners() {
-        // Set up polling listeners for all data types
-        const dataTypes = ['projects', 'tasks', 'backlogItems', 'timeEntries', 'timesheetReviews'];
-        
-        dataTypes.forEach(dataType => {
-            this.setupRealtimeListener(dataType, (data) => {
-                // Update the global data variables
-                window[dataType] = data;
-                
-                // Re-render the UI
-                this.updateUI(dataType);
-            });
-        });
+        console.log('⏸️ Realtime listeners disabled - data loads only once on page load');
+        // Realtime listeners are disabled to prevent continuous refreshing
+        // Data will only be loaded when explicitly requested
     }
 
     updateUI(dataType) {
-        try {
-            if (typeof window.renderProjects === 'function' && dataType === 'projects') {
-                window.renderProjects();
-            }
-            if (typeof window.renderTasks === 'function' && dataType === 'tasks') {
-                window.renderTasks();
-            }
-            if (typeof window.renderBacklogItems === 'function' && dataType === 'backlogItems') {
-                window.renderBacklogItems();
-            }
-            if (typeof window.renderTimesheet === 'function' && dataType === 'timeEntries') {
-                window.renderTimesheet();
-            }
-        } catch (error) {
-            console.error(`❌ Error updating UI for ${dataType}:`, error);
-        }
+        // Disabled automatic UI updates - data loads only once on page load
+        console.log(`⏸️ Skipping automatic UI update for ${dataType} (auto-refresh disabled)`);
     }
 
     async syncPendingChanges() {
@@ -320,8 +285,8 @@ let firebaseRESTIntegration;
 document.addEventListener('DOMContentLoaded', () => {
     firebaseRESTIntegration = new FirebaseRESTIntegration();
     
-    // Set up polling listeners
-    firebaseRESTIntegration.setupRealtimeListeners();
+    // Disable polling listeners - data loads only once on page load
+    // firebaseRESTIntegration.setupRealtimeListeners();
     
     // Make it available globally immediately
     window.firebaseRESTIntegration = firebaseRESTIntegration;

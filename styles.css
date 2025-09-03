@@ -714,9 +714,55 @@ body {
 
 .board {
     display: flex;
+    flex-direction: column;
     gap: 16px;
     padding: 12px 0;
     min-width: 0;
+    overflow-y: hidden;
+}
+
+.board-header {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 0 12px;
+}
+
+.sort-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(43, 33, 106, 0.1);
+}
+
+.sort-btn:hover {
+    background: var(--secondary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(43, 33, 106, 0.2);
+}
+
+.sort-btn i {
+    font-size: 12px;
+}
+
+.sort-btn.active {
+    background: var(--secondary-color);
+    box-shadow: 0 4px 12px rgba(43, 33, 106, 0.3);
+}
+
+.board-columns {
+    display: flex;
+    gap: 16px;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: thin;
@@ -2472,6 +2518,229 @@ body {
     box-shadow: 0 4px 12px rgba(43, 33, 106, 0.2);
 }
 
+/* Reviews View Styles */
+.reviews-view {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.reviews-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--primary-light);
+}
+
+.week-navigation {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.week-navigation h2 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 1.5rem;
+    font-weight: 600;
+    min-width: 200px;
+    text-align: center;
+}
+
+.nav-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-btn:hover {
+    background: var(--secondary-color);
+    transform: scale(1.1);
+}
+
+.nav-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary:hover {
+    background: var(--secondary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(43, 33, 106, 0.2);
+}
+
+.reviews-content {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.weekly-review-section,
+.daily-reviews-section {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--primary-light);
+}
+
+.weekly-review-section h3,
+.daily-reviews-section h3 {
+    margin: 0 0 20px 0;
+    color: var(--primary-color);
+    font-size: 1.3rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.weekly-review-section h3::before {
+    content: "📅";
+    font-size: 1.2rem;
+}
+
+.daily-reviews-section h3::before {
+    content: "📝";
+    font-size: 1.2rem;
+}
+
+.review-container {
+    min-height: 120px;
+    border: 2px dashed var(--primary-light);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-style: italic;
+    transition: all 0.3s ease;
+}
+
+.review-container.has-content {
+    border: 2px solid var(--primary-color);
+    background: #f8f9fd;
+    color: #333;
+    font-style: normal;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+.review-content {
+    width: 100%;
+}
+
+.review-text {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 15px;
+    white-space: pre-wrap;
+}
+
+.review-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #666;
+    border-top: 1px solid #eee;
+    padding-top: 10px;
+}
+
+.review-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.review-actions button {
+    background: none;
+    border: 1px solid var(--primary-light);
+    color: var(--primary-color);
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.review-actions button:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+.reviews-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.daily-review-card {
+    background: #f8f9fd;
+    border: 1px solid var(--primary-light);
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.3s ease;
+}
+
+.daily-review-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(43, 33, 106, 0.1);
+    border-color: var(--primary-color);
+}
+
+.daily-review-date {
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.daily-review-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.daily-review-project {
+    font-size: 0.8rem;
+    color: #666;
+    font-style: italic;
+}
+
+.no-reviews {
+    text-align: center;
+    color: #999;
+    font-style: italic;
+    padding: 40px 20px;
+}
+
 /* Responsive design for quote section */
 @media screen and (max-width: 768px) {
     .quote-container {
@@ -2486,6 +2755,20 @@ body {
     
     .quote-author {
         font-size: 0.85rem;
+    }
+    
+    .reviews-header {
+        flex-direction: column;
+        gap: 20px;
+        align-items: stretch;
+    }
+    
+    .week-navigation {
+        justify-content: center;
+    }
+    
+    .reviews-grid {
+        grid-template-columns: 1fr;
     }
 }
 
