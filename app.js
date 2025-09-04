@@ -650,7 +650,7 @@ function selectProject(projectId) {
 }
 
 // Task Management
-async function addTask(title, status, dueDate) {
+async function addTask(title, status, dueDate, category = 'signal') {
     console.log(`🆕 Creating new task: ${title} (${status})`);
     
     // Check if Firebase integration is available
@@ -674,7 +674,8 @@ async function addTask(title, status, dueDate) {
         projectId: currentProject ? currentProject.id : null,
         title,
         status,
-            dueDate: dueDate || null,
+        dueDate: dueDate || null,
+        category: category || 'signal', // Default to signal if not specified
         position: maxPosition + 1000, // Use increments of 1000 to allow space for reordering
         timeSpent: 0,
         createdAt: new Date().toISOString(),
@@ -1083,8 +1084,9 @@ function openAddTaskModal() {
         const title = document.getElementById('taskTitle').value;
         const status = document.getElementById('taskStatus').value;
         const dueDate = document.getElementById('taskDueDate').value;
+        const category = document.getElementById('taskCategory').value;
         
-        console.log('📋 Form data:', { title, status, dueDate });
+        console.log('📋 Form data:', { title, status, dueDate, category });
         
         if (!title.trim()) {
             console.error('❌ Task title is required');
@@ -1094,7 +1096,7 @@ function openAddTaskModal() {
         
         try {
             console.log('🚀 Calling addTask function...');
-            await addTask(title, status, dueDate);
+            await addTask(title, status, dueDate, category);
             console.log('✅ Task creation completed, closing modal');
         modal.style.display = 'none';
         } catch (error) {
@@ -1113,6 +1115,7 @@ function openEditTaskModal(task) {
     document.getElementById('taskTitle').value = task.title;
     document.getElementById('taskStatus').value = task.status;
     document.getElementById('taskDueDate').value = task.dueDate || '';
+    document.getElementById('taskCategory').value = task.category || 'signal';
     
     // Show and setup delete button
     deleteBtn.style.display = 'flex';
@@ -1128,7 +1131,8 @@ function openEditTaskModal(task) {
         const updates = {
             title: document.getElementById('taskTitle').value,
             status: document.getElementById('taskStatus').value,
-            dueDate: document.getElementById('taskDueDate').value || null
+            dueDate: document.getElementById('taskDueDate').value || null,
+            category: document.getElementById('taskCategory').value
         };
         
         await updateTask(task.id, updates);
@@ -2485,8 +2489,25 @@ function renderTimesheet() {
     // Sort tasks by date (newest first)
     taskSummaries.sort((a, b) => b.date - a.date);
 
+    // Calculate Signal-to-Noise ratio for the selected date
+    const signalTasks = taskSummaries.filter(task => {
+        const originalTask = tasks.find(t => t.id === task.taskId);
+        return originalTask && originalTask.category === 'signal';
+    }).length;
+    const noiseTasks = taskSummaries.filter(task => {
+        const originalTask = tasks.find(t => t.id === task.taskId);
+        return originalTask && originalTask.category === 'noise';
+    }).length;
+    
+    // Calculate Signal percentage
+    const totalTasks = signalTasks + noiseTasks;
+    const signalPercentage = totalTasks > 0 ? Math.round((signalTasks / totalTasks) * 100) : 0;
+
     // Render task summaries
     taskSummaries.forEach(task => {
+        const originalTask = tasks.find(t => t.id === task.taskId);
+        const currentCategory = originalTask ? originalTask.category || 'signal' : 'signal';
+        
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${task.date.toLocaleDateString()}</td>
@@ -2495,6 +2516,11 @@ function renderTimesheet() {
             <td>${task.status}</td>
             <td>${task.dueDate ? formatDueDate(task.dueDate) : '-'}</td>
             <td>${formatTime(task.duration)}</td>
+            <td>
+                <div class="signal-noise-toggle ${currentCategory}" onclick="toggleTaskCategory(${task.taskId})">
+                    ${currentCategory === 'signal' ? '🎯 Signal' : '📢 Noise'}
+                </div>
+            </td>
         `;
         timesheetBody.appendChild(row);
     });
@@ -2511,6 +2537,9 @@ function renderTimesheet() {
             <td></td>
             <td></td>
             <td><strong>${formatTime(totalDuration)}</strong></td>
+            <td class="signal-noise-ratio-cell">
+                <div class="signal-noise-ratio-bottom">Signal: ${signalPercentage}%</div>
+            </td>
         `;
         timesheetBody.appendChild(totalRow);
     }
@@ -3436,6 +3465,51 @@ function hideDatabaseLoader() {
 
 // Today's To Do functionality
 
+// Toggle task category between Signal and Noise
+async function toggleTaskCategory(taskId) {
+    console.log(`🔄 Toggling category for task ${taskId}`);
+    
+    try {
+        // Find the task
+        const taskIndex = tasks.findIndex(task => task.id === taskId);
+        if (taskIndex === -1) {
+            console.error('❌ Task not found');
+            showToast('Task not found', 'error');
+            return;
+        }
+        
+        const task = tasks[taskIndex];
+        const currentCategory = task.category || 'signal';
+        const newCategory = currentCategory === 'signal' ? 'noise' : 'signal';
+        
+        console.log(`📝 Changing task "${task.title}" from ${currentCategory} to ${newCategory}`);
+        
+        // Update the task category
+        const updatedTask = { ...task, category: newCategory };
+        
+        // Update in Firebase
+        if (window.firebaseRESTIntegration) {
+            await window.firebaseRESTIntegration.saveData('tasks', tasks.map(t => 
+                t.id === taskId ? updatedTask : t
+            ));
+        }
+        
+        // Update local array
+        tasks[taskIndex] = updatedTask;
+        
+        // Show success message
+        const categoryText = newCategory === 'signal' ? 'Signal' : 'Noise';
+        showToast(`Task marked as ${categoryText}`, 'success');
+        
+        // Re-render timesheet to update the display
+        renderTimesheet();
+        
+    } catch (error) {
+        console.error('❌ Error toggling task category:', error);
+        showToast('Error updating task category', 'error');
+    }
+}
+
 // Render Today's To Do view
 function renderTodaysTodo() {
     console.log('📅 Rendering Today\'s To Do...');
@@ -3520,7 +3594,12 @@ function renderTodaysTodoList(tasks) {
             <div class="todays-todo-item ${task.status}">
                 <div class="todays-todo-item-header">
                     <h3 class="todays-todo-item-title">${task.title}</h3>
-                    <span class="todays-todo-item-status ${task.status}">${task.status.replace('tobetested', 'To Be Tested')}</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="todays-todo-item-category ${task.category || 'signal'}">
+                            ${task.category === 'signal' ? '🎯 Signal' : '📢 Noise'}
+                        </span>
+                        <span class="todays-todo-item-status ${task.status}">${task.status.replace('tobetested', 'To Be Tested')}</span>
+                    </div>
                 </div>
                 
                 ${isRunning ? `

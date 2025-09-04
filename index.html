@@ -136,6 +136,7 @@
                             <th>Status</th>
                             <th>Due Date</th>
                             <th>Time Spent</th>
+                            <th>Signal/Noise</th>
                         </tr>
                     </thead>
                     <tbody id="timesheetBody"></tbody>
@@ -226,6 +227,13 @@
                 <div class="form-group">
                     <label for="taskDueDate">Due Date</label>
                     <input type="date" id="taskDueDate">
+                </div>
+                <div class="form-group">
+                    <label for="taskCategory">Task Category</label>
+                    <select id="taskCategory" required>
+                        <option value="signal">🎯 Signal (High Value)</option>
+                        <option value="noise">📢 Noise (Low Value)</option>
+                    </select>
                 </div>
                 <div class="modal-buttons">
                     <button type="submit" class="btn-primary">Save</button>
