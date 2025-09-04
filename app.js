@@ -13,6 +13,8 @@ async function loadData() {
     try {
         if (window.firebaseRESTIntegration) {
             console.log('🔄 Using Firebase REST API integration');
+            showDatabaseLoader('Loading data from database...');
+            
             // Load from Firebase via REST API
             projects = await window.firebaseRESTIntegration.loadData('projects');
             tasks = await window.firebaseRESTIntegration.loadData('tasks');
@@ -27,17 +29,24 @@ async function loadData() {
                 timeEntries: timeEntries.length,
                 timesheetReviews: timesheetReviews.length
             });
+            
+            console.log('📋 Timesheet reviews data:', timesheetReviews);
+            
+            // Make sure global variable is set
+            window.timesheetReviews = timesheetReviews;
+            
+            hideDatabaseLoader();
         } else {
             console.log('📱 Firebase integration not available, using localStorage');
             // Fallback to localStorage
-            const savedProjects = localStorage.getItem('projects');
-            const savedTasks = localStorage.getItem('tasks');
+    const savedProjects = localStorage.getItem('projects');
+    const savedTasks = localStorage.getItem('tasks');
             const savedBacklogItems = localStorage.getItem('backlogItems');
             const savedTimeEntries = localStorage.getItem('timeEntries');
             const savedTimesheetReviews = localStorage.getItem('timesheetReviews');
-            
-            projects = savedProjects ? JSON.parse(savedProjects) : [];
-            tasks = savedTasks ? JSON.parse(savedTasks) : [];
+    
+    projects = savedProjects ? JSON.parse(savedProjects) : [];
+    tasks = savedTasks ? JSON.parse(savedTasks) : [];
             backlogItems = savedBacklogItems ? JSON.parse(savedBacklogItems) : [];
             timeEntries = savedTimeEntries ? JSON.parse(savedTimeEntries) : [];
             timesheetReviews = savedTimesheetReviews ? JSON.parse(savedTimesheetReviews) : [];
@@ -45,12 +54,13 @@ async function loadData() {
         
         // Clean old Done tasks before rendering
         cleanOldDoneTasks();
-        
-        renderProjects();
-        renderTasks();
+    
+    renderProjects();
+    renderTasks();
         renderBacklogItems();
     } catch (error) {
         console.error('❌ Error loading data:', error);
+        hideDatabaseLoader();
         // Fallback to localStorage
         const savedProjects = localStorage.getItem('projects');
         const savedTasks = localStorage.getItem('tasks');
@@ -76,6 +86,8 @@ async function saveData() {
     try {
         if (window.firebaseRESTIntegration) {
             console.log('🔄 Using Firebase REST API integration for saving');
+            showDatabaseLoader('Saving data to database...');
+            
             // Save to Firebase via REST API
             await window.firebaseRESTIntegration.saveData('projects', projects);
             await window.firebaseRESTIntegration.saveData('tasks', tasks);
@@ -83,17 +95,20 @@ async function saveData() {
             await window.firebaseRESTIntegration.saveData('timeEntries', timeEntries);
             await window.firebaseRESTIntegration.saveData('timesheetReviews', timesheetReviews);
             console.log('✅ All data saved to Firebase successfully');
+            
+            hideDatabaseLoader();
         } else {
             console.log('📱 Firebase integration not available, saving to localStorage');
             // Fallback to localStorage
-            localStorage.setItem('projects', JSON.stringify(projects));
-            localStorage.setItem('tasks', JSON.stringify(tasks));
+    localStorage.setItem('projects', JSON.stringify(projects));
+    localStorage.setItem('tasks', JSON.stringify(tasks));
             localStorage.setItem('backlogItems', JSON.stringify(backlogItems));
             localStorage.setItem('timeEntries', JSON.stringify(timeEntries));
             localStorage.setItem('timesheetReviews', JSON.stringify(timesheetReviews));
         }
     } catch (error) {
         console.error('❌ Error saving data:', error);
+        hideDatabaseLoader();
         // Fallback to localStorage
         localStorage.setItem('projects', JSON.stringify(projects));
         localStorage.setItem('tasks', JSON.stringify(tasks));
@@ -624,6 +639,14 @@ function selectProject(projectId) {
     if (document.getElementById('timesheetView').style.display === 'block') {
         renderTimesheet();
     }
+    
+    // Refresh reviews if reviews view is visible
+    if (document.getElementById('reviewsView').style.display === 'block') {
+        console.log('📋 Project changed, refreshing reviews...');
+        console.log('📋 New project:', currentProject ? currentProject.name : 'All Tasks');
+        renderDailyReviews();
+        renderWeeklyReview();
+    }
 }
 
 // Task Management
@@ -643,22 +666,22 @@ async function addTask(title, status, dueDate) {
         console.log(`📊 Found ${existingTasks.length} existing tasks`);
         
         const maxPosition = Math.max(0, ...existingTasks
-            .filter(t => t.status === status)
-            .map(t => t.position || 0));
-        
-        const task = {
-            id: Date.now(),
-            projectId: currentProject ? currentProject.id : null,
-            title,
-            status,
+        .filter(t => t.status === status)
+        .map(t => t.position || 0));
+    
+    const task = {
+        id: Date.now(),
+        projectId: currentProject ? currentProject.id : null,
+        title,
+        status,
             dueDate: dueDate || null,
-            position: maxPosition + 1000, // Use increments of 1000 to allow space for reordering
-            timeSpent: 0,
-            createdAt: new Date().toISOString(),
-            timeEntries: [],
-            isTimerRunning: false,
-            timerStart: null
-        };
+        position: maxPosition + 1000, // Use increments of 1000 to allow space for reordering
+        timeSpent: 0,
+        createdAt: new Date().toISOString(),
+        timeEntries: [],
+        isTimerRunning: false,
+        timerStart: null
+    };
         
         console.log(`📝 Task object created:`, task);
         
@@ -670,7 +693,7 @@ async function addTask(title, status, dueDate) {
         
         // Update local array and render
         tasks = updatedTasks;
-        renderTasks();
+    renderTasks();
         
         // Show toast message
         showToast(`Task created: ${title}`, 'success', 3000);
@@ -1018,10 +1041,10 @@ function createTaskCard(task) {
             } else {
                 console.log(`⚠️ Firebase not available, using local state`);
                 // Fallback to local state if Firebase not available
-                if (task.isTimerRunning) {
+        if (task.isTimerRunning) {
                     console.log(`🛑 Stopping timer (local) for task ${taskId}`);
                     await stopTimer(taskId);
-                } else {
+        } else {
                     console.log(`▶️ Starting timer (local) for task ${taskId}`);
                     await startTimer(taskId);
                 }
@@ -1073,7 +1096,7 @@ function openAddTaskModal() {
             console.log('🚀 Calling addTask function...');
             await addTask(title, status, dueDate);
             console.log('✅ Task creation completed, closing modal');
-            modal.style.display = 'none';
+        modal.style.display = 'none';
         } catch (error) {
             console.error('❌ Error creating task:', error);
             showToast('Error creating task: ' + error.message, 'error');
@@ -1095,7 +1118,7 @@ function openEditTaskModal(task) {
     deleteBtn.style.display = 'flex';
     deleteBtn.onclick = async () => {
         await deleteTask(task.id);
-        modal.style.display = 'none';
+            modal.style.display = 'none';
     };
     
     modal.style.display = 'block';
@@ -1589,6 +1612,148 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
     
+    // Debug function to test review loading
+    window.testReviewLoading = () => {
+        console.log('🧪 Testing review loading...');
+        const textarea = document.getElementById('timesheetReview');
+        const button = document.getElementById('saveReviewBtn');
+        
+        if (textarea && button) {
+            console.log('📋 Textarea found:', textarea.value);
+            console.log('📋 Button found:', button.textContent);
+            
+            // Try to load review for today
+            const today = new Date();
+            loadExistingReview(today).then(review => {
+                console.log('📋 Test review loaded:', review);
+                if (review) {
+                    textarea.value = review.text;
+                    button.textContent = 'Update Review';
+                    console.log('📋 Test review applied to textarea');
+                }
+            });
+        } else {
+            console.log('❌ Textarea or button not found');
+        }
+    };
+    
+    // Debug function to test date change
+    window.testDateChange = () => {
+        console.log('🧪 Testing date change...');
+        const dateInput = document.getElementById('timesheetDate');
+        if (dateInput) {
+            console.log('📋 Current date:', dateInput.valueAsDate);
+            // Change to yesterday
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            dateInput.valueAsDate = yesterday;
+            console.log('📋 Changed to yesterday:', yesterday);
+            // Trigger change event
+            dateInput.dispatchEvent(new Event('change'));
+        } else {
+            console.log('❌ Date input not found');
+        }
+    };
+    
+    // Debug function to test All Tasks review saving
+    window.testAllTasksReview = async () => {
+        console.log('🧪 Testing All Tasks review saving...');
+        
+        // Switch to All Tasks view
+        selectProject(null);
+        console.log('📋 Switched to All Tasks, currentProject:', currentProject);
+        
+        // Wait a bit for the view to update
+        setTimeout(async () => {
+            // Add some test text to the review
+            const textarea = document.getElementById('timesheetReview');
+            if (textarea) {
+                textarea.value = 'Test review for All Tasks - ' + new Date().toLocaleTimeString();
+                console.log('📋 Set test review text:', textarea.value);
+                
+                // Try to save the review
+                try {
+                    await saveTimesheetReview();
+                    console.log('✅ All Tasks review saved successfully');
+                } catch (error) {
+                    console.error('❌ Error saving All Tasks review:', error);
+                }
+            } else {
+                console.log('❌ Review textarea not found');
+            }
+        }, 500);
+    };
+    
+    // Debug function to test All Tasks date change
+    window.testAllTasksDateChange = () => {
+        console.log('🧪 Testing All Tasks date change...');
+        
+        // Switch to All Tasks view
+        selectProject(null);
+        console.log('📋 Switched to All Tasks, currentProject:', currentProject);
+        
+        // Wait a bit for the view to update
+        setTimeout(() => {
+            const dateInput = document.getElementById('timesheetDate');
+            if (dateInput) {
+                console.log('📅 Current date:', dateInput.valueAsDate);
+                // Change to yesterday
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                dateInput.valueAsDate = yesterday;
+                console.log('📅 Changed to yesterday:', yesterday);
+                // Trigger change event
+                dateInput.dispatchEvent(new Event('change'));
+                console.log('📅 Date change event triggered');
+            } else {
+                console.log('❌ Date input not found');
+            }
+        }, 500);
+    };
+    
+    // Debug function to test daily reviews loading
+    window.testDailyReviews = async () => {
+        console.log('🧪 Testing daily reviews loading...');
+        
+        // Switch to reviews view
+        document.getElementById('reviewsViewBtn').click();
+        
+        // Wait a bit for the view to load
+        setTimeout(async () => {
+            try {
+                await renderDailyReviews();
+                console.log('✅ Daily reviews test completed');
+            } catch (error) {
+                console.error('❌ Error testing daily reviews:', error);
+            }
+        }, 500);
+    };
+    
+    // Debug function to test project change reviews update
+    window.testProjectChangeReviews = () => {
+        console.log('🧪 Testing project change reviews update...');
+        
+        // Switch to reviews view first
+        document.getElementById('reviewsViewBtn').click();
+        
+        // Wait a bit for the view to load
+        setTimeout(() => {
+            console.log('📋 Current project before change:', currentProject ? currentProject.name : 'All Tasks');
+            
+            // Change to a different project (if available)
+            if (projects.length > 0) {
+                const firstProject = projects[0];
+                console.log('📋 Switching to project:', firstProject.name);
+                selectProject(firstProject.id);
+            } else {
+                console.log('📋 No projects available, switching to All Tasks');
+                selectProject(null);
+            }
+            
+            console.log('📋 Project change test completed');
+        }, 500);
+    };
+    
     window.debugFirebaseConnection = async () => {
         console.log('🔍 Debugging Firebase connection...');
         
@@ -1642,28 +1807,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('boardViewBtn').onclick = () => {
         document.getElementById('boardView').style.display = 'flex';
         document.getElementById('timesheetView').style.display = 'none';
+        document.getElementById('todaysTodoView').style.display = 'none';
         document.getElementById('reviewsView').style.display = 'none';
         document.getElementById('boardViewBtn').classList.add('active');
         document.getElementById('timesheetViewBtn').classList.remove('active');
+        document.getElementById('todaysTodoBtn').classList.remove('active');
         document.getElementById('reviewsViewBtn').classList.remove('active');
     };
 
     document.getElementById('timesheetViewBtn').onclick = () => {
         document.getElementById('boardView').style.display = 'none';
         document.getElementById('timesheetView').style.display = 'block';
+        document.getElementById('todaysTodoView').style.display = 'none';
         document.getElementById('reviewsView').style.display = 'none';
         document.getElementById('boardViewBtn').classList.remove('active');
         document.getElementById('timesheetViewBtn').classList.add('active');
+        document.getElementById('todaysTodoBtn').classList.remove('active');
         document.getElementById('reviewsViewBtn').classList.remove('active');
         renderTimesheet();
+        // Load review for the selected date
+        setTimeout(() => {
+            const selectedDate = document.getElementById('timesheetDate').valueAsDate;
+            if (selectedDate) {
+                loadReviewDirectly(selectedDate);
+            }
+        }, 200);
+    };
+
+    document.getElementById('todaysTodoBtn').onclick = () => {
+        document.getElementById('boardView').style.display = 'none';
+        document.getElementById('timesheetView').style.display = 'none';
+        document.getElementById('reviewsView').style.display = 'none';
+        document.getElementById('todaysTodoView').style.display = 'block';
+        document.getElementById('boardViewBtn').classList.remove('active');
+        document.getElementById('timesheetViewBtn').classList.remove('active');
+        document.getElementById('reviewsViewBtn').classList.remove('active');
+        document.getElementById('todaysTodoBtn').classList.add('active');
+        renderTodaysTodo();
     };
 
     document.getElementById('reviewsViewBtn').onclick = () => {
         document.getElementById('boardView').style.display = 'none';
         document.getElementById('timesheetView').style.display = 'none';
+        document.getElementById('todaysTodoView').style.display = 'none';
         document.getElementById('reviewsView').style.display = 'block';
         document.getElementById('boardViewBtn').classList.remove('active');
         document.getElementById('timesheetViewBtn').classList.remove('active');
+        document.getElementById('todaysTodoBtn').classList.remove('active');
         document.getElementById('reviewsViewBtn').classList.add('active');
         renderReviewsView();
     };
@@ -1673,7 +1863,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('timesheetDate').valueAsDate = today;
 
     // Add event listener for date filter
-    document.getElementById('timesheetDate').addEventListener('change', renderTimesheet);
+    document.getElementById('timesheetDate').addEventListener('change', () => {
+        console.log('📅 Date changed, rendering timesheet and loading review...');
+        console.log('📅 Current project:', currentProject);
+        console.log('📅 Is All Tasks mode:', !currentProject);
+        renderTimesheet();
+        // Load review after timesheet is rendered
+        setTimeout(() => {
+            console.log('📅 Loading review after timesheet render...');
+            const selectedDate = document.getElementById('timesheetDate').valueAsDate;
+            if (selectedDate) {
+                loadReviewDirectly(selectedDate);
+            }
+        }, 300);
+    });
     
     // Add keyboard support for backlog inputs
     document.querySelectorAll('.backlog-input').forEach(input => {
@@ -1987,8 +2190,8 @@ async function startTimer(taskId) {
     }
     
     try {
-        // Stop any running timer first
-        if (activeTimer) {
+    // Stop any running timer first
+    if (activeTimer) {
             console.log(`⏹️ Stopping previous timer for task ${activeTimer}`);
             await stopTimer(activeTimer);
         }
@@ -2011,10 +2214,10 @@ async function startTimer(taskId) {
             }
             
             // Update task with timer state
-            task.isTimerRunning = true;
-            task.timerStart = new Date().getTime();
+        task.isTimerRunning = true;
+        task.timerStart = new Date().getTime();
             task.warningShown = false; // Reset warning flag for new timer session
-            activeTimer = taskId;
+        activeTimer = taskId;
             
             // Update the task in the array
             const updatedTasks = [...existingTasks];
@@ -2027,8 +2230,8 @@ async function startTimer(taskId) {
             
             // Update local array and render
             tasks = updatedTasks;
-            updateTimerDisplay(taskId);
-            renderTasks();
+        updateTimerDisplay(taskId);
+        renderTasks();
             
             // Show toast message
             showToast(`Timer started for: ${task.title}`, 'success', 3000);
@@ -2057,8 +2260,8 @@ async function stopTimer(taskId) {
         
         if (taskIndex !== -1 && existingTasks[taskIndex].isTimerRunning) {
             const task = existingTasks[taskIndex];
-            const endTime = new Date().getTime();
-            const duration = (endTime - task.timerStart) / 1000; // Convert to seconds
+        const endTime = new Date().getTime();
+        const duration = (endTime - task.timerStart) / 1000; // Convert to seconds
             
             console.log(`⏱️ Timer duration: ${duration} seconds`);
             
@@ -2067,23 +2270,23 @@ async function stopTimer(taskId) {
                 task.timeEntries = [];
                 console.log(`📝 Initialized timeEntries array for task ${taskId}`);
             }
-            
-            // Add time entry
+        
+        // Add time entry
             const timeEntry = {
-                date: new Date().toISOString(),
-                duration: duration
+            date: new Date().toISOString(),
+            duration: duration
             };
             task.timeEntries.push(timeEntry);
 
-            // Update total time spent
-            task.timeSpent += duration / 3600; // Convert seconds to hours
-            
-            // Reset timer
-            task.isTimerRunning = false;
-            task.timerStart = null;
+        // Update total time spent
+        task.timeSpent += duration / 3600; // Convert seconds to hours
+        
+        // Reset timer
+        task.isTimerRunning = false;
+        task.timerStart = null;
             task.warningShown = false; // Reset warning flag
-            activeTimer = null;
-            
+        activeTimer = null;
+        
             // Update the task in the array
             const updatedTasks = [...existingTasks];
             updatedTasks[taskIndex] = task;
@@ -2095,7 +2298,7 @@ async function stopTimer(taskId) {
             
             // Update local array and render
             tasks = updatedTasks;
-            renderTasks();
+        renderTasks();
             
             // Show toast message
             showToast(`Timer stopped: ${formatTime(duration)}`, 'success', 3000);
@@ -2111,8 +2314,8 @@ async function stopTimer(taskId) {
 function updateTimerDisplay(taskId) {
     const task = tasks.find(t => t.id === taskId);
     if (task && task.isTimerRunning) {
-        const currentTime = new Date().getTime();
-        const elapsedSeconds = Math.floor((currentTime - task.timerStart) / 1000);
+            const currentTime = new Date().getTime();
+            const elapsedSeconds = Math.floor((currentTime - task.timerStart) / 1000);
         
         // Auto-stop timer if it's been running for more than 3 hours (10800 seconds)
         if (elapsedSeconds > 10800) {
@@ -2268,14 +2471,14 @@ function renderTimesheet() {
         if (taskTimeForDate > 0) {
                     taskSummaries.push({
             date: selectedDate,
-            project: projectName,
-            task: task.title,
-            status: task.status,
+                        project: projectName,
+                        task: task.title,
+                        status: task.status,
             dueDate: task.dueDate,
             duration: taskTimeForDate,
-            taskId: task.id,
-            isRunning: task.isTimerRunning
-        });
+                        taskId: task.id,
+                        isRunning: task.isTimerRunning
+            });
         }
     });
 
@@ -2377,10 +2580,17 @@ function renderTimesheet() {
             });
         }
         
+        // Load review immediately after creating the review section
+        setTimeout(() => {
+            console.log('📋 Loading review immediately after creating review section...');
+            loadReviewDirectly(selectedDate);
+        }, 100);
+        
         timesheetBody.appendChild(reviewRow);
         
         // Load existing review for the selected date (async) and update without recreating elements
         loadExistingReview(selectedDate).then(existingReview => {
+            console.log('📋 Existing review loaded:', existingReview);
             const textarea = document.getElementById('timesheetReview');
             const button = document.getElementById('saveReviewBtn');
             
@@ -2390,7 +2600,12 @@ function renderTimesheet() {
                     textarea.value = existingReview ? existingReview.text : '';
                     textarea.placeholder = "Add your review, notes, or observations about today's work...";
                     button.textContent = existingReview ? 'Update Review' : 'Save Review';
+                    console.log('📋 Updated textarea with review text:', existingReview ? existingReview.text : '');
+                } else {
+                    console.log('📋 Textarea already has content, not updating');
                 }
+            } else {
+                console.log('📋 Textarea or button not found');
             }
         }).catch(error => {
             console.error('❌ Error loading existing review:', error);
@@ -2402,6 +2617,168 @@ function renderTimesheet() {
                 button.textContent = 'Save Review';
             }
         });
+        
+        // Also try to load review immediately if data is already available
+        setTimeout(async () => {
+            const textarea = document.getElementById('timesheetReview');
+            const button = document.getElementById('saveReviewBtn');
+            
+            if (textarea && button && !textarea.value.trim()) {
+                console.log('📋 Attempting immediate review load...');
+                const currentProjectId = currentProject ? currentProject.id : null;
+                
+                // Try to refresh data from Firebase if available
+                let reviewsToSearch = window.timesheetReviews || timesheetReviews || [];
+                
+                if (window.firebaseRESTIntegration) {
+                    try {
+                        console.log('📋 Refreshing reviews from Firebase...');
+                        const freshReviews = await window.firebaseRESTIntegration.loadData('timesheetReviews');
+                        if (freshReviews && freshReviews.length > 0) {
+                            reviewsToSearch = freshReviews;
+                            window.timesheetReviews = freshReviews;
+                            timesheetReviews = freshReviews;
+                            console.log('📋 Refreshed reviews from Firebase:', freshReviews.length);
+                        }
+                    } catch (error) {
+                        console.error('❌ Error refreshing reviews from Firebase:', error);
+                    }
+                }
+                
+                console.log('📋 Immediate search - reviews available:', reviewsToSearch.length);
+                console.log('📋 Immediate search - current project:', currentProjectId);
+                
+                const foundReview = reviewsToSearch.find(review => {
+                    const reviewDate = new Date(review.date);
+                    const selectedDateOnly = new Date(selectedDate);
+                    reviewDate.setHours(0, 0, 0, 0);
+                    selectedDateOnly.setHours(0, 0, 0, 0);
+                    const dateMatch = reviewDate.getTime() === selectedDateOnly.getTime();
+                    const projectMatch = review.projectId === currentProjectId;
+                    
+                    console.log('📋 Immediate search - checking review:', {
+                        reviewDate: reviewDate.toDateString(),
+                        selectedDate: selectedDateOnly.toDateString(),
+                        dateMatch,
+                        projectMatch,
+                        reviewProjectId: review.projectId
+                    });
+                    
+                    return dateMatch && projectMatch;
+                });
+                
+                if (foundReview) {
+                    textarea.value = foundReview.text;
+                    textarea.placeholder = "Add your review, notes, or observations about today's work...";
+                    button.textContent = 'Update Review';
+                    console.log('📋 Immediate review found and loaded:', foundReview.text?.substring(0, 50) + '...');
+                } else {
+                    console.log('📋 No immediate review found');
+                }
+            }
+        }, 100);
+    }
+}
+
+// Load review directly from global data (synchronous)
+function loadReviewDirectly(selectedDate) {
+    console.log('📋 Loading review directly for date:', selectedDate);
+    console.log('📋 Current project:', currentProject);
+    console.log('📋 Is All Tasks mode:', !currentProject);
+    
+    const textarea = document.getElementById('timesheetReview');
+    const button = document.getElementById('saveReviewBtn');
+    
+    if (!textarea || !button) {
+        console.log('📋 Review elements not found in direct load');
+        return;
+    }
+    
+    const currentProjectId = currentProject ? currentProject.id : null;
+    const reviewsToSearch = window.timesheetReviews || timesheetReviews || [];
+    
+    console.log('📋 Direct search - reviews available:', reviewsToSearch.length);
+    console.log('📋 Direct search - current project ID:', currentProjectId);
+    
+    const foundReview = reviewsToSearch.find(review => {
+        const reviewDate = new Date(review.date);
+        const selectedDateOnly = new Date(selectedDate);
+        reviewDate.setHours(0, 0, 0, 0);
+        selectedDateOnly.setHours(0, 0, 0, 0);
+        const dateMatch = reviewDate.getTime() === selectedDateOnly.getTime();
+        const projectMatch = review.projectId === currentProjectId;
+        
+        console.log('📋 Direct search - checking review:', {
+            reviewDate: reviewDate.toDateString(),
+            selectedDate: selectedDateOnly.toDateString(),
+            dateMatch,
+            projectMatch,
+            reviewProjectId: review.projectId,
+            currentProjectId: currentProjectId
+        });
+        
+        return dateMatch && projectMatch;
+    });
+    
+    if (foundReview) {
+        textarea.value = foundReview.text;
+        textarea.placeholder = "Add your review, notes, or observations about today's work...";
+        button.textContent = 'Update Review';
+        console.log('📋 Direct review found and loaded:', foundReview.text?.substring(0, 50) + '...');
+    } else {
+        textarea.value = '';
+        textarea.placeholder = "Add your review, notes, or observations about today's work...";
+        button.textContent = 'Save Review';
+        console.log('📋 No direct review found for this date');
+    }
+}
+
+// Load review for the currently selected date
+async function loadReviewForSelectedDate() {
+    const selectedDate = document.getElementById('timesheetDate').valueAsDate;
+    if (!selectedDate) {
+        console.log('📋 No date selected');
+        return;
+    }
+    
+    console.log('📋 Loading review for selected date:', selectedDate);
+    console.log('📋 Current project:', currentProject);
+    console.log('📋 Is All Tasks mode:', !currentProject);
+    
+    const textarea = document.getElementById('timesheetReview');
+    const button = document.getElementById('saveReviewBtn');
+    
+    if (!textarea || !button) {
+        console.log('📋 Review elements not found, waiting...');
+        // Wait a bit for the elements to be created
+        setTimeout(() => {
+            loadReviewForSelectedDate();
+        }, 200);
+        return;
+    }
+    
+    console.log('📋 Review elements found, proceeding with loading...');
+    
+    try {
+        const existingReview = await loadExistingReview(selectedDate);
+        console.log('📋 Review loaded for selected date:', existingReview);
+        
+        if (existingReview) {
+            textarea.value = existingReview.text;
+            textarea.placeholder = "Add your review, notes, or observations about today's work...";
+            button.textContent = 'Update Review';
+            console.log('📋 Review text loaded:', existingReview.text?.substring(0, 50) + '...');
+        } else {
+            textarea.value = '';
+            textarea.placeholder = "Add your review, notes, or observations about today's work...";
+            button.textContent = 'Save Review';
+            console.log('📋 No existing review found for this date');
+        }
+    } catch (error) {
+        console.error('❌ Error loading review for selected date:', error);
+        textarea.value = '';
+        textarea.placeholder = "Add your review, notes, or observations about today's work...";
+        button.textContent = 'Save Review';
     }
 }
 
@@ -2420,8 +2797,14 @@ async function loadExistingReview(selectedDate) {
         
         console.log('📋 All saved reviews:', savedReviews);
         console.log('📋 Current project ID:', currentProjectId);
+        console.log('📋 Is All Tasks mode:', !currentProject);
+        console.log('📋 Global timesheetReviews:', window.timesheetReviews);
         
-        const foundReview = savedReviews.find(review => {
+        // Use global timesheetReviews as fallback if Firebase data is empty
+        const reviewsToSearch = savedReviews.length > 0 ? savedReviews : (window.timesheetReviews || []);
+        console.log('📋 Using reviews for search:', reviewsToSearch);
+        
+        const foundReview = reviewsToSearch.find(review => {
             const reviewDate = new Date(review.date);
             const selectedDateOnly = new Date(selectedDate);
             reviewDate.setHours(0, 0, 0, 0);
@@ -2434,7 +2817,9 @@ async function loadExistingReview(selectedDate) {
                 selectedDate: selectedDateOnly.toDateString(),
                 dateMatch,
                 projectMatch,
-                reviewProjectId: review.projectId
+                reviewProjectId: review.projectId,
+                currentProjectId: currentProjectId,
+                reviewText: review.text?.substring(0, 50) + '...'
             });
             
             return dateMatch && projectMatch;
@@ -2466,7 +2851,9 @@ async function saveTimesheetReview() {
         console.log('💾 Saving timesheet review:', { 
             reviewText: reviewText?.substring(0, 50) + '...', 
             selectedDate,
-            currentProject: currentProject?.name || 'All Tasks'
+            currentProject: currentProject?.name || 'All Tasks',
+            currentProjectId: currentProject ? currentProject.id : null,
+            isAllTasks: !currentProject
         });
         
         if (reviewText.trim()) {
@@ -2480,6 +2867,7 @@ async function saveTimesheetReview() {
             };
             
             console.log('💾 Review object created:', review);
+            console.log('💾 Review projectId:', review.projectId, '(null means All Tasks)');
             
             // Load existing reviews from Firebase
             console.log('💾 Loading existing reviews from Firebase...');
@@ -2492,8 +2880,19 @@ async function saveTimesheetReview() {
                 const selectedDateOnly = new Date(selectedDate);
                 reviewDate.setHours(0, 0, 0, 0);
                 selectedDateOnly.setHours(0, 0, 0, 0);
-                return reviewDate.getTime() === selectedDateOnly.getTime() && 
-                       r.projectId === review.projectId;
+                const dateMatch = reviewDate.getTime() === selectedDateOnly.getTime();
+                const projectMatch = r.projectId === review.projectId;
+                
+                console.log('💾 Checking existing review:', {
+                    reviewDate: reviewDate.toDateString(),
+                    selectedDate: selectedDateOnly.toDateString(),
+                    dateMatch,
+                    projectMatch,
+                    existingProjectId: r.projectId,
+                    newProjectId: review.projectId
+                });
+                
+                return dateMatch && projectMatch;
             });
             
             console.log('💾 Existing review index:', existingReviewIndex);
@@ -2512,6 +2911,11 @@ async function saveTimesheetReview() {
             console.log('💾 Saving to Firebase...');
             await window.firebaseRESTIntegration.saveData('timesheetReviews', savedReviews);
             console.log('💾 Review saved to Firebase successfully');
+            
+            // Update global variable
+            window.timesheetReviews = savedReviews;
+            timesheetReviews = savedReviews;
+            console.log('💾 Updated global timesheetReviews:', timesheetReviews);
             
             // Update button text to show it was saved
             const saveBtn = document.getElementById('saveReviewBtn');
@@ -2755,7 +3159,7 @@ async function renderWeeklyReview() {
     
     try {
         // Load weekly reviews from Firebase
-        const weeklyReviews = await firebaseIntegration.loadData('weeklyReviews') || [];
+        const weeklyReviews = await window.firebaseRESTIntegration.loadData('weeklyReviews') || [];
         
         // Find weekly review for current week and project
         const currentProjectId = currentProject ? currentProject.id : null;
@@ -2793,20 +3197,56 @@ async function renderWeeklyReview() {
 
 async function renderDailyReviews() {
     const container = document.getElementById('dailyReviewsContainer');
+    
+    if (!container) {
+        console.error('❌ Daily reviews container not found');
+        return;
+    }
+    
+    if (!currentWeekStart) {
+        console.error('❌ Current week start not set');
+        container.innerHTML = '<div class="no-reviews">Error: Week not initialized.</div>';
+        return;
+    }
+    
     const weekEnd = getWeekEnd(currentWeekStart);
     
     try {
+        console.log('📋 Loading daily reviews for week:', currentWeekStart, 'to', weekEnd);
+        console.log('📋 Current project for reviews:', currentProject ? currentProject.name : 'All Tasks');
+        
+        // Check if Firebase integration is available
+        if (!window.firebaseRESTIntegration) {
+            console.error('❌ Firebase integration not available');
+            container.innerHTML = '<div class="no-reviews">Firebase integration not available.</div>';
+            return;
+        }
+        
         // Load daily reviews from Firebase
-        const dailyReviews = await firebaseIntegration.loadData('timesheetReviews') || [];
+        const dailyReviews = await window.firebaseRESTIntegration.loadData('timesheetReviews') || [];
         const currentProjectId = currentProject ? currentProject.id : null;
+        
+        console.log('📋 Loaded daily reviews:', dailyReviews.length);
+        console.log('📋 Current project ID:', currentProjectId);
         
         // Filter reviews for current week and project
         const weekReviews = dailyReviews.filter(review => {
             const reviewDate = new Date(review.date);
             const isInWeek = reviewDate >= currentWeekStart && reviewDate <= weekEnd;
             const isSameProject = review.projectId === currentProjectId;
+            
+            console.log('📋 Checking review:', {
+                reviewDate: reviewDate.toDateString(),
+                isInWeek,
+                isSameProject,
+                reviewProjectId: review.projectId,
+                currentProjectId: currentProjectId
+            });
+            
             return isInWeek && isSameProject;
         });
+        
+        console.log('📋 Filtered week reviews:', weekReviews.length);
         
         if (weekReviews.length > 0) {
             // Sort by date (newest first)
@@ -2968,4 +3408,177 @@ async function saveWeeklyReview(text) {
         });
         showToast(`Failed to save weekly review: ${error.message}`, 'error');
     }
+}
+
+// Database Loader Functions
+function showDatabaseLoader(message = 'Connecting to database...') {
+    const loader = document.getElementById('databaseLoader');
+    const loaderText = loader.querySelector('.loader-text');
+    
+    if (loaderText) {
+        loaderText.textContent = message;
+    }
+    
+    loader.style.display = 'flex';
+    loader.classList.add('fade-in');
+    loader.classList.remove('fade-out');
+}
+
+function hideDatabaseLoader() {
+    const loader = document.getElementById('databaseLoader');
+    loader.classList.add('fade-out');
+    loader.classList.remove('fade-in');
+    
+    setTimeout(() => {
+        loader.style.display = 'none';
+    }, 300);
+}
+
+// Today's To Do functionality
+
+// Render Today's To Do view
+function renderTodaysTodo() {
+    console.log('📅 Rendering Today\'s To Do...');
+    
+    const today = new Date();
+    const todayStart = new Date(today);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(today);
+    todayEnd.setHours(23, 59, 59, 999);
+    
+    // Get tasks for today
+    const todaysTasks = tasks.filter(task => {
+        if (!task.dueDate) return false;
+        const dueDate = new Date(task.dueDate);
+        return dueDate >= todayStart && dueDate <= todayEnd;
+    });
+    
+    // Filter by current project if not "All Tasks"
+    const filteredTasks = currentProject 
+        ? todaysTasks.filter(task => task.projectId === currentProject.id)
+        : todaysTasks;
+    
+    // Update stats
+    updateTodaysTodoStats(filteredTasks);
+    
+    // Render tasks (show all tasks, no filtering)
+    renderTodaysTodoList(filteredTasks);
+}
+
+// Update Today's To Do statistics
+function updateTodaysTodoStats(tasks) {
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(task => task.status === 'done').length;
+    const remainingTasks = totalTasks - completedTasks;
+    
+    document.getElementById('totalTasksToday').textContent = totalTasks;
+    document.getElementById('completedTasksToday').textContent = completedTasks;
+    document.getElementById('remainingTasksToday').textContent = remainingTasks;
+}
+
+// Render Today's To Do list
+function renderTodaysTodoList(tasks) {
+    const container = document.getElementById('todaysTodoList');
+    
+    if (tasks.length === 0) {
+        container.innerHTML = `
+            <div class="todays-todo-empty">
+                <i class="fas fa-calendar-check"></i>
+                <h3>No tasks for today</h3>
+                <p>You have no tasks due today.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort tasks by status and due time
+    const sortedTasks = tasks.sort((a, b) => {
+        const statusOrder = { 'todo': 0, 'inprogress': 1, 'tobetested': 2, 'done': 3 };
+        const statusDiff = statusOrder[a.status] - statusOrder[b.status];
+        if (statusDiff !== 0) return statusDiff;
+        
+        // If same status, sort by due date
+        return new Date(a.dueDate) - new Date(b.dueDate);
+    });
+    
+    container.innerHTML = sortedTasks.map(task => {
+        const project = projects.find(p => p.id === task.projectId);
+        const projectName = project ? project.name : 'No Project';
+        const projectEmoji = project ? project.emoji : '📁';
+        
+        const dueTime = new Date(task.dueDate).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+        });
+        
+        const isRunning = task.isTimerRunning || false;
+        const timeSpent = task.timeSpent || 0;
+        const timeSpentFormatted = formatTime(timeSpent);
+        
+        return `
+            <div class="todays-todo-item ${task.status}">
+                <div class="todays-todo-item-header">
+                    <h3 class="todays-todo-item-title">${task.title}</h3>
+                    <span class="todays-todo-item-status ${task.status}">${task.status.replace('tobetested', 'To Be Tested')}</span>
+                </div>
+                
+                ${isRunning ? `
+                    <div class="todays-todo-item-timer">
+                        <i class="fas fa-clock"></i>
+                        <span>Timer running: ${timeSpentFormatted}</span>
+                    </div>
+                ` : ''}
+                
+                <div class="todays-todo-item-meta">
+                    <div class="todays-todo-item-project">
+                        <i class="fas fa-folder"></i>
+                        <span>${projectEmoji} ${projectName}</span>
+                        <span>• Due: ${dueTime}</span>
+                    </div>
+                    
+                    <div class="todays-todo-item-actions">
+                        ${task.status === 'todo' ? `
+                            <button class="btn-start" onclick="startTimer(${task.id})">
+                                <i class="fas fa-play"></i> Start
+                            </button>
+                        ` : ''}
+                        
+                        ${task.status === 'inprogress' ? `
+                            <button class="btn-stop" onclick="stopTimer(${task.id})">
+                                <i class="fas fa-stop"></i> Stop
+                            </button>
+                        ` : ''}
+                        
+                        ${task.status !== 'done' ? `
+                            <button class="btn-complete" onclick="completeTask(${task.id})">
+                                <i class="fas fa-check"></i> Complete
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+
+// Complete task function
+function completeTask(taskId) {
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+        task.status = 'done';
+        saveData();
+        renderTodaysTodo();
+        showToast('Task completed!', 'success');
+    }
+}
+
+// Format time helper function
+function formatTime(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }

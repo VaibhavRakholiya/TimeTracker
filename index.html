@@ -15,6 +15,14 @@
     <script src="firebase-rest-integration.js"></script>
 </head>
 <body>
+    <!-- Database Loader -->
+    <div id="databaseLoader" class="database-loader" style="display: none;">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">Connecting to database...</div>
+        </div>
+    </div>
+
     <!-- Inspiring Quote Section -->
     <div class="quote-container">
         <div class="quote-content">
@@ -57,6 +65,7 @@
             
             <div class="view-controls">
                 <button id="boardViewBtn" class="view-btn active"><i class="fas fa-columns"></i> Board</button>
+                <button id="todaysTodoBtn" class="view-btn"><i class="fas fa-calendar-day"></i> Today's To Do</button>
                 <button id="timesheetViewBtn" class="view-btn"><i class="fas fa-list"></i> List</button>
                 <button id="reviewsViewBtn" class="view-btn"><i class="fas fa-clipboard-check"></i> Reviews</button>
             </div>
@@ -163,6 +172,33 @@
                         <div id="dailyReviewsContainer" class="reviews-grid">
                             <!-- Daily reviews will be loaded here -->
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Today's To Do View -->
+            <div id="todaysTodoView" class="todays-todo-view" style="display: none;">
+                <div class="todays-todo-header">
+                    <h2><i class="fas fa-calendar-day"></i> Today's To Do</h2>
+                    <div class="todays-todo-stats">
+                        <div class="stat-item">
+                            <span class="stat-number" id="totalTasksToday">0</span>
+                            <span class="stat-label">Total Tasks</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="completedTasksToday">0</span>
+                            <span class="stat-label">Completed</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="remainingTasksToday">0</span>
+                            <span class="stat-label">Remaining</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="todays-todo-content">
+                    <div class="todays-todo-list" id="todaysTodoList">
+                        <!-- Today's tasks will be loaded here -->
                     </div>
                 </div>
             </div>
