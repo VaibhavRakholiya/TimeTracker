@@ -7,7 +7,11 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
-    <!-- Firebase REST API Integration - No SDK Required -->
+    <!-- Firebase SDK (Database only) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     
     <!-- Firebase Configuration -->
@@ -23,6 +27,67 @@
         </div>
     </div>
 
+    <!-- Authentication Modal -->
+    <div id="authModal" class="auth-modal">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h1><i class="fas fa-clock"></i> TimeTracker</h1>
+                <p>Manage your tasks and track your time efficiently</p>
+            </div>
+            
+            <div class="auth-tabs">
+                <button id="loginTab" class="auth-tab active">Login</button>
+                <button id="signupTab" class="auth-tab">Sign Up</button>
+            </div>
+            
+            <!-- Login Form -->
+            <div id="loginForm" class="auth-form active">
+                <form id="loginFormElement">
+                    <div class="form-group">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" required placeholder="Enter your email">
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" required placeholder="Enter your password">
+                    </div>
+                    <button type="submit" class="btn-primary auth-btn">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Sign Up Form -->
+            <div id="signupForm" class="auth-form">
+                <form id="signupFormElement">
+                    <div class="form-group">
+                        <label for="signupName">Full Name</label>
+                        <input type="text" id="signupName" required placeholder="Enter your full name">
+                    </div>
+                    <div class="form-group">
+                        <label for="signupEmail">Email</label>
+                        <input type="email" id="signupEmail" required placeholder="Enter your email">
+                    </div>
+                    <div class="form-group">
+                        <label for="signupPassword">Password</label>
+                        <input type="password" id="signupPassword" required placeholder="Create a password" minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="signupConfirmPassword">Confirm Password</label>
+                        <input type="password" id="signupConfirmPassword" required placeholder="Confirm your password">
+                    </div>
+                    <button type="submit" class="btn-primary auth-btn">
+                        <i class="fas fa-user-plus"></i> Create Account
+                    </button>
+                </form>
+            </div>
+            
+            <div class="auth-footer">
+                <p id="authError" class="auth-error"></p>
+            </div>
+        </div>
+    </div>
+
     <!-- Inspiring Quote Section -->
     <div class="quote-container">
         <div class="quote-content">
@@ -33,13 +98,11 @@
 
 
     
-    <div class="container">
+    <div class="container" id="mainContainer" style="display: none;">
         <aside class="sidebar">
             <div class="sidebar-header">
                 <h2>TimeTracker</h2>
             </div>
-            
-
             
             <div class="projects-section">
                 <h3>Projects</h3>
@@ -49,7 +112,6 @@
                         <span>New Project</span>
                     </li>
                 </ul>
-
             </div>
         </aside>
         
@@ -60,6 +122,30 @@
                         <i class="fas fa-bars"></i>
                     </button>
                     <h1 id="currentProjectName">All Tasks</h1>
+                </div>
+                <div class="top-bar-right">
+                    <div class="user-profile" id="userProfile">
+                        <div class="user-info">
+                            <div class="user-avatar" id="userAvatar">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="user-details">
+                                <div class="user-name" id="userName">User</div>
+                                <div class="user-email" id="userEmail">user@example.com</div>
+                            </div>
+                        </div>
+                        <div class="user-actions">
+                            <button id="logoutBtn" class="logout-btn" title="Logout">
+                                <i class="fas fa-sign-out-alt"></i>
+                                <span>Logout</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="runningTimerDisplay" class="running-timer" style="display: none;">
+                        <i class="fas fa-clock"></i>
+                        <span id="runningTimerText">00:00:00</span>
+                        <span id="runningTimerTask">Task Name</span>
+                    </div>
                 </div>
             </header>
             
@@ -181,6 +267,12 @@
             <div id="todaysTodoView" class="todays-todo-view" style="display: none;">
                 <div class="todays-todo-header">
                     <h2><i class="fas fa-calendar-day"></i> Today's To Do</h2>
+                    <div class="todays-todo-controls">
+                        <button id="todaysTodoSortBtn" class="sort-btn" title="Sort by Signal/Noise">
+                            <i class="fas fa-sort-amount-down"></i>
+                            <span>Sort by Signal/Noise</span>
+                        </button>
+                    </div>
                     <div class="todays-todo-stats">
                         <div class="stat-item">
                             <span class="stat-number" id="totalTasksToday">0</span>
@@ -193,6 +285,10 @@
                         <div class="stat-item">
                             <span class="stat-number" id="remainingTasksToday">0</span>
                             <span class="stat-label">Remaining</span>
+                        </div>
+                        <div class="stat-item signal-noise-stat">
+                            <span class="stat-number" id="signalNoiseRatioToday">0%</span>
+                            <span class="stat-label">Signal Ratio</span>
                         </div>
                     </div>
                 </div>
@@ -227,6 +323,10 @@
                 <div class="form-group">
                     <label for="taskDueDate">Due Date</label>
                     <input type="date" id="taskDueDate">
+                </div>
+                <div class="form-group">
+                    <label for="taskEstimatedTime">Estimated Time (hours)</label>
+                    <input type="number" id="taskEstimatedTime" min="0" step="0.5" placeholder="e.g., 2.5">
                 </div>
                 <div class="form-group">
                     <label for="taskCategory">Task Category</label>
