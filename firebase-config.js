@@ -1,4 +1,4 @@
-// Firebase Configuration - Database Only
+// Firebase Configuration - Database URL Only
 // ⚠️  IMPORTANT: Replace the database URL with your actual Firebase Realtime Database URL
 // See FIREBASE_SETUP.md for detailed instructions
 

@@ -7,309 +7,20 @@ let quotes = [];
 let currentQuoteIndex = 0;
 let quoteInterval = null;
 
-// Authentication state
-let currentUser = null;
-let authInitialized = false;
-
-// Today's To Do sorting state
-let todaysTodoSortBySignal = false;
-
-// Running timer state
-let runningTimerInterval = null;
-let currentRunningTask = null;
-
-// Authentication Functions
-function initializeAuth() {
-    console.log('🔐 Initializing custom authentication...');
-    
-    if (!window.firebaseRESTIntegration) {
-        console.warn('⚠️ Firebase REST integration not available, using demo mode');
-        showAuthModal();
-        return;
-    }
-    
-    console.log('🔐 Firebase REST integration is available, proceeding with auth initialization');
-    
-    // Check for existing session
-    const savedUserId = localStorage.getItem('currentUserId');
-    console.log('🔐 Saved user ID:', savedUserId);
-    
-    if (savedUserId) {
-        // Verify user still exists
-        console.log('🔐 Verifying existing session...');
-        window.firebaseRESTIntegration.getUserById(savedUserId).then(result => {
-            console.log('🔐 Session verification result:', result);
-            if (result.success) {
-                currentUser = result.user;
-                console.log('👤 User session restored:', currentUser);
-                hideAuthModal();
-                showMainApp();
-                updateUserProfile(currentUser);
-                loadUserData();
-            } else {
-                // Invalid session, clear it
-                console.log('🔐 Invalid session, clearing...');
-                localStorage.removeItem('currentUserId');
-                showAuthModal();
-                hideMainApp();
-            }
-        }).catch(error => {
-            console.error('🔐 Error verifying session:', error);
-            localStorage.removeItem('currentUserId');
-            showAuthModal();
-            hideMainApp();
-        });
-    } else {
-        console.log('👤 No user session found');
-        showAuthModal();
-        hideMainApp();
-    }
-    
-    authInitialized = true;
-    console.log('✅ Custom authentication initialized');
-}
-
-function showAuthModal() {
-    console.log('🔐 Showing auth modal');
-    const authModal = document.getElementById('authModal');
-    if (authModal) {
-        authModal.style.display = 'flex';
-        console.log('✅ Auth modal shown');
-    } else {
-        console.error('❌ Auth modal element not found');
-    }
-}
-
-function hideAuthModal() {
-    console.log('🔐 Hiding auth modal');
-    const authModal = document.getElementById('authModal');
-    if (authModal) {
-        authModal.style.display = 'none';
-        console.log('✅ Auth modal hidden');
-    } else {
-        console.error('❌ Auth modal element not found');
-    }
-}
-
-function showMainApp() {
-    console.log('🔐 Showing main app');
-    const mainContainer = document.getElementById('mainContainer');
-    if (mainContainer) {
-        mainContainer.style.display = 'flex';
-        console.log('✅ Main app shown');
-    } else {
-        console.error('❌ Main container element not found');
-    }
-}
-
-function hideMainApp() {
-    console.log('🔐 Hiding main app');
-    const mainContainer = document.getElementById('mainContainer');
-    if (mainContainer) {
-        mainContainer.style.display = 'none';
-        console.log('✅ Main app hidden');
-    } else {
-        console.error('❌ Main container element not found');
-    }
-}
-
-function updateUserProfile(user) {
-    const userName = document.getElementById('userName');
-    const userEmail = document.getElementById('userEmail');
-    const userAvatar = document.getElementById('userAvatar');
-    
-    if (userName) {
-        userName.textContent = user.displayName || user.email.split('@')[0];
-    }
-    
-    if (userEmail) {
-        userEmail.textContent = user.email;
-    }
-    
-    if (userAvatar) {
-        const initials = (user.displayName || user.email)
-            .split(' ')
-            .map(name => name[0])
-            .join('')
-            .toUpperCase()
-            .substring(0, 2);
-        userAvatar.textContent = initials;
-    }
-}
-
-async function signUp(email, password, displayName) {
-    console.log('📝 Attempting to sign up:', email);
-    
-    try {
-        if (!window.firebaseRESTIntegration) {
-            throw new Error('Firebase REST integration not available');
-        }
-        
-        const result = await window.firebaseRESTIntegration.createUser(email, password, displayName);
-        
-        if (result.success) {
-            // Save user session
-            currentUser = result.user;
-            localStorage.setItem('currentUserId', result.user.id);
-            
-            console.log('✅ User signed up successfully:', result.user.id);
-            return { success: true, user: result.user };
-        } else {
-            return { success: false, error: result.error };
-        }
-        
-    } catch (error) {
-        console.error('❌ Sign up error:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-async function signIn(email, password) {
-    console.log('🔑 Attempting to sign in:', email);
-    
-    try {
-        if (!window.firebaseRESTIntegration) {
-            throw new Error('Firebase REST integration not available');
-        }
-        
-        const result = await window.firebaseRESTIntegration.authenticateUser(email, password);
-        
-        if (result.success) {
-            // Save user session
-            currentUser = result.user;
-            localStorage.setItem('currentUserId', result.user.id);
-            
-            console.log('✅ User signed in successfully:', result.user.id);
-            return { success: true, user: result.user };
-        } else {
-            return { success: false, error: result.error };
-        }
-        
-    } catch (error) {
-        console.error('❌ Sign in error:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-async function signInWithGoogle() {
-    console.log('🔑 Google sign in not available with custom authentication');
-    return { success: false, error: 'Google sign in not available with custom authentication system' };
-}
-
-async function signOut() {
-    console.log('🚪 Signing out user');
-    
-    try {
-        // Clear user session
-        currentUser = null;
-        localStorage.removeItem('currentUserId');
-        
-        // Clear local data
-        projects = [];
-        tasks = [];
-        backlogItems = [];
-        timeEntries = [];
-        timesheetReviews = [];
-        
-        // Stop running timer display
-        stopRunningTimerDisplay();
-        
-        console.log('✅ User signed out successfully');
-        return { success: true };
-        
-    } catch (error) {
-        console.error('❌ Sign out error:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-function showAuthError(message) {
-    const errorElement = document.getElementById('authError');
-    if (errorElement) {
-        errorElement.textContent = message;
-        errorElement.style.display = 'block';
-    }
-}
-
-function clearAuthError() {
-    const errorElement = document.getElementById('authError');
-    if (errorElement) {
-        errorElement.textContent = '';
-        errorElement.style.display = 'none';
-    }
-}
-
-// Running Timer Functions
-function updateRunningTimerDisplay() {
-    const runningTimerDisplay = document.getElementById('runningTimerDisplay');
-    const runningTimerText = document.getElementById('runningTimerText');
-    const runningTimerTask = document.getElementById('runningTimerTask');
-    
-    if (!runningTimerDisplay || !runningTimerText || !runningTimerTask) return;
-    
-    if (currentRunningTask && currentRunningTask.isTimerRunning) {
-        const now = new Date();
-        const elapsed = Math.floor((now - currentRunningTask.timerStart) / 1000);
-        const formattedTime = formatTime(elapsed);
-        
-        runningTimerText.textContent = formattedTime;
-        runningTimerTask.textContent = currentRunningTask.title;
-        runningTimerDisplay.style.display = 'flex';
-    } else {
-        runningTimerDisplay.style.display = 'none';
-    }
-}
-
-function startRunningTimerDisplay(task) {
-    currentRunningTask = task;
-    updateRunningTimerDisplay();
-    
-    // Update display every second
-    if (runningTimerInterval) {
-        clearInterval(runningTimerInterval);
-    }
-    
-    runningTimerInterval = setInterval(() => {
-        updateRunningTimerDisplay();
-    }, 1000);
-}
-
-function stopRunningTimerDisplay() {
-    currentRunningTask = null;
-    updateRunningTimerDisplay();
-    
-    if (runningTimerInterval) {
-        clearInterval(runningTimerInterval);
-        runningTimerInterval = null;
-    }
-}
-
-// Load user-specific data from Firebase REST API or localStorage
-async function loadUserData() {
-    if (!currentUser) {
-        console.warn('⚠️ No user logged in, cannot load user data');
-        return;
-    }
-    
-    console.log('📥 Loading user data for:', currentUser.uid);
-    await loadData();
-}
-
 // Load data from Firebase REST API or localStorage
 async function loadData() {
     console.log('📥 Loading data from Firebase...');
     try {
-        if (window.firebaseRESTIntegration && currentUser) {
-            console.log('🔄 Using Firebase REST API integration for user:', currentUser.id);
+        if (window.firebaseRESTIntegration) {
+            console.log('🔄 Using Firebase REST API integration');
             showDatabaseLoader('Loading data from database...');
             
-            // Load from Firebase via REST API with user-specific paths
-            const userId = currentUser.id;
-            projects = await window.firebaseRESTIntegration.loadData(`users/${userId}/projects`);
-            tasks = await window.firebaseRESTIntegration.loadData(`users/${userId}/tasks`);
-            backlogItems = await window.firebaseRESTIntegration.loadData(`users/${userId}/backlogItems`);
-            timeEntries = await window.firebaseRESTIntegration.loadData(`users/${userId}/timeEntries`);
-            timesheetReviews = await window.firebaseRESTIntegration.loadData(`users/${userId}/timesheetReviews`);
+            // Load from Firebase via REST API
+            projects = await window.firebaseRESTIntegration.loadData('projects');
+            tasks = await window.firebaseRESTIntegration.loadData('tasks');
+            backlogItems = await window.firebaseRESTIntegration.loadData('backlogItems');
+            timeEntries = await window.firebaseRESTIntegration.loadData('timeEntries');
+            timesheetReviews = await window.firebaseRESTIntegration.loadData('timesheetReviews');
             
             console.log(`📊 Loaded data:`, {
                 projects: projects.length,
@@ -371,24 +82,18 @@ async function loadData() {
 
 // Save data to Firebase REST API or localStorage
 async function saveData() {
-    if (!currentUser) {
-        console.warn('⚠️ No user logged in, cannot save data');
-        return;
-    }
-    
-    console.log('💾 Saving data to Firebase for user:', currentUser.id);
+    console.log('💾 Saving data to Firebase...');
     try {
         if (window.firebaseRESTIntegration) {
             console.log('🔄 Using Firebase REST API integration for saving');
             showDatabaseLoader('Saving data to database...');
             
-            // Save to Firebase via REST API with user-specific paths
-            const userId = currentUser.id;
-            await window.firebaseRESTIntegration.saveData(`users/${userId}/projects`, projects);
-            await window.firebaseRESTIntegration.saveData(`users/${userId}/tasks`, tasks);
-            await window.firebaseRESTIntegration.saveData(`users/${userId}/backlogItems`, backlogItems);
-            await window.firebaseRESTIntegration.saveData(`users/${userId}/timeEntries`, timeEntries);
-            await window.firebaseRESTIntegration.saveData(`users/${userId}/timesheetReviews`, timesheetReviews);
+            // Save to Firebase via REST API
+            await window.firebaseRESTIntegration.saveData('projects', projects);
+            await window.firebaseRESTIntegration.saveData('tasks', tasks);
+            await window.firebaseRESTIntegration.saveData('backlogItems', backlogItems);
+            await window.firebaseRESTIntegration.saveData('timeEntries', timeEntries);
+            await window.firebaseRESTIntegration.saveData('timesheetReviews', timesheetReviews);
             console.log('✅ All data saved to Firebase successfully');
             
             hideDatabaseLoader();
@@ -945,7 +650,7 @@ function selectProject(projectId) {
 }
 
 // Task Management
-async function addTask(title, status, dueDate, category = 'signal', estimatedTime = null) {
+async function addTask(title, status, dueDate, category = 'signal') {
     console.log(`🆕 Creating new task: ${title} (${status})`);
     
     // Check if Firebase integration is available
@@ -970,7 +675,6 @@ async function addTask(title, status, dueDate, category = 'signal', estimatedTim
         title,
         status,
         dueDate: dueDate || null,
-        estimatedTime: estimatedTime ? parseFloat(estimatedTime) : null,
         category: category || 'signal', // Default to signal if not specified
         position: maxPosition + 1000, // Use increments of 1000 to allow space for reordering
         timeSpent: 0,
@@ -1285,14 +989,6 @@ function createTaskCard(task) {
                 </span>
             </div>
             ` : ''}
-            ${task.estimatedTime ? `
-            <div class="estimated-time-section">
-                <i class="fas fa-hourglass-half"></i>
-                <span class="estimated-time">
-                    Est: ${task.estimatedTime}h
-                </span>
-            </div>
-            ` : ''}
             <div class="timer-section">
                 <div class="timer-display ${task.isTimerRunning ? 'running' : ''}" id="timer-${task.id}">
                     <i class="${task.isTimerRunning ? 'fas fa-circle-notch fa-spin' : 'far fa-clock'}"></i>
@@ -1388,10 +1084,9 @@ function openAddTaskModal() {
         const title = document.getElementById('taskTitle').value;
         const status = document.getElementById('taskStatus').value;
         const dueDate = document.getElementById('taskDueDate').value;
-        const estimatedTime = document.getElementById('taskEstimatedTime').value;
         const category = document.getElementById('taskCategory').value;
         
-        console.log('📋 Form data:', { title, status, dueDate, estimatedTime, category });
+        console.log('📋 Form data:', { title, status, dueDate, category });
         
         if (!title.trim()) {
             console.error('❌ Task title is required');
@@ -1401,7 +1096,7 @@ function openAddTaskModal() {
         
         try {
             console.log('🚀 Calling addTask function...');
-            await addTask(title, status, dueDate, category, estimatedTime);
+            await addTask(title, status, dueDate, category);
             console.log('✅ Task creation completed, closing modal');
         modal.style.display = 'none';
         } catch (error) {
@@ -1420,7 +1115,6 @@ function openEditTaskModal(task) {
     document.getElementById('taskTitle').value = task.title;
     document.getElementById('taskStatus').value = task.status;
     document.getElementById('taskDueDate').value = task.dueDate || '';
-    document.getElementById('taskEstimatedTime').value = task.estimatedTime || '';
     document.getElementById('taskCategory').value = task.category || 'signal';
     
     // Show and setup delete button
@@ -1438,7 +1132,6 @@ function openEditTaskModal(task) {
             title: document.getElementById('taskTitle').value,
             status: document.getElementById('taskStatus').value,
             dueDate: document.getElementById('taskDueDate').value || null,
-            estimatedTime: document.getElementById('taskEstimatedTime').value ? parseFloat(document.getElementById('taskEstimatedTime').value) : null,
             category: document.getElementById('taskCategory').value
         };
         
@@ -1554,7 +1247,7 @@ function setupEmojiPicker(initialEmoji = '🎯') {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 DOM Content Loaded - Initializing TimeTracker...');
     
-    // Wait for Firebase integration to be available first
+    // Wait for Firebase integration to be available
     let attempts = 0;
     const maxAttempts = 50; // Wait up to 5 seconds (50 * 100ms)
     
@@ -1572,13 +1265,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('Available window objects:', Object.keys(window).filter(key => key.includes('firebase')));
     }
     
-    // Initialize authentication after Firebase integration is ready
-    initializeAuth();
-    
-    // Only load data if user is authenticated
-    if (currentUser) {
-        await loadData();
-    }
+    await loadData();
     
     // Load and start quote rotation
     loadQuotes();
@@ -1591,9 +1278,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Setup sort button
     setupSortButton();
-    
-    // Setup Today's To Do sort button
-    setupTodaysTodoSortButton();
     
     // Add global test functions for debugging
     window.testTaskCreation = async () => {
@@ -2225,186 +1909,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             displayQuote();
         }
     });
-    
-    // Setup authentication event listeners
-    setupAuthEventListeners();
 });
-
-// Setup authentication event listeners
-function setupAuthEventListeners() {
-    console.log('🔐 Setting up authentication event listeners...');
-    
-    // Tab switching
-    const loginTab = document.getElementById('loginTab');
-    const signupTab = document.getElementById('signupTab');
-    const loginForm = document.getElementById('loginForm');
-    const signupForm = document.getElementById('signupForm');
-    
-    if (loginTab && signupTab && loginForm && signupForm) {
-        loginTab.addEventListener('click', () => {
-            loginTab.classList.add('active');
-            signupTab.classList.remove('active');
-            loginForm.classList.add('active');
-            signupForm.classList.remove('active');
-            clearAuthError();
-        });
-        
-        signupTab.addEventListener('click', () => {
-            signupTab.classList.add('active');
-            loginTab.classList.remove('active');
-            signupForm.classList.add('active');
-            loginForm.classList.remove('active');
-            clearAuthError();
-        });
-    }
-    
-    // Login form submission
-    const loginFormElement = document.getElementById('loginFormElement');
-    if (loginFormElement) {
-        console.log('🔐 Setting up login form event listener');
-        loginFormElement.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            console.log('🔐 Login form submitted');
-            clearAuthError();
-            
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-            
-            console.log('🔐 Login attempt:', { email, passwordLength: password.length });
-            
-            if (!email || !password) {
-                showAuthError('Please fill in all fields');
-                return;
-            }
-            
-            try {
-                const result = await signIn(email, password);
-                console.log('🔐 Login result:', result);
-                
-                if (result.success) {
-                    // Login successful - hide modal and show main app
-                    console.log('🔐 Login successful, updating UI');
-                    hideAuthModal();
-                    showMainApp();
-                    updateUserProfile(result.user);
-                    loadUserData();
-                } else {
-                    console.log('🔐 Login failed:', result.error);
-                    showAuthError(result.error);
-                }
-            } catch (error) {
-                console.error('🔐 Login error:', error);
-                showAuthError('An error occurred during login');
-            }
-        });
-    } else {
-        console.error('❌ Login form element not found');
-    }
-    
-    // Signup form submission
-    const signupFormElement = document.getElementById('signupFormElement');
-    if (signupFormElement) {
-        console.log('🔐 Setting up signup form event listener');
-        signupFormElement.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            console.log('🔐 Signup form submitted');
-            clearAuthError();
-            
-            const name = document.getElementById('signupName').value;
-            const email = document.getElementById('signupEmail').value;
-            const password = document.getElementById('signupPassword').value;
-            const confirmPassword = document.getElementById('signupConfirmPassword').value;
-            
-            console.log('🔐 Signup attempt:', { name, email, passwordLength: password.length });
-            
-            if (!name || !email || !password || !confirmPassword) {
-                showAuthError('Please fill in all fields');
-                return;
-            }
-            
-            if (password !== confirmPassword) {
-                showAuthError('Passwords do not match');
-                return;
-            }
-            
-            if (password.length < 6) {
-                showAuthError('Password must be at least 6 characters long');
-                return;
-            }
-            
-            try {
-                const result = await signUp(email, password, name);
-                console.log('🔐 Signup result:', result);
-                
-                if (result.success) {
-                    // Signup successful - hide modal and show main app
-                    console.log('🔐 Signup successful, updating UI');
-                    hideAuthModal();
-                    showMainApp();
-                    updateUserProfile(result.user);
-                    loadUserData();
-                } else {
-                    console.log('🔐 Signup failed:', result.error);
-                    showAuthError(result.error);
-                }
-            } catch (error) {
-                console.error('🔐 Signup error:', error);
-                showAuthError('An error occurred during signup');
-            }
-        });
-    } else {
-        console.error('❌ Signup form element not found');
-    }
-    
-    // Google sign in is not available with custom authentication
-    
-    // Logout button
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', async () => {
-            const result = await signOut();
-            if (!result.success) {
-                showAuthError(result.error);
-            }
-        });
-    }
-    
-    console.log('✅ Authentication event listeners setup complete');
-}
-
-// Setup Today's To Do sort button
-function setupTodaysTodoSortButton() {
-    const sortBtn = document.getElementById('todaysTodoSortBtn');
-    
-    if (sortBtn) {
-        sortBtn.addEventListener('click', () => {
-            console.log('🔄 Toggling Today\'s To Do sort by Signal/Noise...');
-            todaysTodoSortBySignal = !todaysTodoSortBySignal;
-            
-            // Update button appearance
-            if (todaysTodoSortBySignal) {
-                sortBtn.classList.add('active');
-                sortBtn.querySelector('i').className = 'fas fa-sort-amount-up';
-                sortBtn.querySelector('span').textContent = 'Sort by Status';
-                sortBtn.title = 'Sort tasks by status (default)';
-                showToast('Tasks sorted by Signal/Noise', 'info', 2000);
-            } else {
-                sortBtn.classList.remove('active');
-                sortBtn.querySelector('i').className = 'fas fa-sort-amount-down';
-                sortBtn.querySelector('span').textContent = 'Sort by Signal/Noise';
-                sortBtn.title = 'Sort tasks by Signal/Noise';
-                showToast('Tasks sorted by status', 'info', 2000);
-            }
-            
-            // Re-render Today's To Do with new sorting
-            renderTodaysTodo();
-        });
-        
-        console.log('✅ Today\'s To Do sort button setup complete');
-    } else {
-        console.error('❌ Today\'s To Do sort button not found');
-    }
-}
 
 // Render backlog items
 function renderBacklogItems() {
@@ -2732,9 +2237,6 @@ async function startTimer(taskId) {
         updateTimerDisplay(taskId);
         renderTasks();
             
-            // Start running timer display
-            startRunningTimerDisplay(task);
-            
             // Show toast message
             showToast(`Timer started for: ${task.title}`, 'success', 3000);
         } else {
@@ -2801,9 +2303,6 @@ async function stopTimer(taskId) {
             // Update local array and render
             tasks = updatedTasks;
         renderTasks();
-            
-            // Stop running timer display
-            stopRunningTimerDisplay();
             
             // Show toast message
             showToast(`Timer stopped: ${formatTime(duration)}`, 'success', 3000);
@@ -2990,24 +2489,19 @@ function renderTimesheet() {
     // Sort tasks by date (newest first)
     taskSummaries.sort((a, b) => b.date - a.date);
 
-    // Calculate Signal-to-Noise ratio based on time spent for the selected date
-    let signalTime = 0;
-    let noiseTime = 0;
-    
-    taskSummaries.forEach(task => {
+    // Calculate Signal-to-Noise ratio for the selected date
+    const signalTasks = taskSummaries.filter(task => {
         const originalTask = tasks.find(t => t.id === task.taskId);
-        if (originalTask) {
-            if (originalTask.category === 'signal') {
-                signalTime += task.duration;
-            } else if (originalTask.category === 'noise') {
-                noiseTime += task.duration;
-            }
-        }
-    });
+        return originalTask && originalTask.category === 'signal';
+    }).length;
+    const noiseTasks = taskSummaries.filter(task => {
+        const originalTask = tasks.find(t => t.id === task.taskId);
+        return originalTask && originalTask.category === 'noise';
+    }).length;
     
-    // Calculate Signal percentage based on time spent
-    const totalTime = signalTime + noiseTime;
-    const signalPercentage = totalTime > 0 ? Math.round((signalTime / totalTime) * 100) : 0;
+    // Calculate Signal percentage
+    const totalTasks = signalTasks + noiseTasks;
+    const signalPercentage = totalTasks > 0 ? Math.round((signalTasks / totalTasks) * 100) : 0;
 
     // Render task summaries
     taskSummaries.forEach(task => {
@@ -4026,10 +3520,9 @@ function renderTodaysTodo() {
     const todayEnd = new Date(today);
     todayEnd.setHours(23, 59, 59, 999);
     
-    // Get tasks for today (excluding completed tasks)
+    // Get tasks for today
     const todaysTasks = tasks.filter(task => {
         if (!task.dueDate) return false;
-        if (task.status === 'done') return false; // Exclude completed tasks
         const dueDate = new Date(task.dueDate);
         return dueDate >= todayStart && dueDate <= todayEnd;
     });
@@ -4052,27 +3545,9 @@ function updateTodaysTodoStats(tasks) {
     const completedTasks = tasks.filter(task => task.status === 'done').length;
     const remainingTasks = totalTasks - completedTasks;
     
-    // Calculate Signal-to-Noise ratio based on time spent
-    let signalTime = 0;
-    let noiseTime = 0;
-    
-    tasks.forEach(task => {
-        if (task.timeSpent) {
-            if (task.category === 'signal') {
-                signalTime += task.timeSpent;
-            } else if (task.category === 'noise') {
-                noiseTime += task.timeSpent;
-            }
-        }
-    });
-    
-    const totalTime = signalTime + noiseTime;
-    const signalPercentage = totalTime > 0 ? Math.round((signalTime / totalTime) * 100) : 0;
-    
     document.getElementById('totalTasksToday').textContent = totalTasks;
     document.getElementById('completedTasksToday').textContent = completedTasks;
     document.getElementById('remainingTasksToday').textContent = remainingTasks;
-    document.getElementById('signalNoiseRatioToday').textContent = `${signalPercentage}%`;
 }
 
 // Render Today's To Do list
@@ -4090,21 +3565,13 @@ function renderTodaysTodoList(tasks) {
         return;
     }
     
-    // Sort tasks by Signal/Noise first (if enabled), then by status and due time
+    // Sort tasks by status and due time
     const sortedTasks = tasks.sort((a, b) => {
-        // First sort by Signal/Noise if enabled
-        if (todaysTodoSortBySignal) {
-            const signalOrder = { 'signal': 0, 'noise': 1 };
-            const signalDiff = (signalOrder[a.category] || 1) - (signalOrder[b.category] || 1);
-            if (signalDiff !== 0) return signalDiff;
-        }
-        
-        // Then sort by status
         const statusOrder = { 'todo': 0, 'inprogress': 1, 'tobetested': 2, 'done': 3 };
         const statusDiff = statusOrder[a.status] - statusOrder[b.status];
         if (statusDiff !== 0) return statusDiff;
         
-        // Finally sort by due date
+        // If same status, sort by due date
         return new Date(a.dueDate) - new Date(b.dueDate);
     });
     
