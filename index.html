@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TimeTracker - Task Management</title>
+    <title>TimeTracker - 
+        Task Management</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
@@ -37,6 +38,12 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <h2>TimeTracker</h2>
+                <div class="user-info">
+                    <span class="username" id="usernameDisplay">Admin</span>
+                    <button class="logout-btn" id="logoutBtn" title="Logout">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
             </div>
             
 
@@ -303,10 +310,12 @@
         </div>
     </div>
 
+    <script>
+        // Check authentication before loading the app
+        if (localStorage.getItem('isLoggedIn') !== 'true') {
+            window.location.href = 'login.html';
+        }
+    </script>
     <script src="app.js"></script>
 </body>
-</html>
-    
-</style>
-</head>
 </html>

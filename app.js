@@ -1,3 +1,30 @@
+// Authentication check
+function checkAuthentication() {
+    const isLoggedIn = localStorage.getItem('isLoggedIn');
+    if (isLoggedIn !== 'true') {
+        window.location.href = 'login.html';
+        return false;
+    }
+    return true;
+}
+
+// Check authentication on page load
+if (!checkAuthentication()) {
+    // Stop execution if not authenticated
+    throw new Error('Authentication required');
+}
+
+// Logout functionality
+function logout() {
+    // Clear authentication data
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('username');
+    localStorage.removeItem('loginTime');
+    
+    // Redirect to login page
+    window.location.href = 'login.html';
+}
+
 // Data structure
 let projects = [];
 let tasks = [];
@@ -1909,6 +1936,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             displayQuote();
         }
     });
+    
+    // Set up logout functionality
+    const logoutBtn = document.getElementById('logoutBtn');
+    const usernameDisplay = document.getElementById('usernameDisplay');
+    
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (confirm('Are you sure you want to logout?')) {
+                logout();
+            }
+        });
+    }
+    
+    // Display current username
+    if (usernameDisplay) {
+        const username = localStorage.getItem('username') || 'Admin';
+        usernameDisplay.textContent = username;
+    }
 });
 
 // Render backlog items

@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeTracker - Login</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Login Page Specific Styles */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="10" cy="60" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="90" cy="40" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.3;
+        }
+
+        .login-card {
+            background: linear-gradient(135deg, #ffffff 0%, #fafbff 100%);
+            border-radius: 24px;
+            padding: 48px;
+            box-shadow: 0 20px 60px rgba(43, 33, 106, 0.25), 0 8px 25px rgba(43, 33, 106, 0.15);
+            border: 1px solid rgba(43, 33, 106, 0.1);
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 420px;
+            margin: 20px;
+            backdrop-filter: blur(10px);
+            animation: slideInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .login-logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px auto;
+            box-shadow: 0 8px 24px rgba(43, 33, 106, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-logo::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .login-logo i {
+            font-size: 36px;
+            color: white;
+            position: relative;
+            z-index: 1;
+        }
+
+        .login-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin: 0 0 8px 0;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .login-subtitle {
+            font-size: 16px;
+            color: #6c757d;
+            margin: 0;
+            font-weight: 400;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .form-group {
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--primary-color);
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid rgba(43, 33, 106, 0.1);
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: inherit;
+            color: var(--text-color);
+            background: white;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(43, 33, 106, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .form-group input:hover {
+            border-color: rgba(43, 33, 106, 0.2);
+        }
+
+        .form-group i {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+            font-size: 16px;
+            pointer-events: none;
+        }
+
+        .login-button {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .login-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .login-button:hover::before {
+            left: 100%;
+        }
+
+        .login-button:hover {
+            background: linear-gradient(135deg, var(--secondary-color) 0%, var(--primary-color) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(43, 33, 106, 0.3);
+        }
+
+        .login-button:active {
+            transform: translateY(0);
+        }
+
+        .login-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+            color: #c62828;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #ffcdd2;
+            font-size: 14px;
+            font-weight: 500;
+            margin-top: 16px;
+            display: none;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(43, 33, 106, 0.1);
+        }
+
+        .login-footer p {
+            margin: 0;
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        .credentials-info {
+            background: linear-gradient(135deg, rgba(43, 33, 106, 0.05) 0%, rgba(43, 33, 106, 0.02) 100%);
+            border: 1px solid rgba(43, 33, 106, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 24px;
+            text-align: center;
+        }
+
+        .credentials-info h4 {
+            margin: 0 0 8px 0;
+            color: var(--primary-color);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .credentials-info p {
+            margin: 4px 0;
+            color: #6c757d;
+            font-size: 13px;
+        }
+
+        .credentials-info code {
+            background: rgba(43, 33, 106, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: var(--primary-color);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 480px) {
+            .login-card {
+                padding: 32px 24px;
+                margin: 16px;
+            }
+
+            .login-title {
+                font-size: 28px;
+            }
+
+            .login-logo {
+                width: 64px;
+                height: 64px;
+            }
+
+            .login-logo i {
+                font-size: 28px;
+            }
+        }
+
+        /* Loading Animation */
+        .login-button.loading {
+            position: relative;
+            color: transparent;
+        }
+
+        .login-button.loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <h1 class="login-title">TimeTracker</h1>
+                <p class="login-subtitle">Sign in to access your dashboard</p>
+            </div>
+
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                    <i class="fas fa-user"></i>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                    <i class="fas fa-lock"></i>
+                </div>
+
+                <button type="submit" class="login-button" id="loginButton">
+                    Sign In
+                </button>
+
+                <div class="error-message" id="errorMessage">
+                    Invalid username or password. Please try again.
+                </div>
+            </form>
+
+
+            <div class="login-footer">
+                <p>© 2024 TimeTracker. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Static login credentials
+        const VALID_CREDENTIALS = {
+            username: 'admin',
+            password: 'password123'
+        };
+
+        // DOM elements
+        const loginForm = document.getElementById('loginForm');
+        const loginButton = document.getElementById('loginButton');
+        const errorMessage = document.getElementById('errorMessage');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+
+        // Show error message
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+            setTimeout(() => {
+                errorMessage.classList.remove('show');
+            }, 5000);
+        }
+
+        // Hide error message
+        function hideError() {
+            errorMessage.classList.remove('show');
+        }
+
+        // Set loading state
+        function setLoading(loading) {
+            if (loading) {
+                loginButton.classList.add('loading');
+                loginButton.disabled = true;
+            } else {
+                loginButton.classList.remove('loading');
+                loginButton.disabled = false;
+            }
+        }
+
+        // Check if user is already logged in
+        function checkAuthStatus() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            if (isLoggedIn === 'true') {
+                window.location.href = 'index.html';
+            }
+        }
+
+        // Handle form submission
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+
+            // Hide any previous error
+            hideError();
+
+            // Basic validation
+            if (!username || !password) {
+                showError('Please enter both username and password.');
+                return;
+            }
+
+            // Set loading state
+            setLoading(true);
+
+            // Simulate API call delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Check credentials
+            if (username === VALID_CREDENTIALS.username && password === VALID_CREDENTIALS.password) {
+                // Store login status
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('username', username);
+                localStorage.setItem('loginTime', new Date().toISOString());
+
+                // Redirect to main app
+                window.location.href = 'index.html';
+            } else {
+                // Show error
+                showError('Invalid username or password. Please try again.');
+                setLoading(false);
+            }
+        });
+
+        // Clear error when user starts typing
+        usernameInput.addEventListener('input', hideError);
+        passwordInput.addEventListener('input', hideError);
+
+        // Check auth status on page load
+        checkAuthStatus();
+
+        // Add some interactive effects
+        usernameInput.addEventListener('focus', () => {
+            usernameInput.parentElement.style.transform = 'translateY(-2px)';
+        });
+
+        usernameInput.addEventListener('blur', () => {
+            usernameInput.parentElement.style.transform = 'translateY(0)';
+        });
+
+        passwordInput.addEventListener('focus', () => {
+            passwordInput.parentElement.style.transform = 'translateY(-2px)';
+        });
+
+        passwordInput.addEventListener('blur', () => {
+            passwordInput.parentElement.style.transform = 'translateY(0)';
+        });
+
+        // Add enter key support
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !loginButton.disabled) {
+                loginForm.dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+</html>
