@@ -796,7 +796,6 @@ function renderTasks() {
     const containers = {
         'To Do': document.getElementById('todoTasks'),
         'In Progress': document.getElementById('inProgressTasks'),
-        'To be Tested': document.getElementById('toBeTestedTasks'),
         'Done': document.getElementById('doneTasks')
     };
     
@@ -853,7 +852,7 @@ function renderTasks() {
             if (taskId) {
                 const task = tasks.find(t => t.id === taskId);
                 const oldStatus = task.status;
-                const statusOrder = ['To Do', 'In Progress', 'To be Tested', 'Done'];
+                const statusOrder = ['To Do', 'In Progress', 'Done'];
                 
                 // Get the task cards in the container
                 const taskCards = Array.from(container.querySelectorAll('.task-card'));
@@ -3613,7 +3612,7 @@ function renderTodaysTodoList(tasks) {
     
     // Sort tasks by status and due time
     const sortedTasks = tasks.sort((a, b) => {
-        const statusOrder = { 'todo': 0, 'inprogress': 1, 'tobetested': 2, 'done': 3 };
+        const statusOrder = { 'todo': 0, 'inprogress': 1, 'done': 2 };
         const statusDiff = statusOrder[a.status] - statusOrder[b.status];
         if (statusDiff !== 0) return statusDiff;
         
@@ -3644,7 +3643,7 @@ function renderTodaysTodoList(tasks) {
                         <span class="todays-todo-item-category ${task.category || 'signal'}">
                             ${task.category === 'signal' ? '🎯 Signal' : '📢 Noise'}
                         </span>
-                        <span class="todays-todo-item-status ${task.status}">${task.status.replace('tobetested', 'To Be Tested')}</span>
+                        <span class="todays-todo-item-status ${task.status}">${task.status.replace('tobetested', 'In Progress').replace('To be Tested', 'In Progress')}</span>
                     </div>
                 </div>
                 
