@@ -683,6 +683,43 @@ body {
     gap: 20px;
 }
 
+.top-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.today-time-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-color);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.today-time-display:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-hover);
+}
+
+.today-time-display i {
+    color: var(--primary-color);
+    font-size: 14px;
+}
+
+.today-time-display span {
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-size: 14px;
+    color: var(--text-color);
+    font-weight: 500;
+}
+
 .top-bar h1 {
     margin: 0;
     font-size: 24px;

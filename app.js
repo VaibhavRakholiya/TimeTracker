@@ -85,6 +85,7 @@ async function loadData() {
     renderProjects();
     renderTasks();
         renderBacklogItems();
+        startTodayTimeUpdates(); // Initialize today's time display
     } catch (error) {
         console.error('❌ Error loading data:', error);
         hideDatabaseLoader();
@@ -104,6 +105,7 @@ async function loadData() {
         renderProjects();
         renderTasks();
         renderBacklogItems();
+        startTodayTimeUpdates(); // Initialize today's time display
     }
 }
 
@@ -967,6 +969,9 @@ function renderTasks() {
             container.appendChild(taskCard);
         });
     });
+    
+    // Update today's time display after rendering tasks
+    updateTodayTimeDisplay();
 }
 
 function createTaskCard(task) {
@@ -2281,6 +2286,7 @@ async function startTimer(taskId) {
             tasks = updatedTasks;
         updateTimerDisplay(taskId);
         renderTasks();
+        startTodayTimeUpdates(); // Update today's time display
             
             // Show toast message
             showToast(`Timer started for: ${task.title}`, 'success', 3000);
@@ -2348,6 +2354,7 @@ async function stopTimer(taskId) {
             // Update local array and render
             tasks = updatedTasks;
         renderTasks();
+        startTodayTimeUpdates(); // Update today's time display
             
             // Show toast message
             showToast(`Timer stopped: ${formatTime(duration)}`, 'success', 3000);
@@ -2405,6 +2412,75 @@ function formatTime(seconds) {
 
 function padNumber(num) {
     return num.toString().padStart(2, '0');
+}
+
+// Calculate and display total time worked today
+function calculateTodayTime() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    let totalSeconds = 0;
+    
+    // Sum up all time entries for today
+    tasks.forEach(task => {
+        if (task.timeEntries && task.timeEntries.length > 0) {
+            task.timeEntries.forEach(entry => {
+                const entryDate = new Date(entry.date);
+                if (entryDate >= today && entryDate < tomorrow) {
+                    totalSeconds += entry.duration || 0;
+                }
+            });
+        }
+        
+        // Add currently running timer's elapsed time if it started today
+        if (task.isTimerRunning && task.timerStart) {
+            const timerStartDate = new Date(task.timerStart);
+            if (timerStartDate >= today && timerStartDate < tomorrow) {
+                const currentTime = new Date().getTime();
+                const elapsedSeconds = Math.floor((currentTime - task.timerStart) / 1000);
+                totalSeconds += elapsedSeconds;
+            }
+        }
+    });
+    
+    return totalSeconds;
+}
+
+function updateTodayTimeDisplay() {
+    const totalSeconds = calculateTodayTime();
+    const timeDisplay = document.getElementById('todayTimeValue');
+    if (timeDisplay) {
+        timeDisplay.textContent = formatTime(totalSeconds);
+    }
+}
+
+// Update today's time display periodically
+let todayTimeUpdateInterval = null;
+
+function startTodayTimeUpdates() {
+    // Clear existing interval if any
+    if (todayTimeUpdateInterval) {
+        clearInterval(todayTimeUpdateInterval);
+    }
+    
+    // Update immediately
+    updateTodayTimeDisplay();
+    
+    // Update every second if there's an active timer, otherwise every 10 seconds
+    const hasActiveTimer = tasks.some(task => task.isTimerRunning);
+    const updateInterval = hasActiveTimer ? 1000 : 10000;
+    
+    todayTimeUpdateInterval = setInterval(() => {
+        updateTodayTimeDisplay();
+        
+        // Adjust interval based on whether timer is running
+        const stillHasActiveTimer = tasks.some(task => task.isTimerRunning);
+        if (stillHasActiveTimer !== hasActiveTimer) {
+            startTodayTimeUpdates(); // Restart with new interval
+        }
+    }, updateInterval);
 }
 
 // Timesheet Functions
