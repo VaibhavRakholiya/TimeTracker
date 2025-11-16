@@ -689,6 +689,69 @@ body {
     gap: 12px;
 }
 
+.current-task-display {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    background: var(--surface-color);
+    border: 1px solid var(--primary-color);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.current-task-display:hover {
+    background: var(--surface-hover);
+    border-color: var(--primary-color);
+}
+
+.current-task-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.current-task-info i {
+    color: var(--primary-color);
+    font-size: 16px;
+}
+
+.current-task-title {
+    color: var(--text-color);
+    font-size: 14px;
+    font-weight: 500;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.current-task-timer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 12px;
+    border-left: 1px solid var(--border-color);
+}
+
+.current-task-timer i {
+    color: var(--primary-color);
+    font-size: 12px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.current-task-timer span {
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-size: 14px;
+    color: var(--text-color);
+    font-weight: 500;
+}
+
 .today-time-display {
     display: flex;
     align-items: center;

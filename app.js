@@ -972,6 +972,7 @@ function renderTasks() {
     
     // Update today's time display after rendering tasks
     updateTodayTimeDisplay();
+    updateCurrentTaskDisplay();
 }
 
 function createTaskCard(task) {
@@ -2286,6 +2287,7 @@ async function startTimer(taskId) {
             tasks = updatedTasks;
         updateTimerDisplay(taskId);
         renderTasks();
+        updateCurrentTaskDisplay(); // Update current task display
         startTodayTimeUpdates(); // Update today's time display
             
             // Show toast message
@@ -2354,6 +2356,7 @@ async function stopTimer(taskId) {
             // Update local array and render
             tasks = updatedTasks;
         renderTasks();
+        updateCurrentTaskDisplay(); // Update current task display
         startTodayTimeUpdates(); // Update today's time display
             
             // Show toast message
@@ -2399,6 +2402,12 @@ function updateTimerDisplay(taskId) {
             // This handles cases where the DOM was re-rendered (e.g., project switch)
             setTimeout(() => updateTimerDisplay(taskId), 100);
         }
+        
+        // Also update the current task display in top bar
+        updateCurrentTaskDisplay();
+    } else {
+        // If timer stopped, update current task display to hide it
+        updateCurrentTaskDisplay();
     }
 }
 
@@ -2448,11 +2457,48 @@ function calculateTodayTime() {
     return totalSeconds;
 }
 
+function formatTimeHoursMinutes(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    return `${padNumber(hours)}:${padNumber(minutes)}`;
+}
+
 function updateTodayTimeDisplay() {
     const totalSeconds = calculateTodayTime();
     const timeDisplay = document.getElementById('todayTimeValue');
     if (timeDisplay) {
-        timeDisplay.textContent = formatTime(totalSeconds);
+        timeDisplay.textContent = formatTimeHoursMinutes(totalSeconds);
+    }
+}
+
+// Update current task display
+function updateCurrentTaskDisplay() {
+    const currentTaskDisplay = document.getElementById('currentTaskDisplay');
+    const currentTaskTitle = document.getElementById('currentTaskTitle');
+    const currentTaskTimer = document.getElementById('currentTaskTimer');
+    
+    if (!currentTaskDisplay || !currentTaskTitle || !currentTaskTimer) {
+        return;
+    }
+    
+    // Find the task with running timer
+    const activeTask = tasks.find(task => task.isTimerRunning && task.timerStart);
+    
+    if (activeTask) {
+        // Show the display
+        currentTaskDisplay.style.display = 'flex';
+        
+        // Update task title
+        currentTaskTitle.textContent = activeTask.title;
+        
+        // Calculate and display elapsed time
+        const currentTime = new Date().getTime();
+        const elapsedSeconds = Math.floor((currentTime - activeTask.timerStart) / 1000);
+        currentTaskTimer.textContent = formatTime(elapsedSeconds);
+    } else {
+        // Hide the display if no active timer
+        currentTaskDisplay.style.display = 'none';
     }
 }
 
@@ -2467,6 +2513,7 @@ function startTodayTimeUpdates() {
     
     // Update immediately
     updateTodayTimeDisplay();
+    updateCurrentTaskDisplay();
     
     // Update every second if there's an active timer, otherwise every 10 seconds
     const hasActiveTimer = tasks.some(task => task.isTimerRunning);
@@ -2474,6 +2521,7 @@ function startTodayTimeUpdates() {
     
     todayTimeUpdateInterval = setInterval(() => {
         updateTodayTimeDisplay();
+        updateCurrentTaskDisplay();
         
         // Adjust interval based on whether timer is running
         const stillHasActiveTimer = tasks.some(task => task.isTimerRunning);
