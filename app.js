@@ -797,7 +797,6 @@ async function deleteTask(taskId) {
 function renderTasks() {
     const containers = {
         'To Do': document.getElementById('todoTasks'),
-        'In Progress': document.getElementById('inProgressTasks'),
         'Done': document.getElementById('doneTasks')
     };
     
@@ -854,7 +853,7 @@ function renderTasks() {
             if (taskId) {
                 const task = tasks.find(t => t.id === taskId);
                 const oldStatus = task.status;
-                const statusOrder = ['To Do', 'In Progress', 'Done'];
+                const statusOrder = ['To Do', 'Done'];
                 
                 // Get the task cards in the container
                 const taskCards = Array.from(container.querySelectorAll('.task-card'));
@@ -1843,22 +1842,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('boardViewBtn').onclick = () => {
         document.getElementById('boardView').style.display = 'flex';
         document.getElementById('timesheetView').style.display = 'none';
-        document.getElementById('todaysTodoView').style.display = 'none';
         document.getElementById('reviewsView').style.display = 'none';
         document.getElementById('boardViewBtn').classList.add('active');
         document.getElementById('timesheetViewBtn').classList.remove('active');
-        document.getElementById('todaysTodoBtn').classList.remove('active');
         document.getElementById('reviewsViewBtn').classList.remove('active');
     };
 
     document.getElementById('timesheetViewBtn').onclick = () => {
         document.getElementById('boardView').style.display = 'none';
         document.getElementById('timesheetView').style.display = 'block';
-        document.getElementById('todaysTodoView').style.display = 'none';
         document.getElementById('reviewsView').style.display = 'none';
         document.getElementById('boardViewBtn').classList.remove('active');
         document.getElementById('timesheetViewBtn').classList.add('active');
-        document.getElementById('todaysTodoBtn').classList.remove('active');
         document.getElementById('reviewsViewBtn').classList.remove('active');
         renderTimesheet();
         // Load review for the selected date
@@ -1870,26 +1865,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 200);
     };
 
-    document.getElementById('todaysTodoBtn').onclick = () => {
-        document.getElementById('boardView').style.display = 'none';
-        document.getElementById('timesheetView').style.display = 'none';
-        document.getElementById('reviewsView').style.display = 'none';
-        document.getElementById('todaysTodoView').style.display = 'block';
-        document.getElementById('boardViewBtn').classList.remove('active');
-        document.getElementById('timesheetViewBtn').classList.remove('active');
-        document.getElementById('reviewsViewBtn').classList.remove('active');
-        document.getElementById('todaysTodoBtn').classList.add('active');
-        renderTodaysTodo();
-    };
 
     document.getElementById('reviewsViewBtn').onclick = () => {
         document.getElementById('boardView').style.display = 'none';
         document.getElementById('timesheetView').style.display = 'none';
-        document.getElementById('todaysTodoView').style.display = 'none';
         document.getElementById('reviewsView').style.display = 'block';
         document.getElementById('boardViewBtn').classList.remove('active');
         document.getElementById('timesheetViewBtn').classList.remove('active');
-        document.getElementById('todaysTodoBtn').classList.remove('active');
         document.getElementById('reviewsViewBtn').classList.add('active');
         renderReviewsView();
     };
@@ -3632,8 +3614,6 @@ function hideDatabaseLoader() {
     }, 300);
 }
 
-// Today's To Do functionality
-
 // Toggle task category between Signal and Noise
 async function toggleTaskCategory(taskId) {
     console.log(`🔄 Toggling category for task ${taskId}`);
@@ -3679,145 +3659,12 @@ async function toggleTaskCategory(taskId) {
     }
 }
 
-// Render Today's To Do view
-function renderTodaysTodo() {
-    console.log('📅 Rendering Today\'s To Do...');
-    
-    const today = new Date();
-    const todayStart = new Date(today);
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(today);
-    todayEnd.setHours(23, 59, 59, 999);
-    
-    // Get tasks for today
-    const todaysTasks = tasks.filter(task => {
-        if (!task.dueDate) return false;
-        const dueDate = new Date(task.dueDate);
-        return dueDate >= todayStart && dueDate <= todayEnd;
-    });
-    
-    // Filter by current project if not "All Tasks"
-    const filteredTasks = currentProject 
-        ? todaysTasks.filter(task => task.projectId === currentProject.id)
-        : todaysTasks;
-    
-    // Update stats
-    updateTodaysTodoStats(filteredTasks);
-    
-    // Render tasks (show all tasks, no filtering)
-    renderTodaysTodoList(filteredTasks);
-}
-
-// Update Today's To Do statistics
-function updateTodaysTodoStats(tasks) {
-    const totalTasks = tasks.length;
-    const completedTasks = tasks.filter(task => task.status === 'done').length;
-    const remainingTasks = totalTasks - completedTasks;
-    
-    document.getElementById('totalTasksToday').textContent = totalTasks;
-    document.getElementById('completedTasksToday').textContent = completedTasks;
-    document.getElementById('remainingTasksToday').textContent = remainingTasks;
-}
-
-// Render Today's To Do list
-function renderTodaysTodoList(tasks) {
-    const container = document.getElementById('todaysTodoList');
-    
-    if (tasks.length === 0) {
-        container.innerHTML = `
-            <div class="todays-todo-empty">
-                <i class="fas fa-calendar-check"></i>
-                <h3>No tasks for today</h3>
-                <p>You have no tasks due today.</p>
-            </div>
-        `;
-        return;
-    }
-    
-    // Sort tasks by status and due time
-    const sortedTasks = tasks.sort((a, b) => {
-        const statusOrder = { 'todo': 0, 'inprogress': 1, 'done': 2 };
-        const statusDiff = statusOrder[a.status] - statusOrder[b.status];
-        if (statusDiff !== 0) return statusDiff;
-        
-        // If same status, sort by due date
-        return new Date(a.dueDate) - new Date(b.dueDate);
-    });
-    
-    container.innerHTML = sortedTasks.map(task => {
-        const project = projects.find(p => p.id === task.projectId);
-        const projectName = project ? project.name : 'No Project';
-        const projectEmoji = project ? project.emoji : '📁';
-        
-        const dueTime = new Date(task.dueDate).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true 
-        });
-        
-        const isRunning = task.isTimerRunning || false;
-        const timeSpent = task.timeSpent || 0;
-        const timeSpentFormatted = formatTime(timeSpent);
-        
-        return `
-            <div class="todays-todo-item ${task.status}">
-                <div class="todays-todo-item-header">
-                    <h3 class="todays-todo-item-title">${task.title}</h3>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="todays-todo-item-category ${task.category || 'signal'}">
-                            ${task.category === 'signal' ? '🎯 Signal' : '📢 Noise'}
-                        </span>
-                        <span class="todays-todo-item-status ${task.status}">${task.status.replace('tobetested', 'In Progress').replace('To be Tested', 'In Progress')}</span>
-                    </div>
-                </div>
-                
-                ${isRunning ? `
-                    <div class="todays-todo-item-timer">
-                        <i class="fas fa-clock"></i>
-                        <span>Timer running: ${timeSpentFormatted}</span>
-                    </div>
-                ` : ''}
-                
-                <div class="todays-todo-item-meta">
-                    <div class="todays-todo-item-project">
-                        <i class="fas fa-folder"></i>
-                        <span>${projectEmoji} ${projectName}</span>
-                        <span>• Due: ${dueTime}</span>
-                    </div>
-                    
-                    <div class="todays-todo-item-actions">
-                        ${task.status === 'todo' ? `
-                            <button class="btn-start" onclick="startTimer(${task.id})">
-                                <i class="fas fa-play"></i> Start
-                            </button>
-                        ` : ''}
-                        
-                        ${task.status === 'inprogress' ? `
-                            <button class="btn-stop" onclick="stopTimer(${task.id})">
-                                <i class="fas fa-stop"></i> Stop
-                            </button>
-                        ` : ''}
-                        
-                        ${task.status !== 'done' ? `
-                            <button class="btn-complete" onclick="completeTask(${task.id})">
-                                <i class="fas fa-check"></i> Complete
-                            </button>
-                        ` : ''}
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-
 // Complete task function
 function completeTask(taskId) {
     const task = tasks.find(t => t.id === taskId);
     if (task) {
         task.status = 'done';
         saveData();
-        renderTodaysTodo();
         showToast('Task completed!', 'success');
     }
 }

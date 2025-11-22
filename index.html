@@ -88,7 +88,6 @@
             
             <div class="view-controls">
                 <button id="boardViewBtn" class="view-btn active"><i class="fas fa-columns"></i> Board</button>
-                <button id="todaysTodoBtn" class="view-btn"><i class="fas fa-calendar-day"></i> Today's To Do</button>
                 <button id="timesheetViewBtn" class="view-btn"><i class="fas fa-list"></i> List</button>
                 <button id="reviewsViewBtn" class="view-btn"><i class="fas fa-clipboard-check"></i> Reviews</button>
             </div>
@@ -121,12 +120,6 @@
                         </button>
                     </div>
                     <div class="tasks-container" id="todoTasks"></div>
-                </div>
-                <div class="column" data-status="In Progress">
-                    <div class="column-header">
-                        <h3><i class="fas fa-spinner"></i> In Progress</h3>
-                    </div>
-                    <div class="tasks-container" id="inProgressTasks"></div>
                 </div>
                 <div class="column" data-status="Done">
                     <div class="column-header">
@@ -193,32 +186,6 @@
                 </div>
             </div>
 
-            <!-- Today's To Do View -->
-            <div id="todaysTodoView" class="todays-todo-view" style="display: none;">
-                <div class="todays-todo-header">
-                    <h2><i class="fas fa-calendar-day"></i> Today's To Do</h2>
-                    <div class="todays-todo-stats">
-                        <div class="stat-item">
-                            <span class="stat-number" id="totalTasksToday">0</span>
-                            <span class="stat-label">Total Tasks</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-number" id="completedTasksToday">0</span>
-                            <span class="stat-label">Completed</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-number" id="remainingTasksToday">0</span>
-                            <span class="stat-label">Remaining</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="todays-todo-content">
-                    <div class="todays-todo-list" id="todaysTodoList">
-                        <!-- Today's tasks will be loaded here -->
-                    </div>
-                </div>
-            </div>
         </main>
     </div>
 
@@ -235,7 +202,6 @@
                     <label for="taskStatus">Status</label>
                     <select id="taskStatus">
                         <option value="To Do">To Do</option>
-                        <option value="In Progress">In Progress</option>
                         <option value="Done">Done</option>
                     </select>
                 </div>
