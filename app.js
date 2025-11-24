@@ -669,13 +669,6 @@ function selectProject(projectId) {
         renderTimesheet();
     }
     
-    // Refresh reviews if reviews view is visible
-    if (document.getElementById('reviewsView').style.display === 'block') {
-        console.log('📋 Project changed, refreshing reviews...');
-        console.log('📋 New project:', currentProject ? currentProject.name : 'All Tasks');
-        renderDailyReviews();
-        renderWeeklyReview();
-    }
 }
 
 // Task Management
@@ -923,9 +916,19 @@ function renderTasks() {
     });
     
     // Filter tasks based on current project and sort by position
-    const filteredTasks = currentProject
-        ? tasks.filter(task => task.projectId === currentProject.id)
-        : tasks;
+    // Exclude tasks from "Eternals" project when showing All Tasks
+    let filteredTasks;
+    if (currentProject) {
+        filteredTasks = tasks.filter(task => task.projectId === currentProject.id);
+    } else {
+        // Find the Eternals project and exclude its tasks
+        const eternalsProject = projects.find(p => p.name && p.name.toLowerCase() === 'eternals');
+        if (eternalsProject) {
+            filteredTasks = tasks.filter(task => task.projectId !== eternalsProject.id);
+        } else {
+            filteredTasks = tasks;
+        }
+    }
     
     // Group tasks by status and sort by position or deadline
     const groupedTasks = {};
@@ -1746,48 +1749,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 500);
     };
     
-    // Debug function to test daily reviews loading
-    window.testDailyReviews = async () => {
-        console.log('🧪 Testing daily reviews loading...');
-        
-        // Switch to reviews view
-        document.getElementById('reviewsViewBtn').click();
-        
-        // Wait a bit for the view to load
-        setTimeout(async () => {
-            try {
-                await renderDailyReviews();
-                console.log('✅ Daily reviews test completed');
-            } catch (error) {
-                console.error('❌ Error testing daily reviews:', error);
-            }
-        }, 500);
-    };
-    
-    // Debug function to test project change reviews update
-    window.testProjectChangeReviews = () => {
-        console.log('🧪 Testing project change reviews update...');
-        
-        // Switch to reviews view first
-        document.getElementById('reviewsViewBtn').click();
-        
-        // Wait a bit for the view to load
-        setTimeout(() => {
-            console.log('📋 Current project before change:', currentProject ? currentProject.name : 'All Tasks');
-            
-            // Change to a different project (if available)
-            if (projects.length > 0) {
-                const firstProject = projects[0];
-                console.log('📋 Switching to project:', firstProject.name);
-                selectProject(firstProject.id);
-            } else {
-                console.log('📋 No projects available, switching to All Tasks');
-                selectProject(null);
-            }
-            
-            console.log('📋 Project change test completed');
-        }, 500);
-    };
     
     window.debugFirebaseConnection = async () => {
         console.log('🔍 Debugging Firebase connection...');
@@ -1842,19 +1803,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('boardViewBtn').onclick = () => {
         document.getElementById('boardView').style.display = 'flex';
         document.getElementById('timesheetView').style.display = 'none';
-        document.getElementById('reviewsView').style.display = 'none';
         document.getElementById('boardViewBtn').classList.add('active');
         document.getElementById('timesheetViewBtn').classList.remove('active');
-        document.getElementById('reviewsViewBtn').classList.remove('active');
     };
 
     document.getElementById('timesheetViewBtn').onclick = () => {
         document.getElementById('boardView').style.display = 'none';
         document.getElementById('timesheetView').style.display = 'block';
-        document.getElementById('reviewsView').style.display = 'none';
         document.getElementById('boardViewBtn').classList.remove('active');
         document.getElementById('timesheetViewBtn').classList.add('active');
-        document.getElementById('reviewsViewBtn').classList.remove('active');
         renderTimesheet();
         // Load review for the selected date
         setTimeout(() => {
@@ -1866,15 +1823,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
 
-    document.getElementById('reviewsViewBtn').onclick = () => {
-        document.getElementById('boardView').style.display = 'none';
-        document.getElementById('timesheetView').style.display = 'none';
-        document.getElementById('reviewsView').style.display = 'block';
-        document.getElementById('boardViewBtn').classList.remove('active');
-        document.getElementById('timesheetViewBtn').classList.remove('active');
-        document.getElementById('reviewsViewBtn').classList.add('active');
-        renderReviewsView();
-    };
 
     // Set default date for timesheet
     const today = new Date();
@@ -2414,8 +2362,19 @@ function calculateTodayTime() {
     
     let totalSeconds = 0;
     
+    // Filter tasks - exclude Eternals project when in All Tasks view
+    let tasksToProcess = tasks;
+    if (!currentProject) {
+        const eternalsProject = projects.find(p => p.name && p.name.toLowerCase() === 'eternals');
+        if (eternalsProject) {
+            tasksToProcess = tasks.filter(task => task.projectId !== eternalsProject.id);
+        }
+    } else {
+        tasksToProcess = tasks.filter(task => task.projectId === currentProject.id);
+    }
+    
     // Sum up all time entries for today
-    tasks.forEach(task => {
+    tasksToProcess.forEach(task => {
         if (task.timeEntries && task.timeEntries.length > 0) {
             task.timeEntries.forEach(entry => {
                 const entryDate = new Date(entry.date);
@@ -2599,9 +2558,19 @@ function renderTimesheet() {
     timesheetBody.innerHTML = '';
 
     // Filter tasks based on current project
-    const filteredTasks = currentProject 
-        ? tasks.filter(task => task.projectId === currentProject.id)
-        : tasks;
+    // Exclude tasks from "Eternals" project when showing All Tasks
+    let filteredTasks;
+    if (currentProject) {
+        filteredTasks = tasks.filter(task => task.projectId === currentProject.id);
+    } else {
+        // Find the Eternals project and exclude its tasks
+        const eternalsProject = projects.find(p => p.name && p.name.toLowerCase() === 'eternals');
+        if (eternalsProject) {
+            filteredTasks = tasks.filter(task => task.projectId !== eternalsProject.id);
+        } else {
+            filteredTasks = tasks;
+        }
+    }
 
     // Create task summary entries (one per task)
     const taskSummaries = [];

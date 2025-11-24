@@ -89,7 +89,6 @@
             <div class="view-controls">
                 <button id="boardViewBtn" class="view-btn active"><i class="fas fa-columns"></i> Board</button>
                 <button id="timesheetViewBtn" class="view-btn"><i class="fas fa-list"></i> List</button>
-                <button id="reviewsViewBtn" class="view-btn"><i class="fas fa-clipboard-check"></i> Reviews</button>
             </div>
 
             <div id="boardView" class="board">
@@ -153,38 +152,6 @@
                 </table>
             </div>
 
-            <div id="reviewsView" class="reviews-view" style="display: none;">
-                <div class="reviews-header">
-                    <div class="week-navigation">
-                        <button id="prevWeekBtn" class="nav-btn">
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <h2 id="currentWeekDisplay">Week of [Date]</h2>
-                        <button id="nextWeekBtn" class="nav-btn">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
-                    <button id="addWeeklyReviewBtn" class="btn-primary">
-                        <i class="fas fa-plus"></i>
-                        Add Weekly Review
-                    </button>
-                </div>
-                
-                <div class="reviews-content">
-                    <div class="weekly-review-section">
-                        <h3>Weekly Review</h3>
-                        <div id="weeklyReviewContainer" class="review-container">
-                            <!-- Weekly review will be loaded here -->
-                        </div>
-                    </div>
-                    
-                    <div class="daily-reviews-section">
-                        <div id="dailyReviewsContainer" class="reviews-grid">
-                            <!-- Daily reviews will be loaded here -->
-                        </div>
-                    </div>
-                </div>
-            </div>
 
         </main>
     </div>
