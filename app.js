@@ -2523,21 +2523,21 @@ function renderTimesheet() {
     if (allTimeEntries.length > 0) {
         const firstEntry = allTimeEntries[0];
         const lastEntry = allTimeEntries[allTimeEntries.length - 1];
-        
-
-        
+        // entry.date is when the timer was stopped (end of segment). Clock-in is start of first segment.
+        const clockInTime = new Date(firstEntry.date.getTime() - (firstEntry.duration || 0) * 1000);
+        const timeOptionsIST = { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' };
         clockSummary.innerHTML = `
             <div class="clock-summary-content">
                 <div class="clock-time">
                     <div class="clock-in">
                         <i class="fas fa-sign-in-alt"></i>
                         <span class="label">Clock In:</span>
-                        <span class="time">${firstEntry.date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                        <span class="time">${clockInTime.toLocaleTimeString('en-IN', timeOptionsIST)}</span>
                     </div>
                     <div class="clock-out">
                         <i class="fas fa-sign-out-alt"></i>
                         <span class="label">Clock Out:</span>
-                        <span class="time">${lastEntry.date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                        <span class="time">${lastEntry.date.toLocaleTimeString('en-IN', timeOptionsIST)}</span>
                     </div>
                 </div>
 
