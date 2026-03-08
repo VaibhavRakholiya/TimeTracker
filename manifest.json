@@ -1,0 +1,18 @@
+{
+  "name": "TimeTracker",
+  "short_name": "TimeTracker",
+  "description": "Radical minimalist time and task management.",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#0f0f13",
+  "theme_color": "#0f0f13",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any 192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
