@@ -1,20 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TimeTracker - 
+    <title>TimeTracker -
         Task Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
+
     <!-- Firebase REST API Integration - No SDK Required -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    
+
     <!-- Firebase Configuration -->
     <script src="firebase-config.js"></script>
     <script src="firebase-rest-integration.js"></script>
 </head>
+
 <body>
     <!-- Database Loader -->
     <div id="databaseLoader" class="database-loader" style="display: none;">
@@ -33,7 +38,7 @@
     </div>
 
 
-    
+
     <div class="container">
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -45,9 +50,9 @@
                     </button>
                 </div>
             </div>
-            
 
-            
+
+
             <div class="projects-section">
                 <h3>Projects</h3>
                 <ul id="projectsList">
@@ -59,7 +64,7 @@
 
             </div>
         </aside>
-        
+
         <main class="main-content">
             <header class="top-bar">
                 <div class="top-bar-left">
@@ -85,7 +90,7 @@
                     </div>
                 </div>
             </header>
-            
+
             <div class="view-controls">
                 <button id="boardViewBtn" class="view-btn active"><i class="fas fa-columns"></i> Board</button>
                 <button id="timesheetViewBtn" class="view-btn"><i class="fas fa-list"></i> List</button>
@@ -100,32 +105,33 @@
                 </div>
                 <div class="board-columns">
                     <div class="column" data-status="Backlog">
-                    <div class="column-header">
-                        <h3><i class="fas fa-list-ul"></i> Backlog</h3>
+                        <div class="column-header">
+                            <h3><i class="fas fa-list-ul"></i> Backlog</h3>
+                        </div>
+                        <div class="backlog-input-container">
+                            <input type="text" class="backlog-input" id="backlogInput" placeholder="Add backlog item..."
+                                data-status="Backlog">
+                            <button class="backlog-add-btn" onclick="addBacklogItem('Backlog')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="backlog-container" id="backlogItems"></div>
                     </div>
-                    <div class="backlog-input-container">
-                        <input type="text" class="backlog-input" id="backlogInput" placeholder="Add backlog item..." data-status="Backlog">
-                        <button class="backlog-add-btn" onclick="addBacklogItem('Backlog')">
-                            <i class="fas fa-plus"></i>
-                        </button>
+                    <div class="column" data-status="To Do">
+                        <div class="column-header">
+                            <h3><i class="fas fa-clipboard-list"></i> To Do</h3>
+                            <button class="add-task-btn" onclick="openAddTaskModal()">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="tasks-container" id="todoTasks"></div>
                     </div>
-                    <div class="backlog-container" id="backlogItems"></div>
-                </div>
-                <div class="column" data-status="To Do">
-                    <div class="column-header">
-                        <h3><i class="fas fa-clipboard-list"></i> To Do</h3>
-                        <button class="add-task-btn" onclick="openAddTaskModal()">
-                            <i class="fas fa-plus"></i>
-                        </button>
+                    <div class="column" data-status="Done">
+                        <div class="column-header">
+                            <h3><i class="fas fa-check-circle"></i> Done</h3>
+                        </div>
+                        <div class="tasks-container" id="doneTasks"></div>
                     </div>
-                    <div class="tasks-container" id="todoTasks"></div>
-                </div>
-                <div class="column" data-status="Done">
-                    <div class="column-header">
-                        <h3><i class="fas fa-check-circle"></i> Done</h3>
-                    </div>
-                    <div class="tasks-container" id="doneTasks"></div>
-                </div>
                 </div>
             </div>
 
@@ -259,4 +265,5 @@
     </script>
     <script src="app.js"></script>
 </body>
+
 </html>

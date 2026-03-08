@@ -4,16 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TimeTracker - Login</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         /* Login Page Specific Styles */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
         .login-container {
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #1e1e1e;
+            background: #0f0f13;
             position: relative;
             overflow: hidden;
         }
@@ -21,32 +30,40 @@
         .login-container::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="10" cy="60" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="90" cy="40" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-            opacity: 0.3;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 50%, rgba(108, 99, 255, 0.06) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 50%, rgba(167, 139, 250, 0.04) 0%, transparent 50%);
+            animation: bgPulse 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes bgPulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.05); }
         }
 
         .login-card {
-            background: #2d2d2d;
-            border-radius: 8px;
+            background: rgba(26, 26, 36, 0.8);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-radius: 16px;
             padding: 48px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             position: relative;
             z-index: 1;
             width: 100%;
             max-width: 420px;
             margin: 20px;
-            animation: slideInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: slideInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         @keyframes slideInUp {
             from {
                 opacity: 0;
-                transform: translateY(30px) scale(0.95);
+                transform: translateY(24px) scale(0.96);
             }
             to {
                 opacity: 1;
@@ -60,16 +77,17 @@
         }
 
         .login-logo {
-            width: 80px;
-            height: 80px;
-            background: #2383e2;
-            border-radius: 8px;
+            width: 72px;
+            height: 72px;
+            background: #6c63ff;
+            border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 24px auto;
             position: relative;
             overflow: hidden;
+            box-shadow: 0 8px 32px rgba(108, 99, 255, 0.35);
         }
 
         .login-logo::before {
@@ -89,22 +107,23 @@
         }
 
         .login-logo i {
-            font-size: 36px;
+            font-size: 32px;
             color: white;
             position: relative;
             z-index: 1;
         }
 
         .login-title {
-            font-size: 32px;
-            font-weight: 600;
-            color: #e0e0e0;
+            font-size: 28px;
+            font-weight: 700;
+            color: #e8e6f0;
             margin: 0 0 8px 0;
+            letter-spacing: -0.5px;
         }
 
         .login-subtitle {
-            font-size: 16px;
-            color: #a0a0a0;
+            font-size: 15px;
+            color: #8b8aa0;
             margin: 0;
             font-weight: 400;
         }
@@ -112,7 +131,7 @@
         .login-form {
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 22px;
         }
 
         .form-group {
@@ -123,34 +142,33 @@
             display: block;
             margin-bottom: 8px;
             font-weight: 500;
-            color: #e0e0e0;
+            color: #e8e6f0;
             font-size: 13px;
-            text-transform: none;
             letter-spacing: 0.2px;
         }
 
         .form-group input {
             width: 100%;
             padding: 12px 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
             font-size: 14px;
             font-family: inherit;
-            color: #e0e0e0;
-            background: #1e1e1e;
-            transition: all 0.2s ease;
+            color: #e8e6f0;
+            background: #0f0f13;
+            transition: all 0.25s ease;
             box-sizing: border-box;
-            position: relative;
         }
 
         .form-group input:focus {
             outline: none;
-            border-color: #2383e2;
-            background: #2d2d2d;
+            border-color: #6c63ff;
+            background: #1a1a24;
+            box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.12);
         }
 
         .form-group input:hover {
-            border-color: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.12);
         }
 
         .form-group i {
@@ -158,28 +176,29 @@
             right: 16px;
             top: 50%;
             transform: translateY(-50%);
-            color: #a0a0a0;
-            font-size: 16px;
+            color: #8b8aa0;
+            font-size: 15px;
             pointer-events: none;
         }
 
         .login-button {
-            background: #2383e2;
+            background: #6c63ff;
             color: white;
             border: none;
-            padding: 12px 24px;
-            border-radius: 4px;
+            padding: 13px 24px;
+            border-radius: 10px;
             font-size: 14px;
-            font-weight: 400;
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.25s ease;
             position: relative;
             overflow: hidden;
             margin-top: 8px;
         }
 
         .login-button:hover {
-            background: #1a6bc4;
+            background: #7c75ff;
+            box-shadow: 0 4px 20px rgba(108, 99, 255, 0.35);
         }
 
         .login-button:active {
@@ -187,20 +206,20 @@
         }
 
         .login-button:disabled {
-            opacity: 0.6;
+            opacity: 0.5;
             cursor: not-allowed;
             transform: none;
         }
 
         .error-message {
-            background: rgba(255, 107, 107, 0.1);
-            color: #ff6b6b;
+            background: rgba(248, 113, 113, 0.1);
+            color: #f87171;
             padding: 12px 16px;
-            border-radius: 4px;
-            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 10px;
+            border: 1px solid rgba(248, 113, 113, 0.2);
             font-size: 14px;
             font-weight: 400;
-            margin-top: 16px;
+            margin-top: 12px;
             display: none;
             animation: shake 0.5s ease-in-out;
         }
@@ -219,19 +238,19 @@
             text-align: center;
             margin-top: 32px;
             padding-top: 24px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
         }
 
         .login-footer p {
             margin: 0;
-            color: #a0a0a0;
-            font-size: 14px;
+            color: #8b8aa0;
+            font-size: 13px;
         }
 
         .credentials-info {
-            background: linear-gradient(135deg, rgba(43, 33, 106, 0.05) 0%, rgba(43, 33, 106, 0.02) 100%);
-            border: 1px solid rgba(43, 33, 106, 0.1);
-            border-radius: 12px;
+            background: rgba(108, 99, 255, 0.05);
+            border: 1px solid rgba(108, 99, 255, 0.15);
+            border-radius: 10px;
             padding: 16px;
             margin-top: 24px;
             text-align: center;
@@ -239,24 +258,24 @@
 
         .credentials-info h4 {
             margin: 0 0 8px 0;
-            color: var(--primary-color);
+            color: #6c63ff;
             font-size: 14px;
             font-weight: 600;
         }
 
         .credentials-info p {
             margin: 4px 0;
-            color: #6c757d;
+            color: #8b8aa0;
             font-size: 13px;
         }
 
         .credentials-info code {
-            background: rgba(43, 33, 106, 0.1);
+            background: rgba(108, 99, 255, 0.1);
             padding: 2px 6px;
             border-radius: 4px;
             font-family: 'Courier New', monospace;
             font-size: 12px;
-            color: var(--primary-color);
+            color: #a78bfa;
         }
 
         /* Responsive Design */
@@ -267,16 +286,16 @@
             }
 
             .login-title {
-                font-size: 28px;
+                font-size: 24px;
             }
 
             .login-logo {
-                width: 64px;
-                height: 64px;
+                width: 60px;
+                height: 60px;
             }
 
             .login-logo i {
-                font-size: 28px;
+                font-size: 26px;
             }
         }
 
