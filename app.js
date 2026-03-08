@@ -509,80 +509,102 @@ async function deleteProject(projectId) {
 }
 
 function renderProjects() {
+    // 1. Update the main header project dropdown/list
     const projectsList = document.getElementById('projectsList');
-    projectsList.innerHTML = '';
-
-    // Add "All Tasks" option
-    const allTasksLi = document.createElement('li');
-    allTasksLi.className = !currentProject ? 'active' : '';
-    allTasksLi.draggable = false;
-    allTasksLi.innerHTML = `
-        <span class="project-name">All Tasks</span>
-    `;
-    allTasksLi.onclick = () => selectProject(null);
-    projectsList.appendChild(allTasksLi);
-
-    // Sort projects by position
-    const sortedProjects = [...projects].sort((a, b) => (a.position || 0) - (b.position || 0));
-
-    sortedProjects.forEach((project, index) => {
-        const li = document.createElement('li');
-        li.className = currentProject && currentProject.id === project.id ? 'active' : '';
-        li.dataset.projectId = project.id;
-        li.dataset.position = project.position;
-        li.draggable = true;
-
-        li.innerHTML = `
-            <span class="project-emoji">${project.emoji || '🎯'}</span>
-            <span class="project-name">${project.name}</span>
-            <div class="project-actions">
-                <button class="project-edit-btn" title="Project Settings">
-                    <i class="fas fa-cog"></i>
-                </button>
-            </div>
+    if (projectsList) {
+        projectsList.innerHTML = '';
+        
+        // Add "All Tasks" option
+        const allTasksLi = document.createElement('li');
+        allTasksLi.className = !currentProject ? 'active' : '';
+        allTasksLi.draggable = false;
+        allTasksLi.innerHTML = `
+            <span class="project-name">All Tasks</span>
         `;
+        allTasksLi.onclick = () => selectProject(null);
+        projectsList.appendChild(allTasksLi);
+        
+        // Sort projects by position
+        const sortedProjects = [...projects].sort((a, b) => (a.position || 0) - (b.position || 0));
+        
+        sortedProjects.forEach((project, index) => {
+            const li = document.createElement('li');
+            li.className = currentProject && currentProject.id === project.id ? 'active' : '';
+            li.dataset.projectId = project.id;
+            li.dataset.position = project.position;
+            li.draggable = true;
 
-        // Add click handler for project selection
-        li.querySelector('.project-name').onclick = () => selectProject(project.id);
+            li.innerHTML = `
+                <span class="project-emoji">${project.emoji || '🎯'}</span>
+                <span class="project-name">${project.name}</span>
+                <div class="project-actions">
+                    <button class="project-edit-btn" title="Project Settings">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            `;
 
-        // Add click handler for edit button
-        li.querySelector('.project-edit-btn').onclick = (e) => {
-            e.stopPropagation();
-            openEditProjectModal(project);
-        };
+            // Add click handler for project selection
+            li.querySelector('.project-name').onclick = () => selectProject(project.id);
 
-        // Add drag and drop event listeners
-        li.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('text/plain', project.id);
-            li.classList.add('dragging');
+            // Add click handler for edit button
+            li.querySelector('.project-edit-btn').onclick = (e) => {
+                e.stopPropagation();
+                openEditProjectModal(project);
+            };
+
+            // Add drag and drop event listeners
+            li.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', project.id);
+                li.classList.add('dragging');
+            });
+
+            li.addEventListener('dragend', () => {
+                li.classList.remove('dragging');
+            });
+
+            projectsList.appendChild(li);
         });
+        
+        // Add the "New Project" item at the end
+        const addProjectLi = document.createElement('li');
+        addProjectLi.id = 'addProjectBtn';
+        addProjectLi.className = 'add-project-item';
+        addProjectLi.draggable = false;
+        addProjectLi.onclick = openAddProjectModal;
+        addProjectLi.innerHTML = `
+            <i class="fas fa-plus"></i>
+            <span>New Project</span>
+        `;
+        projectsList.appendChild(addProjectLi);
+        
+        // Re-setup drag and drop for projects
+        setupProjectDragAndDrop();
+    }
 
-        li.addEventListener('dragend', () => {
-            li.classList.remove('dragging');
+    // 2. Update List view project filter dropdown
+    const listFilterProject = document.getElementById('listFilterProject');
+    if (listFilterProject) {
+        const currentSelection = listFilterProject.value;
+        listFilterProject.innerHTML = '<option value="All">All Projects</option>';
+        
+        const sortedProjects = [...projects].sort((a, b) => (a.position || 0) - (b.position || 0));
+        sortedProjects.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = `${p.emoji || '🎯'} ${p.name}`;
+            listFilterProject.appendChild(option);
         });
-
-        projectsList.appendChild(li);
-    });
-
-    // Add the "New Project" item at the end
-    const addProjectLi = document.createElement('li');
-    addProjectLi.id = 'addProjectBtn';
-    addProjectLi.className = 'add-project-item';
-    addProjectLi.draggable = false;
-    addProjectLi.onclick = openAddProjectModal;
-    addProjectLi.innerHTML = `
-        <i class="fas fa-plus"></i>
-        <span>New Project</span>
-    `;
-    projectsList.appendChild(addProjectLi);
-
-    // Add drag and drop event listeners to the projects list
-    setupProjectDragAndDrop();
+        if (Array.from(listFilterProject.options).some(opt => opt.value === currentSelection)) {
+            listFilterProject.value = currentSelection;
+        }
+    }
 }
 
 // Project drag and drop setup
 function setupProjectDragAndDrop() {
     const projectsList = document.getElementById('projectsList');
+    if (!projectsList) return;
 
     projectsList.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -655,6 +677,23 @@ let currentProject = null;
 function selectProject(projectId) {
     currentProject = projectId ? projects.find(p => p.id === projectId) : null;
     document.getElementById('currentProjectName').textContent = currentProject ? currentProject.name : 'All Tasks';
+    
+    // Update custom dropdown selected text
+    const dropdownSelected = document.getElementById('customProjectDropdownSelected');
+    if (dropdownSelected) {
+        if (currentProject) {
+            dropdownSelected.textContent = `${currentProject.emoji || '🎯'} ${currentProject.name}`;
+        } else {
+            dropdownSelected.textContent = 'All Tasks';
+        }
+    }
+    
+    // Close dropdown
+    const customProjectDropdown = document.getElementById('customProjectDropdown');
+    if (customProjectDropdown) {
+        customProjectDropdown.classList.remove('open');
+    }
+    
     renderProjects();
     renderTasks();
     renderBacklogItems(); // Refresh backlog items when switching projects
@@ -672,7 +711,7 @@ function selectProject(projectId) {
 }
 
 // Task Management
-async function addTask(title, status, dueDate, category = 'signal') {
+async function addTask(title, status, dueDate) {
     console.log(`🆕 Creating new task: ${title} (${status})`);
 
     // Check if Firebase integration is available
@@ -697,7 +736,6 @@ async function addTask(title, status, dueDate, category = 'signal') {
             title,
             status,
             dueDate: dueDate || null,
-            category: category || 'signal', // Default to signal if not specified
             position: maxPosition + 1000, // Use increments of 1000 to allow space for reordering
             timeSpent: 0,
             createdAt: new Date().toISOString(),
@@ -930,35 +968,45 @@ function renderTasks() {
         }
     }
 
+    const boardFilterStatus = document.getElementById('boardFilterStatus')?.value || 'All';
+    const boardFilterDeadline = document.getElementById('boardFilterDeadline')?.value || 'All';
+
     // Group tasks by status and sort by position or deadline
     const groupedTasks = {};
     Object.keys(containers).forEach(status => {
-        let statusTasks = filteredTasks.filter(task => task.status === status);
+        let statusTasks = filteredTasks.filter(task => {
+            // Apply Status filter (if the column matches but the task is filtered out, returning false removes it)
+            if (boardFilterStatus !== 'All' && task.status !== boardFilterStatus && boardFilterStatus !== task.status) {
+                // Wait, columns are already filtered by status initially, but let's hide tasks if they don't match the universal filter 
+                if(task.status !== boardFilterStatus) return false;
+            }
 
-        if (isSortedByDeadline) {
-            // Sort by deadline (tasks with due dates first, then by date, then by position)
-            statusTasks.sort((a, b) => {
-                // Tasks without due dates go to the end
-                if (!a.dueDate && !b.dueDate) {
-                    return (a.position || 0) - (b.position || 0);
+            // Apply Deadline filter
+            if (boardFilterDeadline !== 'All') {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                if (boardFilterDeadline === 'No Date' && task.dueDate !== null) return false;
+                if (boardFilterDeadline !== 'No Date' && task.dueDate === null) return false;
+
+                if (task.dueDate) {
+                    const dueDate = new Date(task.dueDate);
+                    dueDate.setHours(0, 0, 0, 0);
+
+                    if (boardFilterDeadline === 'Overdue' && dueDate >= today) return false;
+                    if (boardFilterDeadline === 'Today' && dueDate.getTime() !== today.getTime()) return false;
+                    if (boardFilterDeadline === 'Upcoming' && dueDate <= today) return false;
+                    if (boardFilterDeadline === 'This Week') {
+                        const weekStart = getWeekStart(today);
+                        const weekEnd = getWeekEnd(weekStart);
+                        if (dueDate < weekStart || dueDate > weekEnd) return false;
+                    }
                 }
-                if (!a.dueDate) return 1;
-                if (!b.dueDate) return -1;
-
-                // Sort by due date
-                const dateA = new Date(a.dueDate);
-                const dateB = new Date(b.dueDate);
-                if (dateA.getTime() !== dateB.getTime()) {
-                    return dateA - dateB;
-                }
-
-                // If same date, sort by position
-                return (a.position || 0) - (b.position || 0);
-            });
-        } else {
-            // Default sort by position
-            statusTasks.sort((a, b) => (a.position || 0) - (b.position || 0));
-        }
+            }
+            return task.status === status;
+        });
+        // Default sort by position
+        statusTasks.sort((a, b) => (a.position || 0) - (b.position || 0));
 
         groupedTasks[status] = statusTasks;
     });
@@ -975,6 +1023,147 @@ function renderTasks() {
     // Update today's time display after rendering tasks
     updateTodayTimeDisplay();
     updateCurrentTaskDisplay();
+    
+    // Render list view
+    renderListView(filteredTasks);
+}
+
+function renderListView(tasksToRender) {
+    const listViewBody = document.getElementById('listViewBody');
+    if (!listViewBody) return;
+    listViewBody.innerHTML = '';
+    
+    // Apply filters
+    const statusFilter = document.getElementById('listFilterStatus')?.value || 'All';
+    const deadlineFilter = document.getElementById('listFilterDeadline')?.value || 'All';
+    const projectFilter = document.getElementById('listFilterProject')?.value || 'All';
+    
+    let filteredTasks = tasksToRender.filter(task => {
+        if (statusFilter !== 'All' && task.status !== statusFilter) return false;
+        
+        if (projectFilter !== 'All') {
+            if (task.projectId !== parseInt(projectFilter)) return false;
+        }
+        
+        if (deadlineFilter !== 'All') {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            
+            if (deadlineFilter === 'No Date' && task.dueDate !== null) return false;
+            if (deadlineFilter !== 'No Date' && task.dueDate === null) return false;
+            
+            if (task.dueDate) {
+                const dueDate = new Date(task.dueDate);
+                dueDate.setHours(0,0,0,0);
+                
+                if (deadlineFilter === 'Overdue' && dueDate >= today) return false;
+                if (deadlineFilter === 'Today' && dueDate.getTime() !== today.getTime()) return false;
+                if (deadlineFilter === 'Upcoming' && dueDate <= today) return false;
+                if (deadlineFilter === 'This Week') {
+                    const weekStart = getWeekStart(today);
+                    const weekEnd = getWeekEnd(weekStart);
+                    if (dueDate < weekStart || dueDate > weekEnd) return false;
+                }
+            }
+        }
+        
+        return true;
+    });
+    
+    // Sort tasks for list view
+    const sortedTasks = [...filteredTasks];
+    if (typeof isSortedByDeadline !== 'undefined' && isSortedByDeadline) {
+        sortedTasks.sort((a, b) => {
+            if (!a.dueDate && !b.dueDate) return (a.position || 0) - (b.position || 0);
+            if (!a.dueDate) return 1;
+            if (!b.dueDate) return -1;
+            const dateA = new Date(a.dueDate);
+            const dateB = new Date(b.dueDate);
+            if (dateA.getTime() !== dateB.getTime()) return dateA - dateB;
+            return (a.position || 0) - (b.position || 0);
+        });
+    } else {
+        const statusOrder = { 'Backlog': 0, 'To Do': 1, 'In Progress': 2, 'In Review': 3, 'Done': 4 };
+        sortedTasks.sort((a, b) => {
+            if (a.status !== b.status) return (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0);
+            return (a.position || 0) - (b.position || 0);
+        });
+    }
+    
+    sortedTasks.forEach(task => {
+        const row = document.createElement('div');
+        row.className = 'list-row';
+        row.dataset.taskId = task.id;
+        row.onclick = () => openEditTaskModal(task);
+        
+        const projectName = task.projectId ? projects.find(p => p.id === task.projectId)?.name : 'No Project';
+        const dueDateText = task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '-';
+        
+        let timeDisplay = '00:00:00';
+        if (task.isTimerRunning && task.timerStart) {
+            const elapsedSeconds = Math.floor((new Date().getTime() - task.timerStart) / 1000);
+            const totalSeconds = (task.timeSpent * 3600) + elapsedSeconds;
+            timeDisplay = formatTime(totalSeconds);
+        } else if (task.timeSpent) {
+            timeDisplay = formatTime(task.timeSpent * 3600);
+        }
+        
+        const statusClass = task.status === 'Done' ? 'done' : 'todo';
+        
+        row.innerHTML = `
+            <div class="list-col list-col-title">
+                <span class="task-status-indicator status-dot-${statusClass}"></span>
+                ${task.title}
+            </div>
+            <div class="list-col list-col-status">
+                <select class="list-status-select list-status-badge ${statusClass}" data-task-id="${task.id}">
+                    <option value="Backlog" ${task.status === 'Backlog' ? 'selected' : ''}>Backlog</option>
+                    <option value="To Do" ${task.status === 'To Do' ? 'selected' : ''}>To Do</option>
+                    <option value="In Progress" ${task.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                    <option value="In Review" ${task.status === 'In Review' ? 'selected' : ''}>In Review</option>
+                    <option value="Done" ${task.status === 'Done' ? 'selected' : ''}>Done</option>
+                </select>
+            </div>
+            <div class="list-col list-col-project">${projectName}</div>
+            <div class="list-col list-col-due">${dueDateText}</div>
+            <div class="list-col list-col-time">
+                ${task.isTimerRunning ? '<i class="fas fa-circle-notch fa-spin" style="margin-right: 4px; font-size: 10px;"></i>' : ''}
+                <span id="list-timer-${task.id}">${timeDisplay}</span>
+            </div>
+            <div class="list-col list-col-actions">
+                ${task.isTimerRunning ? 
+                    `<button class="btn-stop-timer" data-task-id="${task.id}"><i class="fas fa-stop"></i></button>` :
+                    `<button class="btn-start-timer" data-task-id="${task.id}"><i class="fas fa-play"></i></button>`
+                }
+            </div>
+        `;
+        
+        const timerBtn = row.querySelector('.btn-start-timer, .btn-stop-timer');
+        if(timerBtn) {
+            timerBtn.onclick = async (e) => {
+                e.stopPropagation();
+                const taskId = parseInt(e.target.closest('button').dataset.taskId);
+                if (task.isTimerRunning) {
+                    await stopTimer(taskId);
+                } else {
+                    await startTimer(taskId);
+                }
+            };
+        }
+        
+        const statusSelect = row.querySelector('.list-status-select');
+        if(statusSelect) {
+            statusSelect.onclick = (e) => e.stopPropagation(); // prevent opening edit modal
+            statusSelect.onchange = async (e) => {
+                const newStatus = e.target.value;
+                const taskId = parseInt(e.target.dataset.taskId);
+                await updateTask(taskId, { status: newStatus });
+                // Re-render handled by updateTask
+            };
+        }
+        
+        listViewBody.appendChild(row);
+    });
 }
 
 function createTaskCard(task) {
@@ -1118,9 +1307,8 @@ function openAddTaskModal() {
         const title = document.getElementById('taskTitle').value;
         const status = document.getElementById('taskStatus').value;
         const dueDate = document.getElementById('taskDueDate').value;
-        const category = document.getElementById('taskCategory').value;
 
-        console.log('📋 Form data:', { title, status, dueDate, category });
+        console.log('📋 Form data:', { title, status, dueDate });
 
         if (!title.trim()) {
             console.error('❌ Task title is required');
@@ -1130,7 +1318,7 @@ function openAddTaskModal() {
 
         try {
             console.log('🚀 Calling addTask function...');
-            await addTask(title, status, dueDate, category);
+            await addTask(title, status, dueDate);
             console.log('✅ Task creation completed, closing modal');
             modal.style.display = 'none';
         } catch (error) {
@@ -1149,7 +1337,6 @@ function openEditTaskModal(task) {
     document.getElementById('taskTitle').value = task.title;
     document.getElementById('taskStatus').value = task.status;
     document.getElementById('taskDueDate').value = task.dueDate || '';
-    document.getElementById('taskCategory').value = task.category || 'signal';
 
     // Show and setup delete button
     deleteBtn.style.display = 'flex';
@@ -1165,8 +1352,7 @@ function openEditTaskModal(task) {
         const updates = {
             title: document.getElementById('taskTitle').value,
             status: document.getElementById('taskStatus').value,
-            dueDate: document.getElementById('taskDueDate').value || null,
-            category: document.getElementById('taskCategory').value
+            dueDate: document.getElementById('taskDueDate').value || null
         };
 
         await updateTask(task.id, updates);
@@ -1280,6 +1466,23 @@ function setupEmojiPicker(initialEmoji = '🎯') {
 // Event Listeners
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 DOM Content Loaded - Initializing TimeTracker...');
+
+    // Setup custom project dropdown
+    const customProjectDropdown = document.getElementById('customProjectDropdown');
+    const customProjectDropdownTrigger = document.getElementById('customProjectDropdownTrigger');
+    if (customProjectDropdownTrigger) {
+        customProjectDropdownTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            customProjectDropdown.classList.toggle('open');
+        });
+    }
+    
+    // Close custom dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (customProjectDropdown && !customProjectDropdown.contains(e.target)) {
+            customProjectDropdown.classList.remove('open');
+        }
+    });
 
     // Wait for Firebase integration to be available
     let attempts = 0;
@@ -1802,15 +2005,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     // View switching
     document.getElementById('boardViewBtn').onclick = () => {
         document.getElementById('boardView').style.display = 'flex';
+        document.getElementById('listView').style.display = 'none';
         document.getElementById('timesheetView').style.display = 'none';
         document.getElementById('boardViewBtn').classList.add('active');
+        document.getElementById('listViewBtn').classList.remove('active');
+        document.getElementById('timesheetViewBtn').classList.remove('active');
+    };
+
+    document.getElementById('listViewBtn').onclick = () => {
+        document.getElementById('boardView').style.display = 'none';
+        document.getElementById('listView').style.display = 'flex';
+        document.getElementById('timesheetView').style.display = 'none';
+        document.getElementById('boardViewBtn').classList.remove('active');
+        document.getElementById('listViewBtn').classList.add('active');
         document.getElementById('timesheetViewBtn').classList.remove('active');
     };
 
     document.getElementById('timesheetViewBtn').onclick = () => {
         document.getElementById('boardView').style.display = 'none';
+        document.getElementById('listView').style.display = 'none';
         document.getElementById('timesheetView').style.display = 'block';
         document.getElementById('boardViewBtn').classList.remove('active');
+        document.getElementById('listViewBtn').classList.remove('active');
         document.getElementById('timesheetViewBtn').classList.add('active');
         renderTimesheet();
         // Load review for the selected date
@@ -2323,12 +2539,25 @@ function updateTimerDisplay(taskId) {
         }
 
         const timerDisplay = document.getElementById(`timer-${taskId}`);
+        const listTimerDisplay = document.getElementById(`list-timer-${taskId}`);
+        
+        let shouldRequestNextFrame = false;
+        
         if (timerDisplay) {
             timerDisplay.textContent = formatTime(elapsedSeconds);
+            shouldRequestNextFrame = true;
+        }
+        
+        if (listTimerDisplay) {
+            const totalSeconds = (task.timeSpent * 3600) + elapsedSeconds;
+            listTimerDisplay.textContent = formatTime(totalSeconds);
+            shouldRequestNextFrame = true;
+        }
 
+        if (shouldRequestNextFrame) {
             requestAnimationFrame(() => updateTimerDisplay(taskId));
         } else {
-            // If timer display element is not found, try to find it after a short delay
+            // If timer display elements are not found, try to find them after a short delay
             // This handles cases where the DOM was re-rendered (e.g., project switch)
             setTimeout(() => updateTimerDisplay(taskId), 100);
         }
@@ -2609,25 +2838,8 @@ function renderTimesheet() {
     // Sort tasks by date (newest first)
     taskSummaries.sort((a, b) => b.date - a.date);
 
-    // Calculate Signal-to-Noise ratio for the selected date
-    const signalTasks = taskSummaries.filter(task => {
-        const originalTask = tasks.find(t => t.id === task.taskId);
-        return originalTask && originalTask.category === 'signal';
-    }).length;
-    const noiseTasks = taskSummaries.filter(task => {
-        const originalTask = tasks.find(t => t.id === task.taskId);
-        return originalTask && originalTask.category === 'noise';
-    }).length;
-
-    // Calculate Signal percentage
-    const totalTasks = signalTasks + noiseTasks;
-    const signalPercentage = totalTasks > 0 ? Math.round((signalTasks / totalTasks) * 100) : 0;
-
     // Render task summaries
     taskSummaries.forEach(task => {
-        const originalTask = tasks.find(t => t.id === task.taskId);
-        const currentCategory = originalTask ? originalTask.category || 'signal' : 'signal';
-
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${task.date.toLocaleDateString()}</td>
@@ -2636,11 +2848,6 @@ function renderTimesheet() {
             <td>${task.status}</td>
             <td>${task.dueDate ? formatDueDate(task.dueDate) : '-'}</td>
             <td>${formatTime(task.duration)}</td>
-            <td>
-                <div class="signal-noise-toggle ${currentCategory}" onclick="toggleTaskCategory(${task.taskId})">
-                    ${currentCategory === 'signal' ? '🎯 Signal' : '📢 Noise'}
-                </div>
-            </td>
         `;
         timesheetBody.appendChild(row);
     });
@@ -2657,9 +2864,6 @@ function renderTimesheet() {
             <td></td>
             <td></td>
             <td><strong>${formatTime(totalDuration)}</strong></td>
-            <td class="signal-noise-ratio-cell">
-                <div class="signal-noise-ratio-bottom">Signal: ${signalPercentage}%</div>
-            </td>
         `;
         timesheetBody.appendChild(totalRow);
     }
@@ -3252,6 +3456,40 @@ function setupSortButton() {
     } else {
         console.error('❌ Sort button not found');
     }
+
+    // Set up board view filters
+    const boardFilterStatus = document.getElementById('boardFilterStatus');
+    const boardFilterDeadline = document.getElementById('boardFilterDeadline');
+    if (boardFilterStatus) {
+        boardFilterStatus.addEventListener('change', () => {
+            renderTasks();
+        });
+    }
+    if (boardFilterDeadline) {
+        boardFilterDeadline.addEventListener('change', () => {
+            renderTasks();
+        });
+    }
+
+    // Set up list view filters
+    const listFilterStatus = document.getElementById('listFilterStatus');
+    const listFilterDeadline = document.getElementById('listFilterDeadline');
+    if (listFilterStatus) {
+        listFilterStatus.addEventListener('change', () => {
+            renderTasks();
+        });
+    }
+    if (listFilterDeadline) {
+        listFilterDeadline.addEventListener('change', () => {
+            renderTasks();
+        });
+    }
+    const listFilterProject = document.getElementById('listFilterProject');
+    if (listFilterProject) {
+        listFilterProject.addEventListener('change', () => {
+            renderTasks();
+        });
+    }
 }
 
 // Reviews View Functions
@@ -3583,50 +3821,6 @@ function hideDatabaseLoader() {
     }, 300);
 }
 
-// Toggle task category between Signal and Noise
-async function toggleTaskCategory(taskId) {
-    console.log(`🔄 Toggling category for task ${taskId}`);
-
-    try {
-        // Find the task
-        const taskIndex = tasks.findIndex(task => task.id === taskId);
-        if (taskIndex === -1) {
-            console.error('❌ Task not found');
-            showToast('Task not found', 'error');
-            return;
-        }
-
-        const task = tasks[taskIndex];
-        const currentCategory = task.category || 'signal';
-        const newCategory = currentCategory === 'signal' ? 'noise' : 'signal';
-
-        console.log(`📝 Changing task "${task.title}" from ${currentCategory} to ${newCategory}`);
-
-        // Update the task category
-        const updatedTask = { ...task, category: newCategory };
-
-        // Update in Firebase
-        if (window.firebaseRESTIntegration) {
-            await window.firebaseRESTIntegration.saveData('tasks', tasks.map(t =>
-                t.id === taskId ? updatedTask : t
-            ));
-        }
-
-        // Update local array
-        tasks[taskIndex] = updatedTask;
-
-        // Show success message
-        const categoryText = newCategory === 'signal' ? 'Signal' : 'Noise';
-        showToast(`Task marked as ${categoryText}`, 'success');
-
-        // Re-render timesheet to update the display
-        renderTimesheet();
-
-    } catch (error) {
-        console.error('❌ Error toggling task category:', error);
-        showToast('Error updating task category', 'error');
-    }
-}
 
 // Complete task function
 function completeTask(taskId) {

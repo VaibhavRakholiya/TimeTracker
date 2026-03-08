@@ -61,15 +61,15 @@
                     <h1 id="currentProjectName">All Tasks</h1>
                 </div>
                 <div class="top-bar-right">
-                    <div class="projects-section">
-                        <h3>Projects</h3>
-                        <ul id="projectsList">
-                            <li id="addProjectBtn" class="add-project-item">
-                                <i class="fas fa-plus"></i>
-                                <span>New Project</span>
-                            </li>
-                        </ul>
-
+                    <div class="custom-project-dropdown" id="customProjectDropdown">
+                        <div class="custom-project-dropdown-trigger" id="customProjectDropdownTrigger">
+                            <span id="customProjectDropdownSelected">All Tasks</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="custom-project-dropdown-menu" id="customProjectDropdownMenu">
+                            <ul id="projectsList" class="custom-projects-list">
+                            </ul>
+                        </div>
                     </div>
                     <div class="current-task-display" id="currentTaskDisplay" style="display: none;">
                         <div class="current-task-info">
@@ -90,15 +90,36 @@
 
             <div class="view-controls">
                 <button id="boardViewBtn" class="view-btn active"><i class="fas fa-columns"></i> Board</button>
-                <button id="timesheetViewBtn" class="view-btn"><i class="fas fa-list"></i> List</button>
+                <button id="listViewBtn" class="view-btn"><i class="fas fa-list-ul"></i> List</button>
+                <button id="timesheetViewBtn" class="view-btn"><i class="fas fa-clock"></i> TimeSheet</button>
             </div>
 
             <div id="boardView" class="board">
                 <div class="board-header">
-                    <button class="sort-btn" id="sortByDeadlineBtn" title="Sort tasks by deadline">
-                        <i class="fas fa-sort-amount-down"></i>
-                        <span>Sort by Deadline</span>
-                    </button>
+                    <div class="board-filters">
+                        <div class="filter-group">
+                            <label>Status:</label>
+                            <select id="boardFilterStatus">
+                                <option value="All">All</option>
+                                <option value="Backlog">Backlog</option>
+                                <option value="To Do">To Do</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="In Review">In Review</option>
+                                <option value="Done">Done</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Deadline:</label>
+                            <select id="boardFilterDeadline">
+                                <option value="All">All Dates</option>
+                                <option value="Overdue">Overdue</option>
+                                <option value="Today">Today</option>
+                                <option value="This Week">This Week</option>
+                                <option value="Upcoming">Upcoming</option>
+                                <option value="No Date">No Date</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
                 <div class="board-columns">
                     <div class="column" data-status="Backlog">
@@ -148,11 +169,47 @@
                             <th>Status</th>
                             <th>Due Date</th>
                             <th>Time Spent</th>
-                            <th>Signal/Noise</th>
                         </tr>
                     </thead>
                     <tbody id="timesheetBody"></tbody>
                 </table>
+            </div>
+
+        <!-- List View -->
+        <div id="listView" class="list-view" style="display: none;">
+            <div class="list-filters">
+                <div class="filter-group">
+                        <label>Status:</label>
+                        <select id="listFilterStatus">
+                            <option value="All">All</option>
+                            <option value="Backlog">Backlog</option>
+                            <option value="To Do">To Do</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="In Review">In Review</option>
+                            <option value="Done">Done</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Deadline:</label>
+                        <select id="listFilterDeadline">
+                            <option value="All">All Dates</option>
+                            <option value="Overdue">Overdue</option>
+                            <option value="Today">Today</option>
+                            <option value="This Week">This Week</option>
+                            <option value="Upcoming">Upcoming</option>
+                            <option value="No Date">No Date</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="list-view-header">
+                    <div class="list-col list-col-title">Task</div>
+                    <div class="list-col list-col-status">Status</div>
+                    <div class="list-col list-col-project">Project</div>
+                    <div class="list-col list-col-due">Due Date</div>
+                    <div class="list-col list-col-time">Time</div>
+                    <div class="list-col list-col-actions"></div>
+                </div>
+                <div id="listViewBody" class="list-view-body"></div>
             </div>
 
 
@@ -178,13 +235,6 @@
                 <div class="form-group">
                     <label for="taskDueDate">Due Date</label>
                     <input type="date" id="taskDueDate">
-                </div>
-                <div class="form-group">
-                    <label for="taskCategory">Task Category</label>
-                    <select id="taskCategory" required>
-                        <option value="signal">🎯 Signal (High Value)</option>
-                        <option value="noise">📢 Noise (Low Value)</option>
-                    </select>
                 </div>
                 <div class="modal-buttons">
                     <button type="submit" class="btn-primary">Save</button>
