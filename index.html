@@ -40,9 +40,9 @@
 
 
     <div class="container">
-        <aside class="sidebar">
+        <aside>
             <div class="sidebar-header">
-                <h2>TimeTracker</h2>
+                <!-- <h2>TimeTracker</h2> -->
                 <div class="user-info">
                     <span class="username" id="usernameDisplay">Admin</span>
                     <button class="logout-btn" id="logoutBtn" title="Logout">
@@ -51,29 +51,24 @@
                 </div>
             </div>
 
-
-
-            <div class="projects-section">
-                <h3>Projects</h3>
-                <ul id="projectsList">
-                    <li id="addProjectBtn" class="add-project-item">
-                        <i class="fas fa-plus"></i>
-                        <span>New Project</span>
-                    </li>
-                </ul>
-
-            </div>
         </aside>
 
         <main class="main-content">
             <header class="top-bar">
                 <div class="top-bar-left">
-                    <button id="sidebarToggle" class="sidebar-toggle-btn">
-                        <i class="fas fa-bars"></i>
-                    </button>
                     <h1 id="currentProjectName">All Tasks</h1>
                 </div>
                 <div class="top-bar-right">
+                    <div class="projects-section">
+                        <h3>Projects</h3>
+                        <ul id="projectsList">
+                            <li id="addProjectBtn" class="add-project-item">
+                                <i class="fas fa-plus"></i>
+                                <span>New Project</span>
+                            </li>
+                        </ul>
+
+                    </div>
                     <div class="current-task-display" id="currentTaskDisplay" style="display: none;">
                         <div class="current-task-info">
                             <i class="fas fa-play-circle"></i>
