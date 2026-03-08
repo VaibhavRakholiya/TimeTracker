@@ -2724,9 +2724,14 @@ function renderTimesheet() {
         if (task.timeEntries && task.timeEntries.length > 0) {
             task.timeEntries.forEach(entry => {
                 const entryDate = new Date(entry.date);
-                if (entryDate >= startDate && entryDate <= endDate) {
+                // The entryDate usually represents the END of the time segment
+                const entryStartTime = new Date(entryDate.getTime() - (entry.duration || 0) * 1000);
+                
+                // If either the start or end falls within the day, include it
+                if ((entryDate >= startDate && entryDate <= endDate) || (entryStartTime >= startDate && entryStartTime <= endDate)) {
                     allTimeEntries.push({
-                        date: entryDate,
+                        startTime: entryStartTime,
+                        endTime: entryDate,
                         duration: entry.duration,
                         taskTitle: task.title,
                         projectName: task.projectId ? projects.find(p => p.id === task.projectId)?.name : 'No Project'
@@ -2734,10 +2739,22 @@ function renderTimesheet() {
                 }
             });
         }
+        
+        // Include actively running timers
+        if (task.isTimerRunning && task.timerStart) {
+            const timerStartDate = new Date(task.timerStart);
+            const now = new Date();
+            if ((timerStartDate >= startDate && timerStartDate <= endDate) || (now >= startDate && now <= endDate)) {
+                allTimeEntries.push({
+                    startTime: timerStartDate,
+                    endTime: now,
+                    duration: (now.getTime() - timerStartDate.getTime()) / 1000,
+                    taskTitle: task.title,
+                    projectName: task.projectId ? projects.find(p => p.id === task.projectId)?.name : 'No Project'
+                });
+            }
+        }
     });
-
-    // Sort time entries by date (chronological order)
-    allTimeEntries.sort((a, b) => a.date - b.date);
 
     // Display clock-in and clock-out summary
     const timesheetView = document.querySelector('.timesheet-view');
@@ -2750,23 +2767,23 @@ function renderTimesheet() {
     }
 
     if (allTimeEntries.length > 0) {
-        const firstEntry = allTimeEntries[0];
-        const lastEntry = allTimeEntries[allTimeEntries.length - 1];
-        // entry.date is when the timer was stopped (end of segment). Clock-in is start of first segment.
-        const clockInTime = new Date(firstEntry.date.getTime() - (firstEntry.duration || 0) * 1000);
-        const timeOptionsIST = { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' };
+        // Find the absolute earliest start time and latest end time
+        const earliestStartTime = new Date(Math.min(...allTimeEntries.map(e => e.startTime.getTime())));
+        const latestEndTime = new Date(Math.max(...allTimeEntries.map(e => e.endTime.getTime())));
+
+        const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: true };
         clockSummary.innerHTML = `
             <div class="clock-summary-content">
                 <div class="clock-time">
                     <div class="clock-in">
                         <i class="fas fa-sign-in-alt"></i>
                         <span class="label">Clock In:</span>
-                        <span class="time">${clockInTime.toLocaleTimeString('en-IN', timeOptionsIST)}</span>
+                        <span class="time">${earliestStartTime.toLocaleTimeString(undefined, timeOptions)}</span>
                     </div>
                     <div class="clock-out">
                         <i class="fas fa-sign-out-alt"></i>
                         <span class="label">Clock Out:</span>
-                        <span class="time">${lastEntry.date.toLocaleTimeString('en-IN', timeOptionsIST)}</span>
+                        <span class="time">${latestEndTime.toLocaleTimeString(undefined, timeOptions)}</span>
                     </div>
                 </div>
 
