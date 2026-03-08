@@ -1,13 +1,13 @@
 const CACHE_NAME = 'timetracker-cache-v1';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/login.html',
-  '/styles.css',
-  '/app.js',
-  '/firebase-config.js',
-  '/firebase-rest-integration.js',
-  '/manifest.json'
+  './',
+  './index.html',
+  './login.html',
+  './styles.css',
+  './app.js',
+  './firebase-config.js',
+  './firebase-rest-integration.js',
+  './manifest.json'
 ];
 
 // Install Event - cache core assets
