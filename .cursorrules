@@ -1,0 +1,49 @@
+# TimeTracker Project Rules
+
+## Project Overview
+- **Type:** Pure HTML, CSS, and vanilla JavaScript web application.
+- **Frameworks:** NONE. Do not use React, Vue, Angular, or any build tools (Webpack, Vite, etc.) unless specifically requested.
+- **Core Functionality:** Task management and time tracking.
+- **Storage:** Firebase Realtime Database (via REST API) and localized `localStorage` fallback.
+- **Environment:** Browser-based, also packaged as an Electron desktop app.
+
+## Code Architecture & Patterns
+
+### JavaScript
+- **Vanilla JS Only:** Use modern ES6+ JavaScript. No TypeScript.
+- **Architecture Pattern:** Follow MVC (Model-View-Controller) structure where applicable, Observer pattern for events, and Module pattern for encapsulation.
+- **DOM Manipulation:** Use vanilla DOM API (`document.getElementById`, `document.querySelector`, `createElement`, etc.). Avoid jQuery or other DOM libraries.
+- **Data Synchronization:** Any data mutations must be synced between `localStorage` and Firebase Realtime Database (using the `firebase-rest-integration.js` service).
+- **Global State:** State is typically managed in memory and persisted heavily to `localStorage`. Be careful not to mutate state without triggering the necessary sync events.
+
+### HTML & CSS
+- **HTML:** Semantic HTML5 elements. 
+- **CSS:** Pure CSS3. No preprocessors like Sass or Less, and no CSS frameworks like Tailwind or Bootstrap unless specifically requested.
+- **Styling Architecture:** 
+  - Use CSS Custom Properties (variables) for consistent theming and colors (e.g., `--primary-color`, `--background-color`).
+  - Follow a mobile-first, responsive design approach.
+  - Use CSS Grid and Flexbox for layout management.
+- **Icons:** Font Awesome 6.0 is used for UI icons.
+
+### Data Models & Storage
+- Strict adherence to the established JSON structures (Projects, Tasks, Time Entries). Do not alter existing schemas without ensuring backward compatibility.
+- **Storage Keys:** Use the established `localStorage` keys (`isLoggedIn`, `username`, `projects`, `tasks`, `timeEntries`, `timesheetReviews`).
+- **Firebase integration:** Direct HTTP integration via Firebase REST API, not the Firebase SDK. 
+
+### Best Practices & Style Guidelines
+- **File Organization:** Keep related logic grouped appropriately. Add comments for complex algorithms or DOM manipulation logic.
+- **Naming Conventions:** Use descriptive variable names (camelCase for variables/functions, PascalCase for classes if any, UPPER_SNAKE_CASE for constants).
+- **Error Handling:** Graceful error management with console logging and user-facing notifications (toast notifications) when operations fail.
+- **Security:** Ensure inputs are validated and sanitized to prevent XSS.
+- **PWA/Electron:** The app includes a Service Worker (`sw.js`) and manifest (`manifest.json`) for PWA support, as well as an Electron wrapper (`main.js`, `preload.js`). Changes to core storage or navigation must be compatible with both the browser and Electron.
+
+## Cross-Platform Compatibility Requirement
+Every change made to this project MUST ensure that the application continues to function perfectly across these deployment targets:
+1. **GitHub Pages (Web App):** Core files must resolve correctly without a dedicated server, and web features (like SW caching) must continue to function.
+2. **Mac Application (Electron/Packaged):** Offline functionality, node integration dependencies, and window management specific to the macOS packaged app must not break.
+
+## Contribution Guidelines
+1. Always check browser console for errors after changes.
+2. Verify offline functionality and data synchronization via `firebase-rest-integration.js`.
+3. Ensure UI remains fully responsive on both mobile and desktop screen sizes.
+4. If adding UI components, match the existing clean, modern, color-coded aesthetics.
