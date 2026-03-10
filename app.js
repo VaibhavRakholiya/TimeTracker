@@ -81,7 +81,7 @@ async function loadData() {
         }
 
         // Clean old Done tasks before rendering
-        cleanOldDoneTasks();
+        // cleanOldDoneTasks(); // Disabled: Tasks should not be deleted automatically from done status
 
         renderProjects();
         renderTasks();
@@ -148,47 +148,6 @@ async function saveData() {
     }
 }
 
-// Clean old Done tasks (older than 5 days)
-function cleanOldDoneTasks() {
-    const fiveDaysAgo = new Date();
-    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-
-    const initialCount = tasks.length;
-
-    // Filter out Done tasks older than 5 days
-    tasks = tasks.filter(task => {
-        if (task.status === 'Done') {
-            // Check if task was moved to Done more than 5 days ago
-            // We'll use the last time entry or createdAt as reference
-            let lastActivity = new Date(task.createdAt);
-
-            // If there are time entries, use the last one
-            if (task.timeEntries && task.timeEntries.length > 0) {
-                const lastEntry = task.timeEntries[task.timeEntries.length - 1];
-                if (lastEntry.endTime) {
-                    lastActivity = new Date(lastEntry.endTime);
-                }
-            }
-
-            // Keep task if it's newer than 5 days ago
-            return lastActivity > fiveDaysAgo;
-        }
-        return true; // Keep all non-Done tasks
-    });
-
-    const deletedCount = initialCount - tasks.length;
-
-    if (deletedCount > 0) {
-        // Save the cleaned data
-        localStorage.setItem('tasks', JSON.stringify(tasks));
-
-        // Show toast notification
-        showToast(`${deletedCount} old completed task${deletedCount > 1 ? 's' : ''} cleaned up`, 'info', 4000);
-
-        // Re-render tasks to reflect changes
-        renderTasks();
-    }
-}
 
 // Load quotes from JSON file
 async function loadQuotes() {
@@ -2502,6 +2461,11 @@ async function stopTimer(taskId) {
             if (notificationInterval) {
                 clearInterval(notificationInterval);
                 notificationInterval = null;
+            }
+
+            // Tell Electron to stop the native menubar timer
+            if (window.electronAPI) {
+                window.electronAPI.stopTimer();
             }
 
             // Update the task in the array
