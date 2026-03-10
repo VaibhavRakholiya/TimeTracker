@@ -33,6 +33,7 @@ let activeTimer = null;
 let quotes = [];
 let currentQuoteIndex = 0;
 let quoteInterval = null;
+let notificationInterval = null;
 
 // Load data from Firebase REST API or localStorage
 async function loadData() {
@@ -513,7 +514,7 @@ function renderProjects() {
     const projectsList = document.getElementById('projectsList');
     if (projectsList) {
         projectsList.innerHTML = '';
-        
+
         // Add "All Tasks" option
         const allTasksLi = document.createElement('li');
         allTasksLi.className = !currentProject ? 'active' : '';
@@ -523,10 +524,10 @@ function renderProjects() {
         `;
         allTasksLi.onclick = () => selectProject(null);
         projectsList.appendChild(allTasksLi);
-        
+
         // Sort projects by position
         const sortedProjects = [...projects].sort((a, b) => (a.position || 0) - (b.position || 0));
-        
+
         sortedProjects.forEach((project, index) => {
             const li = document.createElement('li');
             li.className = currentProject && currentProject.id === project.id ? 'active' : '';
@@ -565,7 +566,7 @@ function renderProjects() {
 
             projectsList.appendChild(li);
         });
-        
+
         // Add the "New Project" item at the end
         const addProjectLi = document.createElement('li');
         addProjectLi.id = 'addProjectBtn';
@@ -577,7 +578,7 @@ function renderProjects() {
             <span>New Project</span>
         `;
         projectsList.appendChild(addProjectLi);
-        
+
         // Re-setup drag and drop for projects
         setupProjectDragAndDrop();
     }
@@ -587,7 +588,7 @@ function renderProjects() {
     if (listFilterProject) {
         const currentSelection = listFilterProject.value;
         listFilterProject.innerHTML = '<option value="All">All Projects</option>';
-        
+
         const sortedProjects = [...projects].sort((a, b) => (a.position || 0) - (b.position || 0));
         sortedProjects.forEach(p => {
             const option = document.createElement('option');
@@ -677,7 +678,7 @@ let currentProject = null;
 function selectProject(projectId) {
     currentProject = projectId ? projects.find(p => p.id === projectId) : null;
     document.getElementById('currentProjectName').textContent = currentProject ? currentProject.name : 'All Tasks';
-    
+
     // Update custom dropdown selected text
     const dropdownSelected = document.getElementById('customProjectDropdownSelected');
     if (dropdownSelected) {
@@ -687,13 +688,13 @@ function selectProject(projectId) {
             dropdownSelected.textContent = 'All Tasks';
         }
     }
-    
+
     // Close dropdown
     const customProjectDropdown = document.getElementById('customProjectDropdown');
     if (customProjectDropdown) {
         customProjectDropdown.classList.remove('open');
     }
-    
+
     renderProjects();
     renderTasks();
     renderBacklogItems(); // Refresh backlog items when switching projects
@@ -978,7 +979,7 @@ function renderTasks() {
             // Apply Status filter (if the column matches but the task is filtered out, returning false removes it)
             if (boardFilterStatus !== 'All' && task.status !== boardFilterStatus && boardFilterStatus !== task.status) {
                 // Wait, columns are already filtered by status initially, but let's hide tasks if they don't match the universal filter 
-                if(task.status !== boardFilterStatus) return false;
+                if (task.status !== boardFilterStatus) return false;
             }
 
             // Apply Deadline filter
@@ -1023,7 +1024,7 @@ function renderTasks() {
     // Update today's time display after rendering tasks
     updateTodayTimeDisplay();
     updateCurrentTaskDisplay();
-    
+
     // Render list view
     renderListView(filteredTasks);
 }
@@ -1032,30 +1033,30 @@ function renderListView(tasksToRender) {
     const listViewBody = document.getElementById('listViewBody');
     if (!listViewBody) return;
     listViewBody.innerHTML = '';
-    
+
     // Apply filters
     const statusFilter = document.getElementById('listFilterStatus')?.value || 'All';
     const deadlineFilter = document.getElementById('listFilterDeadline')?.value || 'All';
     const projectFilter = document.getElementById('listFilterProject')?.value || 'All';
-    
+
     let filteredTasks = tasksToRender.filter(task => {
         if (statusFilter !== 'All' && task.status !== statusFilter) return false;
-        
+
         if (projectFilter !== 'All') {
             if (task.projectId !== parseInt(projectFilter)) return false;
         }
-        
+
         if (deadlineFilter !== 'All') {
             const today = new Date();
-            today.setHours(0,0,0,0);
-            
+            today.setHours(0, 0, 0, 0);
+
             if (deadlineFilter === 'No Date' && task.dueDate !== null) return false;
             if (deadlineFilter !== 'No Date' && task.dueDate === null) return false;
-            
+
             if (task.dueDate) {
                 const dueDate = new Date(task.dueDate);
-                dueDate.setHours(0,0,0,0);
-                
+                dueDate.setHours(0, 0, 0, 0);
+
                 if (deadlineFilter === 'Overdue' && dueDate >= today) return false;
                 if (deadlineFilter === 'Today' && dueDate.getTime() !== today.getTime()) return false;
                 if (deadlineFilter === 'Upcoming' && dueDate <= today) return false;
@@ -1066,10 +1067,10 @@ function renderListView(tasksToRender) {
                 }
             }
         }
-        
+
         return true;
     });
-    
+
     // Sort tasks for list view
     const sortedTasks = [...filteredTasks];
     if (typeof isSortedByDeadline !== 'undefined' && isSortedByDeadline) {
@@ -1089,16 +1090,16 @@ function renderListView(tasksToRender) {
             return (a.position || 0) - (b.position || 0);
         });
     }
-    
+
     sortedTasks.forEach(task => {
         const row = document.createElement('div');
         row.className = 'list-row';
         row.dataset.taskId = task.id;
         row.onclick = () => openEditTaskModal(task);
-        
+
         const projectName = task.projectId ? projects.find(p => p.id === task.projectId)?.name : 'No Project';
         const dueDateText = task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '-';
-        
+
         let timeDisplay = '00:00:00';
         if (task.isTimerRunning && task.timerStart) {
             const elapsedSeconds = Math.floor((new Date().getTime() - task.timerStart) / 1000);
@@ -1107,9 +1108,9 @@ function renderListView(tasksToRender) {
         } else if (task.timeSpent) {
             timeDisplay = formatTime(task.timeSpent * 3600);
         }
-        
+
         const statusClass = task.status === 'Done' ? 'done' : 'todo';
-        
+
         row.innerHTML = `
             <div class="list-col list-col-title">
                 <span class="task-status-indicator status-dot-${statusClass}"></span>
@@ -1131,15 +1132,15 @@ function renderListView(tasksToRender) {
                 <span id="list-timer-${task.id}">${timeDisplay}</span>
             </div>
             <div class="list-col list-col-actions">
-                ${task.isTimerRunning ? 
-                    `<button class="btn-stop-timer" data-task-id="${task.id}"><i class="fas fa-stop"></i></button>` :
-                    `<button class="btn-start-timer" data-task-id="${task.id}"><i class="fas fa-play"></i></button>`
-                }
+                ${task.isTimerRunning ?
+                `<button class="btn-stop-timer" data-task-id="${task.id}"><i class="fas fa-stop"></i></button>` :
+                `<button class="btn-start-timer" data-task-id="${task.id}"><i class="fas fa-play"></i></button>`
+            }
             </div>
         `;
-        
+
         const timerBtn = row.querySelector('.btn-start-timer, .btn-stop-timer');
-        if(timerBtn) {
+        if (timerBtn) {
             timerBtn.onclick = async (e) => {
                 e.stopPropagation();
                 const taskId = parseInt(e.target.closest('button').dataset.taskId);
@@ -1150,9 +1151,9 @@ function renderListView(tasksToRender) {
                 }
             };
         }
-        
+
         const statusSelect = row.querySelector('.list-status-select');
-        if(statusSelect) {
+        if (statusSelect) {
             statusSelect.onclick = (e) => e.stopPropagation(); // prevent opening edit modal
             statusSelect.onchange = async (e) => {
                 const newStatus = e.target.value;
@@ -1161,7 +1162,7 @@ function renderListView(tasksToRender) {
                 // Re-render handled by updateTask
             };
         }
-        
+
         listViewBody.appendChild(row);
     });
 }
@@ -1467,6 +1468,9 @@ function setupEmojiPicker(initialEmoji = '🎯') {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 DOM Content Loaded - Initializing TimeTracker...');
 
+    // Request notification permission if not already granted or denied
+    requestNotificationPermission();
+
     // Setup custom project dropdown
     const customProjectDropdown = document.getElementById('customProjectDropdown');
     const customProjectDropdownTrigger = document.getElementById('customProjectDropdownTrigger');
@@ -1476,7 +1480,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             customProjectDropdown.classList.toggle('open');
         });
     }
-    
+
     // Close custom dropdown when clicking outside
     document.addEventListener('click', (e) => {
         if (customProjectDropdown && !customProjectDropdown.contains(e.target)) {
@@ -2436,6 +2440,10 @@ async function startTimer(taskId) {
             updateCurrentTaskDisplay(); // Update current task display
             startTodayTimeUpdates(); // Update today's time display
 
+            // Request permission again just in case, and schedule notifications
+            requestNotificationPermission();
+            scheduleRunningTimeNotification(task);
+
             // Show toast message
             showToast(`Timer started for: ${task.title}`, 'success', 3000);
         } else {
@@ -2490,6 +2498,12 @@ async function stopTimer(taskId) {
             task.warningShown = false; // Reset warning flag
             activeTimer = null;
 
+            // Clear the notification interval
+            if (notificationInterval) {
+                clearInterval(notificationInterval);
+                notificationInterval = null;
+            }
+
             // Update the task in the array
             const updatedTasks = [...existingTasks];
             updatedTasks[taskIndex] = task;
@@ -2516,6 +2530,50 @@ async function stopTimer(taskId) {
     }
 }
 
+// Notification Functions
+function requestNotificationPermission() {
+    if (!("Notification" in window)) {
+        console.log("This browser does not support desktop notification");
+    } else if (Notification.permission !== "denied" && Notification.permission !== "granted") {
+        Notification.requestPermission().then(function (permission) {
+            console.log(`Notification permission: ${permission}`);
+        });
+    }
+}
+
+function showTimerNotification(task) {
+    if (Notification.permission === "granted") {
+        const currentTime = new Date().getTime();
+        const elapsedSeconds = Math.floor((currentTime - task.timerStart) / 1000);
+        const timeString = formatTimeHoursMinutes(elapsedSeconds);
+
+        new Notification("Time Tracker - Running Task", {
+            body: `Task: ${task.title}\nRunning Time: ${timeString}`,
+            icon: "icons/icon-192x192.png" // You can adjust this to your specific icon path
+        });
+    }
+}
+
+function scheduleRunningTimeNotification(task) {
+    if (notificationInterval) {
+        clearInterval(notificationInterval);
+    }
+
+    // Schedule notification every 30 minutes (30 * 60 * 1000 ms = 1800000 ms)
+    const thirtyMinutesMs = 30 * 60 * 1000;
+
+    notificationInterval = setInterval(() => {
+        // Need to refetch task to ensure it's still running
+        const currentTask = tasks.find(t => t.id === task.id);
+        if (currentTask && currentTask.isTimerRunning) {
+            showTimerNotification(currentTask);
+        } else {
+            clearInterval(notificationInterval);
+            notificationInterval = null;
+        }
+    }, thirtyMinutesMs);
+}
+
 function updateTimerDisplay(taskId) {
     const task = tasks.find(t => t.id === taskId);
     if (task && task.isTimerRunning) {
@@ -2540,14 +2598,14 @@ function updateTimerDisplay(taskId) {
 
         const timerDisplay = document.getElementById(`timer-${taskId}`);
         const listTimerDisplay = document.getElementById(`list-timer-${taskId}`);
-        
+
         let shouldRequestNextFrame = false;
-        
+
         if (timerDisplay) {
             timerDisplay.textContent = formatTime(elapsedSeconds);
             shouldRequestNextFrame = true;
         }
-        
+
         if (listTimerDisplay) {
             const totalSeconds = (task.timeSpent * 3600) + elapsedSeconds;
             listTimerDisplay.textContent = formatTime(totalSeconds);
@@ -2726,7 +2784,7 @@ function renderTimesheet() {
                 const entryDate = new Date(entry.date);
                 // The entryDate usually represents the END of the time segment
                 const entryStartTime = new Date(entryDate.getTime() - (entry.duration || 0) * 1000);
-                
+
                 // If either the start or end falls within the day, include it
                 if ((entryDate >= startDate && entryDate <= endDate) || (entryStartTime >= startDate && entryStartTime <= endDate)) {
                     allTimeEntries.push({
@@ -2739,7 +2797,7 @@ function renderTimesheet() {
                 }
             });
         }
-        
+
         // Include actively running timers
         if (task.isTimerRunning && task.timerStart) {
             const timerStartDate = new Date(task.timerStart);
