@@ -2,10 +2,8 @@
   "name": "timetracker",
   "version": "1.0.0",
   "description": "A task management and time tracking application built with pure HTML, CSS, and JavaScript. No frameworks or build tools required!",
-  "main": "main.js",
+  "main": "app.js",
   "scripts": {
-    "start": "electron .",
-    "build": "electron-packager . TimeTracker --platform=darwin --arch=arm64 --out=dist --overwrite",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -18,22 +16,5 @@
   "bugs": {
     "url": "https://github.com/VaibhavRakholiya/TimeTracker/issues"
   },
-  "homepage": "https://github.com/VaibhavRakholiya/TimeTracker#readme",
-  "build": {
-    "appId": "com.vaibhavrakholiya.timetracker",
-    "mac": {
-      "category": "public.app-category.productivity",
-      "target": [
-        "dmg"
-      ]
-    },
-    "dmg": {
-      "title": "TimeTracker"
-    }
-  },
-  "devDependencies": {
-    "electron": "^40.8.0",
-    "electron-builder": "^26.8.1",
-    "electron-packager": "^17.1.2"
-  }
+  "homepage": "https://github.com/VaibhavRakholiya/TimeTracker#readme"
 }

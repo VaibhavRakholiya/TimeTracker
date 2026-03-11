@@ -2463,11 +2463,6 @@ async function stopTimer(taskId) {
                 notificationInterval = null;
             }
 
-            // Tell Electron to stop the native menubar timer
-            if (window.electronAPI) {
-                window.electronAPI.stopTimer();
-            }
-
             // Update the task in the array
             const updatedTasks = [...existingTasks];
             updatedTasks[taskIndex] = task;
@@ -2574,11 +2569,6 @@ function updateTimerDisplay(taskId) {
             const totalSeconds = (task.timeSpent * 3600) + elapsedSeconds;
             listTimerDisplay.textContent = formatTime(totalSeconds);
             shouldRequestNextFrame = true;
-        }
-
-        // Send time string to Electron main process to update menubar
-        if (window.electronAPI) {
-            window.electronAPI.updateTimer(formatTime(elapsedSeconds));
         }
 
         if (shouldRequestNextFrame) {
