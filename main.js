@@ -11,7 +11,8 @@ function createWindow() {
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,
-            contextIsolation: true
+            contextIsolation: true,
+            backgroundThrottling: false
         }
     });
 
@@ -20,9 +21,11 @@ function createWindow() {
 }
 
 function createTray() {
-    // We use a transparent or simple icon for the tray
-    const iconPath = path.join(__dirname, 'icons', 'icon-192x192.png');
-    tray = new Tray(iconPath);
+    // We use a simple 16x16 icon for the native Mac tray
+    const iconPath = path.join(__dirname, 'icons', 'icon.png');
+    const { nativeImage } = require('electron');
+    const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+    tray = new Tray(trayIcon);
 
     // Set a default empty title
     tray.setTitle('');
