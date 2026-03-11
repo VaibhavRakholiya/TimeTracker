@@ -19,6 +19,18 @@
     "url": "https://github.com/VaibhavRakholiya/TimeTracker/issues"
   },
   "homepage": "https://github.com/VaibhavRakholiya/TimeTracker#readme",
+  "build": {
+    "appId": "com.vaibhavrakholiya.timetracker",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg"
+      ]
+    },
+    "dmg": {
+      "title": "TimeTracker"
+    }
+  },
   "devDependencies": {
     "electron": "^40.8.0",
     "electron-builder": "^26.8.1",

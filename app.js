@@ -2576,6 +2576,11 @@ function updateTimerDisplay(taskId) {
             shouldRequestNextFrame = true;
         }
 
+        // Send time string to Electron main process to update menubar
+        if (window.electronAPI) {
+            window.electronAPI.updateTimer(formatTime(elapsedSeconds));
+        }
+
         if (shouldRequestNextFrame) {
             requestAnimationFrame(() => updateTimerDisplay(taskId));
         } else {
