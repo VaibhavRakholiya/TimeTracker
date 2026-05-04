@@ -3,309 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('timetracker-theme');
+                if (t === 'light' || t === 'dark') {
+                    document.documentElement.setAttribute('data-theme', t);
+                    return;
+                }
+            } catch (e) { /* ignore */ }
+            var light = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+            document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
+        })();
+    </script>
     <title>TimeTracker - Login</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="theme.js" defer></script>
+
     <!-- PWA Setup -->
     <link rel="manifest" href="./manifest.json">
-    <meta name="theme-color" content="#0f0f13">
+    <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="./icons/icon.svg">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <style>
-        /* Login Page Specific Styles */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        .login-container {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #1a1a20;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .login-container::before {
-            display: none;
-        }
-
-        .login-card {
-            background: #222230;
-            border-radius: 12px;
-            padding: 40px;
-            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            position: relative;
-            z-index: 1;
-            width: 100%;
-            max-width: 380px;
-            margin: 20px;
-            animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        @keyframes slideInUp {
-            from {
-                opacity: 0;
-                transform: translateY(24px) scale(0.96);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        .login-header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .login-logo {
-            width: 48px;
-            height: 48px;
-            background: #7c6fff;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 20px auto;
-            position: relative;
-            overflow: hidden;
-            box-shadow: none;
-        }
-
-        .login-logo::before {
-            display: none;
-        }
-
-        .login-logo i {
-            font-size: 22px;
-            color: white;
-            position: relative;
-            z-index: 1;
-        }
-
-        .login-title {
-            font-size: 20px;
-            font-weight: 600;
-            color: #d4d4d8;
-            margin: 0 0 6px 0;
-            letter-spacing: -0.3px;
-        }
-
-        .login-subtitle {
-            font-size: 13px;
-            color: #e0e0e6;
-            margin: 0;
-            font-weight: 400;
-        }
-
-        .login-form {
-            display: flex;
-            flex-direction: column;
-            gap: 22px;
-        }
-
-        .form-group {
-            position: relative;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #ffffff;
-            font-size: 13px;
-            letter-spacing: 0.2px;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 10px 0;
-            border: none;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 0;
-            font-size: 14px;
-            font-family: inherit;
-            color: #d4d4d8;
-            background: transparent;
-            transition: border-color 0.15s ease;
-            box-sizing: border-box;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-bottom-color: #7c6fff;
-            background: transparent;
-            box-shadow: none;
-        }
-
-        .form-group input:hover {
-            border-bottom-color: rgba(255, 255, 255, 0.10);
-        }
-
-        .form-group i {
-            position: absolute;
-            right: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #8b8aa0;
-            font-size: 15px;
-            pointer-events: none;
-        }
-
-        .login-button {
-            background: #7c6fff;
-            color: white;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: opacity 0.15s ease;
-            position: relative;
-            overflow: hidden;
-            margin-top: 8px;
-        }
-
-        .login-button:hover {
-            opacity: 0.85;
-        }
-
-        .login-button:active {
-            transform: translateY(0);
-        }
-
-        .login-button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .error-message {
-            background: rgba(248, 113, 113, 0.1);
-            color: #f87171;
-            padding: 12px 16px;
-            border-radius: 10px;
-            border: 1px solid rgba(248, 113, 113, 0.2);
-            font-size: 14px;
-            font-weight: 400;
-            margin-top: 12px;
-            display: none;
-            animation: shake 0.5s ease-in-out;
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-
-        .error-message.show {
-            display: block;
-        }
-
-        .login-footer {
-            text-align: center;
-            margin-top: 32px;
-            padding-top: 24px;
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
-        }
-
-        .login-footer p {
-            margin: 0;
-            color: #8b8aa0;
-            font-size: 13px;
-        }
-
-        .credentials-info {
-            background: rgba(108, 99, 255, 0.05);
-            border: 1px solid rgba(108, 99, 255, 0.15);
-            border-radius: 10px;
-            padding: 16px;
-            margin-top: 24px;
-            text-align: center;
-        }
-
-        .credentials-info h4 {
-            margin: 0 0 8px 0;
-            color: #6c63ff;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .credentials-info p {
-            margin: 4px 0;
-            color: #8b8aa0;
-            font-size: 13px;
-        }
-
-        .credentials-info code {
-            background: rgba(108, 99, 255, 0.1);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            color: #a78bfa;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 480px) {
-            .login-card {
-                padding: 32px 24px;
-                margin: 16px;
-            }
-
-            .login-title {
-                font-size: 24px;
-            }
-
-            .login-logo {
-                width: 60px;
-                height: 60px;
-            }
-
-            .login-logo i {
-                font-size: 26px;
-            }
-        }
-
-        /* Loading Animation */
-        .login-button.loading {
-            position: relative;
-            color: transparent;
-        }
-
-        .login-button.loading::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top: 2px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: translate(-50%, -50%) rotate(0deg); }
-            100% { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-    </style>
 </head>
-<body>
+<body class="login-page">
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
@@ -317,49 +40,49 @@
             </div>
 
             <form class="login-form" id="loginForm">
-                <div class="form-group">
+                <div class="login-field">
                     <label for="username">Username</label>
-                    <input type="text" id="username" name="username" required autocomplete="username">
-                    <i class="fas fa-user"></i>
+                    <div class="login-input-wrap">
+                        <input type="text" id="username" name="username" required autocomplete="username">
+                        <i class="fas fa-user"></i>
+                    </div>
                 </div>
 
-                <div class="form-group">
+                <div class="login-field">
                     <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required autocomplete="current-password">
-                    <i class="fas fa-lock"></i>
+                    <div class="login-input-wrap">
+                        <input type="password" id="password" name="password" required autocomplete="current-password">
+                        <i class="fas fa-lock"></i>
+                    </div>
                 </div>
 
                 <button type="submit" class="login-button" id="loginButton">
                     Sign In
                 </button>
 
-                <div class="error-message" id="errorMessage">
+                <div class="login-error" id="errorMessage">
                     Invalid username or password. Please try again.
                 </div>
             </form>
 
-
             <div class="login-footer">
-                <p>© 2024 TimeTracker. All rights reserved.</p>
+                <p>© 2026 TimeTracker</p>
             </div>
         </div>
     </div>
 
     <script>
-        // Static login credentials
         const VALID_CREDENTIALS = {
             username: 'admin',
             password: 'password123'
         };
 
-        // DOM elements
         const loginForm = document.getElementById('loginForm');
         const loginButton = document.getElementById('loginButton');
         const errorMessage = document.getElementById('errorMessage');
         const usernameInput = document.getElementById('username');
         const passwordInput = document.getElementById('password');
 
-        // Show error message
         function showError(message) {
             errorMessage.textContent = message;
             errorMessage.classList.add('show');
@@ -368,12 +91,10 @@
             }, 5000);
         }
 
-        // Hide error message
         function hideError() {
             errorMessage.classList.remove('show');
         }
 
-        // Set loading state
         function setLoading(loading) {
             if (loading) {
                 loginButton.classList.add('loading');
@@ -384,7 +105,6 @@
             }
         }
 
-        // Check if user is already logged in
         function checkAuthStatus() {
             const isLoggedIn = localStorage.getItem('isLoggedIn');
             if (isLoggedIn === 'true') {
@@ -392,69 +112,39 @@
             }
         }
 
-        // Handle form submission
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const username = usernameInput.value.trim();
             const password = passwordInput.value;
 
-            // Hide any previous error
             hideError();
 
-            // Basic validation
             if (!username || !password) {
                 showError('Please enter both username and password.');
                 return;
             }
 
-            // Set loading state
             setLoading(true);
 
-            // Simulate API call delay
             await new Promise(resolve => setTimeout(resolve, 1000));
 
-            // Check credentials
             if (username === VALID_CREDENTIALS.username && password === VALID_CREDENTIALS.password) {
-                // Store login status
                 localStorage.setItem('isLoggedIn', 'true');
                 localStorage.setItem('username', username);
                 localStorage.setItem('loginTime', new Date().toISOString());
-
-                // Redirect to main app
                 window.location.href = 'index.html';
             } else {
-                // Show error
                 showError('Invalid username or password. Please try again.');
                 setLoading(false);
             }
         });
 
-        // Clear error when user starts typing
         usernameInput.addEventListener('input', hideError);
         passwordInput.addEventListener('input', hideError);
 
-        // Check auth status on page load
         checkAuthStatus();
 
-        // Add some interactive effects
-        usernameInput.addEventListener('focus', () => {
-            usernameInput.parentElement.style.transform = 'translateY(-2px)';
-        });
-
-        usernameInput.addEventListener('blur', () => {
-            usernameInput.parentElement.style.transform = 'translateY(0)';
-        });
-
-        passwordInput.addEventListener('focus', () => {
-            passwordInput.parentElement.style.transform = 'translateY(-2px)';
-        });
-
-        passwordInput.addEventListener('blur', () => {
-            passwordInput.parentElement.style.transform = 'translateY(0)';
-        });
-
-        // Add enter key support
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !loginButton.disabled) {
                 loginForm.dispatchEvent(new Event('submit'));
@@ -462,7 +152,6 @@
         });
     </script>
 
-    <!-- Service Worker Registration -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

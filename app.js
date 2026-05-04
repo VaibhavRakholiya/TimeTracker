@@ -901,7 +901,7 @@ function renderTasks() {
                             x: x / window.innerWidth,
                             y: y / window.innerHeight
                         },
-                        colors: ['#4361ee', '#7209b7', '#f72585', '#2ec4b6'],
+                        colors: ['#0071e3', '#2997ff', '#0066cc', '#0077ed'],
                         ticks: 200,
                         gravity: 1.2,
                         scalar: 1.2,
@@ -3308,7 +3308,7 @@ async function saveTimesheetReview() {
             const saveBtn = document.getElementById('saveReviewBtn');
             if (saveBtn) {
                 saveBtn.textContent = 'Review Saved!';
-                saveBtn.style.backgroundColor = '#28a745';
+                saveBtn.style.backgroundColor = '#0071e3';
                 setTimeout(() => {
                     saveBtn.textContent = 'Update Review';
                     saveBtn.style.backgroundColor = '';

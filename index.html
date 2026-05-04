@@ -4,17 +4,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('timetracker-theme');
+                if (t === 'light' || t === 'dark') {
+                    document.documentElement.setAttribute('data-theme', t);
+                    return;
+                }
+            } catch (e) { /* ignore */ }
+            var light = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+            document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
+        })();
+    </script>
     <title>TimeTracker -
         Task Management</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="theme.js" defer></script>
     
     <!-- PWA Setup -->
     <link rel="manifest" href="./manifest.json">
-    <meta name="theme-color" content="#0f0f13">
+    <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="./icons/icon.svg">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -36,6 +47,23 @@
         </div>
     </div>
 
+    <header class="sticky-app-header" role="banner">
+        <div class="sticky-app-header-inner">
+            <span class="app-brand">TimeTracker</span>
+            <div class="sticky-app-header-tools">
+                <button type="button" class="theme-toggle-btn" id="themeToggleBtn" title="Switch theme" aria-label="Switch theme">
+                    <i class="fas fa-sun"></i>
+                </button>
+                <div class="user-info">
+                    <span class="username" id="usernameDisplay">Admin</span>
+                    <button class="logout-btn" id="logoutBtn" title="Logout">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
     <!-- Inspiring Quote Section -->
     <div class="quote-container">
         <div class="quote-content">
@@ -43,8 +71,6 @@
             <div class="quote-author" id="quoteAuthor"></div>
         </div>
     </div>
-
-
 
     <div class="container">
         <aside>
@@ -54,13 +80,6 @@
             <!-- </div> -->
 
         </aside>
-
-        <div class="user-info">
-            <span class="username" id="usernameDisplay">Admin</span>
-            <button class="logout-btn" id="logoutBtn" title="Logout">
-                <i class="fas fa-sign-out-alt"></i>
-            </button>
-        </div>
 
         <main class="main-content">
             <header class="top-bar">
