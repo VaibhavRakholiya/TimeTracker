@@ -20,7 +20,7 @@ const State = (() => {
         { id: 'lbl-feature',  name: 'Feature',  color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
         { id: 'lbl-design',   name: 'Design',   color: '#ec4899', bg: 'rgba(236,72,153,0.12)' },
         { id: 'lbl-docs',     name: 'Docs',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
-        { id: 'lbl-backend',  name: 'Backend',  color: '#22c55e', bg: 'rgba(34,197,94,0.12)' },
+        { id: 'lbl-release',  name: 'Release',  color: '#22c55e', bg: 'rgba(34,197,94,0.12)' },
         { id: 'lbl-frontend', name: 'Frontend', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
     ];
 
