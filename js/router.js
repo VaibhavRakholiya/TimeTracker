@@ -2,7 +2,7 @@
  * FlowBoard — Router
  * Hash-based SPA routing. Routes:
  *   #dashboard
- *   #board/:projectId
+ *   #board/:projectId   (board only; no bare #board)
  *   #backlog/:projectId
  *   #timeline
  *   #reports
@@ -25,21 +25,51 @@ const Router = (() => {
     let _currentProjectId = null;
 
     function parseHash(hash) {
-        const raw = (hash || window.location.hash).replace('#', '');
-        const parts = raw.split('/');
-        return {
-            view:      parts[0] || 'dashboard',
-            projectId: parts[1] ? parseInt(parts[1], 10) : null,
-        };
+        const raw = (hash || window.location.hash).replace(/^#/, '').replace(/\/$/, '');
+        const parts = raw.split('/').filter(p => p !== '');
+        const view = parts[0] || 'dashboard';
+        let projectId = null;
+        if (parts.length > 1) {
+            const n = parseInt(parts[1], 10);
+            projectId = Number.isNaN(n) ? null : n;
+        }
+        return { view, projectId };
     }
 
+    /**
+     * Board is only reachable with #board/:projectId (e.g. from the Projects list).
+     * Other sections use a single-segment hash so a project id never "sticks" to them.
+     */
     function navigate(view, projectId) {
-        let hash = `#${view}`;
-        if (projectId != null) hash += `/${projectId}`;
-        window.location.hash = hash;
+        const v = VIEWS[view] ? view : 'dashboard';
+
+        if (v !== 'board' && v !== 'backlog') {
+            window.location.hash = `#${v}`;
+            return;
+        }
+
+        const idNum = projectId != null ? Number(projectId) : NaN;
+        if (v === 'board') {
+            if (!Number.isFinite(idNum)) {
+                window.location.hash = '#dashboard';
+                return;
+            }
+            window.location.hash = `#board/${Math.floor(idNum)}`;
+            return;
+        }
+
+        // backlog — optional project id
+        if (Number.isFinite(idNum)) window.location.hash = `#backlog/${Math.floor(idNum)}`;
+        else window.location.hash = '#backlog';
     }
 
     function activate({ view, projectId }) {
+        // Never show board without a concrete project (invalid or bookmarked #board)
+        if (view === 'board' && (projectId == null || !Number.isFinite(Number(projectId)))) {
+            window.location.hash = '#dashboard';
+            return;
+        }
+
         const viewName = VIEWS[view] ? view : 'dashboard';
         _currentRoute    = viewName;
         _currentProjectId = projectId;

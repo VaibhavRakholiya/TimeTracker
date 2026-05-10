@@ -1160,9 +1160,10 @@ select.form-control {
 .legend-count { font-weight: 700; color: var(--text); margin-left: auto; }
 
 /* ── 9. BOARD (KANBAN) VIEW ──────────────────────────────── */
+/* Do not set display here — #view-board must stay display:none until .view.active
+   (ID-only display:flex was overriding .view and kept the board visible on Dashboard). */
 #view-board {
     overflow: hidden;
-    display: flex;
     flex-direction: column;
 }
 
@@ -1174,6 +1175,52 @@ select.form-control {
     overflow-x: auto;
     overflow-y: hidden;
     align-items: flex-start;
+}
+
+/* List mode: single scrollable table under the same board view */
+#boardContainer.board-list-mode {
+    flex-direction: column;
+    align-items: stretch;
+    overflow-x: hidden;
+    overflow-y: auto;
+    gap: 0;
+}
+
+.board-list-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.board-list-table th {
+    text-align: left;
+    padding: var(--sp-2) var(--sp-3);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-alt);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.board-list-table td {
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+}
+
+.board-list-table tr.list-task-row:hover td {
+    background: var(--surface-hover);
+}
+
+.board-list-group td {
+    padding-top: var(--sp-4);
+    padding-bottom: var(--sp-1);
+    border-bottom: none;
 }
 
 .board-column {

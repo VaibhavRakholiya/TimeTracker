@@ -570,7 +570,7 @@ const UI = (() => {
         container.querySelectorAll('[data-proj-id]').forEach(el => {
             el.addEventListener('click', () => {
                 closeCommandPalette();
-                Router.navigate('board', parseInt(el.dataset.projId, 10));
+                Router.navigate('backlog', parseInt(el.dataset.projId, 10));
             });
         });
         container.querySelectorAll('[data-task-cmd]').forEach(el => {
