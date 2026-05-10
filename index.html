@@ -1,356 +1,683 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script>
-        (function () {
-            try {
-                var t = localStorage.getItem('timetracker-theme');
-                if (t === 'light' || t === 'dark') {
-                    document.documentElement.setAttribute('data-theme', t);
-                    return;
-                }
-            } catch (e) { /* ignore */ }
-            var light = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-            document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
-        })();
-    </script>
-    <title>TimeTracker -
-        Task Management</title>
+    <title>FlowBoard</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="theme.js" defer></script>
-    
-    <!-- PWA Setup -->
-    <link rel="manifest" href="./manifest.json">
-    <meta name="theme-color" content="#000000">
-    <link rel="apple-touch-icon" href="./icons/icon.svg">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-    <!-- Firebase REST API Integration - No SDK Required -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-
-    <!-- Firebase Configuration -->
-    <script src="firebase-config.js"></script>
-    <script src="firebase-rest-integration.js"></script>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <script>
+        (function() {
+            if (localStorage.getItem('isLoggedIn') !== 'true') {
+                window.location.replace('login.html');
+            }
+            const theme = localStorage.getItem('flowboard-theme') ||
+                (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </head>
-
 <body>
-    <!-- Database Loader -->
-    <div id="databaseLoader" class="database-loader" style="display: none;">
-        <div class="loader-content">
-            <div class="loader-spinner"></div>
-            <div class="loader-text">Connecting to database...</div>
-        </div>
-    </div>
+    <!-- Mobile sidebar overlay -->
+    <div class="mobile-sidebar-overlay" id="mobileSidebarOverlay"></div>
 
-    <header class="sticky-app-header" role="banner">
-        <div class="sticky-app-header-inner">
-            <span class="app-brand">TimeTracker</span>
-            <div class="sticky-app-header-tools">
-                <button type="button" class="theme-toggle-btn" id="themeToggleBtn" title="Switch theme" aria-label="Switch theme">
-                    <i class="fas fa-sun"></i>
-                </button>
-                <div class="user-info">
-                    <span class="username" id="usernameDisplay">Admin</span>
-                    <button class="logout-btn" id="logoutBtn" title="Logout">
-                        <i class="fas fa-sign-out-alt"></i>
+    <div id="app">
+        <!-- ═══════════════════════════════════════ SIDEBAR ══ -->
+        <nav id="sidebar">
+            <!-- Brand -->
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-logo">
+                    <i class="fa-solid fa-diagram-project"></i>
+                </div>
+                <span class="sidebar-brand-text">FlowBoard</span>
+            </div>
+
+            <!-- Body -->
+            <div class="sidebar-body">
+                <!-- Main navigation -->
+                <div class="sidebar-section-title">Navigation</div>
+
+                <div class="nav-item" data-route="dashboard" id="nav-dashboard">
+                    <i class="fa-solid fa-house"></i>
+                    <span class="nav-label">Dashboard</span>
+                </div>
+
+                <div class="nav-item" data-route="mytasks" id="nav-mytasks">
+                    <i class="fa-solid fa-check-circle"></i>
+                    <span class="nav-label">My Tasks</span>
+                    <span class="nav-badge" id="myTasksBadge" style="display:none;">0</span>
+                </div>
+
+                <div class="sidebar-separator"></div>
+
+                <!-- Projects -->
+                <div style="display:flex;align-items:center;padding:12px 16px 4px;">
+                    <span class="sidebar-section-title" style="padding:0;flex:1;">Projects</span>
+                    <button class="btn btn-ghost btn-icon btn-sm" id="addProjectBtn" title="New project" style="flex-shrink:0;">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+
+                <div class="sidebar-projects" id="sidebarProjects">
+                    <!-- Populated by projects.js -->
+                </div>
+
+                <div class="sidebar-separator"></div>
+
+                <!-- Secondary nav -->
+                <div class="nav-item" data-route="reports" id="nav-reports">
+                    <i class="fa-solid fa-chart-bar"></i>
+                    <span class="nav-label">Reports</span>
+                </div>
+
+                <div class="nav-item" id="nav-settings" data-route="settings">
+                    <i class="fa-solid fa-gear"></i>
+                    <span class="nav-label">Settings</span>
+                </div>
+            </div>
+
+            <!-- Footer / User -->
+            <div class="sidebar-footer">
+                <div class="sidebar-user" id="sidebarUser">
+                    <div class="user-avatar" id="sidebarUserAvatar">A</div>
+                    <div class="sidebar-bottom-text">
+                        <div class="user-name" id="sidebarUserName">Admin</div>
+                        <div class="user-role">Member</div>
+                    </div>
+                    <button class="btn btn-ghost btn-icon btn-sm" id="logoutBtn" title="Sign out">
+                        <i class="fa-solid fa-right-from-bracket"></i>
                     </button>
                 </div>
             </div>
-        </div>
-    </header>
+        </nav>
 
-    <!-- Inspiring Quote Section -->
-    <div class="quote-container">
-        <div class="quote-content">
-            <div class="quote-text" id="quoteText"></div>
-            <div class="quote-author" id="quoteAuthor"></div>
-        </div>
-    </div>
+        <!-- ════════════════════════════════════ MAIN AREA ═══ -->
+        <div id="main-area">
+            <!-- ─────────────────────────────────── HEADER ── -->
+            <header id="app-header">
+                <button class="header-sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
 
-    <div class="container">
-        <aside>
-            <!-- <div class="sidebar-header"> -->
-            <!-- <h2>TimeTracker</h2> -->
-
-            <!-- </div> -->
-
-        </aside>
-
-        <main class="main-content">
-            <header class="top-bar">
-                <div class="top-bar-left">
-                    <h1 id="currentProjectName">All Tasks</h1>
+                <!-- Breadcrumb -->
+                <div class="header-breadcrumb" id="headerBreadcrumb">
+                    <strong>Dashboard</strong>
                 </div>
-                <div class="top-bar-right">
-                    <div class="custom-project-dropdown" id="customProjectDropdown">
-                        <div class="custom-project-dropdown-trigger" id="customProjectDropdownTrigger">
-                            <span id="customProjectDropdownSelected">All Tasks</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </div>
-                        <div class="custom-project-dropdown-menu" id="customProjectDropdownMenu">
-                            <ul id="projectsList" class="custom-projects-list">
-                            </ul>
-                        </div>
+
+                <div class="header-spacer"></div>
+
+                <!-- Search / Command Palette trigger -->
+                <div class="header-search" id="cmdPaletteTrigger" role="button" tabindex="0">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <span class="header-search-text">Search or jump to…</span>
+                    <div class="header-search-kbd">
+                        <kbd>⌘</kbd><kbd>K</kbd>
                     </div>
-                    <div class="current-task-display" id="currentTaskDisplay" style="display: none;">
-                        <div class="current-task-info">
-                            <i class="fas fa-play-circle"></i>
-                            <span class="current-task-title" id="currentTaskTitle"></span>
-                        </div>
-                        <div class="current-task-timer">
-                            <i class="fas fa-circle-notch fa-spin"></i>
-                            <span id="currentTaskTimer">00:00:00</span>
-                        </div>
-                    </div>
-                    <div class="today-time-display" id="todayTimeDisplay">
-                        <i class="fas fa-clock"></i>
-                        <span id="todayTimeValue">00:00:00</span>
-                    </div>
+                </div>
+
+                <!-- Timer indicator -->
+                <div class="timer-indicator" id="timerIndicator">
+                    <div class="timer-dot"></div>
+                    <span id="timerDisplay">00:00:00</span>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="header-actions">
+                    <button class="btn btn-primary btn-sm" id="createTaskBtn" style="display:flex;align-items:center;gap:6px;">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>New Task</span>
+                    </button>
+                    <button class="header-btn" id="themeToggleBtn" title="Toggle theme">
+                        <i class="fa-solid fa-moon" id="headerThemeIcon"></i>
+                    </button>
                 </div>
             </header>
 
-            <div class="view-controls">
-                <button id="boardViewBtn" class="view-btn active"><i class="fas fa-columns"></i> Board</button>
-                <button id="listViewBtn" class="view-btn"><i class="fas fa-list-ul"></i> List</button>
-                <button id="timesheetViewBtn" class="view-btn"><i class="fas fa-clock"></i> TimeSheet</button>
-            </div>
+            <!-- ──────────────────────────────── CONTENT ──── -->
+            <div id="content-area">
 
-            <div id="boardView" class="board">
-                <div class="board-header">
-                    <div class="board-filters">
-                        <div class="filter-group">
-                            <label>Status:</label>
-                            <select id="boardFilterStatus">
-                                <option value="All">All</option>
-                                <option value="Backlog">Backlog</option>
-                                <option value="To Do">To Do</option>
-                                <option value="In Progress">In Progress</option>
-                                <option value="In Review">In Review</option>
-                                <option value="Done">Done</option>
-                            </select>
+                <!-- ─────────────────────────── DASHBOARD ─── -->
+                <div class="view" id="view-dashboard">
+                    <div class="view-header">
+                        <div>
+                            <div class="view-title" id="dashboardGreeting">Good morning!</div>
+                            <div class="view-subtitle">Here's what's happening across your projects.</div>
                         </div>
-                        <div class="filter-group">
-                            <label>Deadline:</label>
-                            <select id="boardFilterDeadline">
-                                <option value="All">All Dates</option>
-                                <option value="Overdue">Overdue</option>
-                                <option value="Today">Today</option>
-                                <option value="This Week">This Week</option>
-                                <option value="Upcoming">Upcoming</option>
-                                <option value="No Date">No Date</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="board-columns">
-                    <div class="column" data-status="Backlog">
-                        <div class="column-header">
-                            <h3><i class="fas fa-list-ul"></i> Backlog</h3>
-                        </div>
-                        <div class="backlog-input-container">
-                            <input type="text" class="backlog-input" id="backlogInput" placeholder="Add backlog item..."
-                                data-status="Backlog">
-                            <button class="backlog-add-btn" onclick="addBacklogItem('Backlog')">
-                                <i class="fas fa-plus"></i>
+                        <div class="view-actions">
+                            <button class="btn btn-secondary btn-sm" id="refreshDashboard">
+                                <i class="fa-solid fa-rotate-right"></i> Refresh
                             </button>
                         </div>
-                        <div class="backlog-container" id="backlogItems"></div>
                     </div>
-                    <div class="column" data-status="To Do">
-                        <div class="column-header">
-                            <h3><i class="fas fa-clipboard-list"></i> To Do</h3>
-                            <button class="add-task-btn" onclick="openAddTaskModal()">
-                                <i class="fas fa-plus"></i>
+
+                    <!-- Stat cards row -->
+                    <div class="dashboard-row" id="dashboardStats">
+                        <div class="stat-card">
+                            <div class="stat-card-header">
+                                <div>
+                                    <div class="stat-value" id="stat-total-tasks">—</div>
+                                    <div class="stat-label">Total Tasks</div>
+                                </div>
+                                <div class="stat-card-icon" style="background:rgba(99,102,241,0.12);color:var(--primary);">
+                                    <i class="fa-solid fa-list-check"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-header">
+                                <div>
+                                    <div class="stat-value" id="stat-in-progress">—</div>
+                                    <div class="stat-label">In Progress</div>
+                                </div>
+                                <div class="stat-card-icon" style="background:rgba(59,130,246,0.12);color:#3b82f6;">
+                                    <i class="fa-solid fa-spinner"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-header">
+                                <div>
+                                    <div class="stat-value" id="stat-completed">—</div>
+                                    <div class="stat-label">Completed</div>
+                                </div>
+                                <div class="stat-card-icon" style="background:rgba(34,197,94,0.12);color:#22c55e;">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Widgets row -->
+                    <div class="dashboard-row-2" id="dashboardWidgets">
+                        <!-- Status donut -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <div class="widget-title">Tasks by Status</div>
+                            </div>
+                            <div class="donut-chart-wrapper">
+                                <canvas id="donutChart" width="110" height="110"></canvas>
+                                <div class="donut-legend" id="donutLegend"></div>
+                            </div>
+                        </div>
+
+                        <!-- Sprint progress -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <div class="widget-title">Active Sprint</div>
+                                <button class="btn btn-ghost btn-sm btn-icon" id="viewSprintsBtn" title="View sprints">
+                                    <i class="fa-solid fa-arrow-right"></i>
+                                </button>
+                            </div>
+                            <div id="sprintProgressWidget">
+                                <div class="sprint-progress">
+                                    <div class="sprint-meta">
+                                        <span id="sprintWidgetName" class="text-muted">No active sprint</span>
+                                        <span id="sprintWidgetPercent" class="text-muted">—</span>
+                                    </div>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="sprintProgressFill" style="width:0%"></div>
+                                    </div>
+                                    <div class="sprint-meta">
+                                        <span id="sprintWidgetDone" class="text-muted text-sm">0 done</span>
+                                        <span id="sprintWidgetTotal" class="text-muted text-sm">0 total</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Due soon + Activity row -->
+                    <div class="dashboard-row-2" style="padding:0 var(--sp-6) var(--sp-6);">
+                        <!-- Due soon -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <div class="widget-title">Due Soon</div>
+                                <span class="text-muted text-sm">Next 7 days</span>
+                            </div>
+                            <div class="widget-body" style="padding:0 var(--sp-5);">
+                                <div id="dueSoonList">
+                                    <div class="empty-state" style="padding:var(--sp-6) 0;">
+                                        <i class="fa-solid fa-calendar-check" style="font-size:28px;opacity:0.3;"></i>
+                                        <span class="text-sm text-muted">No tasks due soon</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Activity feed -->
+                        <div class="widget-card">
+                            <div class="widget-header">
+                                <div class="widget-title">Recent Activity</div>
+                            </div>
+                            <div class="widget-body" style="padding:0 var(--sp-5);">
+                                <div id="activityFeed">
+                                    <div class="empty-state" style="padding:var(--sp-6) 0;">
+                                        <i class="fa-solid fa-bolt" style="font-size:28px;opacity:0.3;"></i>
+                                        <span class="text-sm text-muted">No recent activity</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ──────────────────────────────── BOARD ─── -->
+                <div class="view" id="view-board">
+                    <div class="view-header">
+                        <div>
+                            <div class="view-title" id="boardViewTitle">Board</div>
+                            <div class="view-subtitle" id="boardViewSubtitle">Kanban workflow</div>
+                        </div>
+                        <div class="view-actions">
+                            <button class="btn btn-secondary btn-sm" id="manageBoardBtn">
+                                <i class="fa-solid fa-sliders"></i> Manage
+                            </button>
+                            <button class="btn btn-primary btn-sm" id="boardAddTaskBtn">
+                                <i class="fa-solid fa-plus"></i> Add Task
                             </button>
                         </div>
-                        <div class="tasks-container" id="todoTasks"></div>
                     </div>
-                    <div class="column" data-status="Done">
-                        <div class="column-header">
-                            <h3><i class="fas fa-check-circle"></i> Done</h3>
+                    <div class="view-toolbar">
+                        <div class="filter-group" id="boardFilterGroup">
+                            <button class="filter-chip active" data-filter="all">All</button>
+                            <button class="filter-chip" data-filter="critical">
+                                <span class="priority-dot priority-dot-critical"></span> Critical
+                            </button>
+                            <button class="filter-chip" data-filter="high">
+                                <span class="priority-dot priority-dot-high"></span> High
+                            </button>
+                            <button class="filter-chip" data-filter="medium">
+                                <span class="priority-dot priority-dot-medium"></span> Medium
+                            </button>
                         </div>
-                        <div class="tasks-container" id="doneTasks"></div>
+                        <div class="toolbar-separator"></div>
+                        <button class="filter-chip" id="boardFilterDue">
+                            <i class="fa-regular fa-calendar"></i> Due Date
+                        </button>
                     </div>
+                    <div class="board-container" id="boardContainer">
+                        <!-- Columns rendered by board.js -->
+                    </div>
+                </div>
+
+                <!-- ─────────────────────────────── BACKLOG ── -->
+                <div class="view" id="view-backlog">
+                    <div class="view-header">
+                        <div>
+                            <div class="view-title" id="backlogViewTitle">Backlog</div>
+                            <div class="view-subtitle">Manage your sprint backlog</div>
+                        </div>
+                        <div class="view-actions">
+                            <button class="btn btn-secondary btn-sm" id="createSprintBtn">
+                                <i class="fa-solid fa-bolt"></i> New Sprint
+                            </button>
+                            <button class="btn btn-primary btn-sm" id="backlogAddTaskBtn">
+                                <i class="fa-solid fa-plus"></i> Add Task
+                            </button>
+                        </div>
+                    </div>
+                    <div class="backlog-container" id="backlogContainer">
+                        <!-- Rendered by backlog.js -->
+                    </div>
+                </div>
+
+                <!-- ─────────────────────────────── TIMELINE ─ -->
+                <div class="view" id="view-timeline">
+                    <div class="view-header">
+                        <div>
+                            <div class="view-title">Timeline</div>
+                            <div class="view-subtitle">Roadmap &amp; Gantt view</div>
+                        </div>
+                        <div class="view-actions">
+                            <div class="view-toggle">
+                                <button class="view-toggle-btn active" data-zoom="week" id="timelineZoomWeek">Week</button>
+                                <button class="view-toggle-btn" data-zoom="month" id="timelineZoomMonth">Month</button>
+                            </div>
+                            <select class="form-control" id="timelineProjectFilter" style="width:auto;padding:5px 28px 5px 10px;font-size:12px;">
+                                <option value="all">All Projects</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="timeline-container" id="timelineContainer">
+                        <!-- Rendered by timeline.js -->
+                    </div>
+                </div>
+
+                <!-- ──────────────────────────────── REPORTS ─ -->
+                <div class="view" id="view-reports">
+                    <div class="view-header">
+                        <div>
+                            <div class="view-title">Reports</div>
+                            <div class="view-subtitle">Time tracking &amp; project analytics</div>
+                        </div>
+                        <div class="view-actions">
+                            <input type="date" class="form-control" id="reportStartDate" style="width:auto;font-size:12px;" />
+                            <span class="text-muted">to</span>
+                            <input type="date" class="form-control" id="reportEndDate" style="width:auto;font-size:12px;" />
+                            <button class="btn btn-secondary btn-sm" id="applyReportRange">Apply</button>
+                        </div>
+                    </div>
+                    <div class="reports-grid" id="reportsGrid">
+                        <!-- Rendered by dashboard.js -->
+                    </div>
+                </div>
+
+                <!-- ──────────────────────────────── MY TASKS ─ -->
+                <div class="view" id="view-mytasks">
+                    <div class="view-header">
+                        <div>
+                            <div class="view-title">My Tasks</div>
+                        </div>
+                        <div class="view-actions">
+                            <div class="filter-group">
+                                <button class="filter-chip active" data-myfilter="all">All</button>
+                                <button class="filter-chip" data-myfilter="active">Active</button>
+                                <button class="filter-chip" data-myfilter="done">Done</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tasks-list-container" id="myTasksList">
+                        <!-- Rendered by tasks.js -->
+                    </div>
+                </div>
+
+                <!-- ─────────────────────────────── SETTINGS ─ -->
+                <div class="view" id="view-settings">
+                    <div class="view-header">
+                        <div>
+                            <div class="view-title">Settings</div>
+                            <div class="view-subtitle">Manage workspace preferences</div>
+                        </div>
+                    </div>
+                    <div style="padding:0 var(--sp-6) var(--sp-6);max-width:640px;">
+                        <div class="settings-section">
+                            <div class="settings-section-title">Appearance</div>
+                            <div class="form-group">
+                                <label class="form-label">Theme</label>
+                                <div class="filter-group">
+                                    <button class="filter-chip" id="settingsThemeDark" data-theme-pick="dark">
+                                        <i class="fa-solid fa-moon"></i> Dark
+                                    </button>
+                                    <button class="filter-chip" id="settingsThemeLight" data-theme-pick="light">
+                                        <i class="fa-solid fa-sun"></i> Light
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="settings-section">
+                            <div class="settings-section-title">Account</div>
+                            <div style="display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">
+                                <div class="user-avatar" id="settingsAvatar" style="width:40px;height:40px;font-size:16px;">A</div>
+                                <div>
+                                    <div style="font-weight:700;" id="settingsUsername">Admin</div>
+                                    <div class="text-muted text-sm">Workspace owner</div>
+                                </div>
+                                <button class="btn btn-danger btn-sm ml-auto" id="settingsLogoutBtn">
+                                    <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+                                </button>
+                            </div>
+                        </div>
+                        <div class="settings-section">
+                            <div class="settings-section-title">Data</div>
+                            <div style="display:flex;gap:var(--sp-3);">
+                                <button class="btn btn-secondary btn-sm" id="exportDataBtn">
+                                    <i class="fa-solid fa-download"></i> Export Data
+                                </button>
+                                <button class="btn btn-danger btn-sm" id="clearDataBtn">
+                                    <i class="fa-solid fa-trash"></i> Clear All Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /content-area -->
+
+            <!-- Task Detail Panel -->
+            <div id="task-detail-panel">
+                <div class="panel-header">
+                    <button class="panel-close" id="panelClose">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <div class="panel-task-id" id="panelTaskId">TASK-000</div>
+                    <div class="panel-actions">
+                        <button class="btn btn-ghost btn-icon btn-sm" id="panelTimerBtn" title="Start/Stop timer">
+                            <i class="fa-solid fa-play"></i>
+                        </button>
+                        <button class="btn btn-ghost btn-icon btn-sm" id="panelOptionsBtn" title="Options">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="panel-body" id="panelBody">
+                    <!-- Filled by ui.js when a task is opened -->
                 </div>
             </div>
 
-            <div id="timesheetView" class="timesheet-view" style="display: none;">
-                <div class="timesheet-filters">
-                    <div class="date-filter">
-                        <label>Date:</label>
-                        <input type="date" id="timesheetDate">
-                    </div>
-                </div>
-                <table class="timesheet-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Project</th>
-                            <th>Task</th>
-                            <th>Status</th>
-                            <th>Due Date</th>
-                            <th>Time Spent</th>
-                        </tr>
-                    </thead>
-                    <tbody id="timesheetBody"></tbody>
-                </table>
-            </div>
+        </div><!-- /main-area -->
+    </div><!-- /app -->
 
-        <!-- List View -->
-        <div id="listView" class="list-view" style="display: none;">
-            <div class="list-filters">
-                <div class="filter-group">
-                        <label>Status:</label>
-                        <select id="listFilterStatus">
-                            <option value="All">All</option>
-                            <option value="Backlog">Backlog</option>
-                            <option value="To Do">To Do</option>
-                            <option value="In Progress">In Progress</option>
-                            <option value="In Review">In Review</option>
-                            <option value="Done">Done</option>
+    <!-- ═══════════════════════════════════════ MODALS ════ -->
+
+    <!-- Create/Edit Task Modal -->
+    <div class="modal-scrim" id="taskModalScrim">
+        <div class="modal" id="taskModal">
+            <div class="modal-header">
+                <div class="modal-title" id="taskModalTitle">New Task</div>
+                <button class="modal-close" id="taskModalClose"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="taskModalId" />
+                <div class="form-group">
+                    <label class="form-label">Title <span style="color:#ef4444;">*</span></label>
+                    <input class="form-control" type="text" id="taskModalTitleInput" placeholder="What needs to be done?" maxlength="200" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" id="taskModalDesc" placeholder="Add more details…" rows="3"></textarea>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
+                    <div class="form-group">
+                        <label class="form-label">Project</label>
+                        <select class="form-control" id="taskModalProject">
+                            <option value="">No project</option>
                         </select>
                     </div>
-                    <div class="filter-group">
-                        <label>Deadline:</label>
-                        <select id="listFilterDeadline">
-                            <option value="All">All Dates</option>
-                            <option value="Overdue">Overdue</option>
-                            <option value="Today">Today</option>
-                            <option value="This Week">This Week</option>
-                            <option value="Upcoming">Upcoming</option>
-                            <option value="No Date">No Date</option>
+                    <div class="form-group">
+                        <label class="form-label">Status / Column</label>
+                        <select class="form-control" id="taskModalColumn">
+                            <option value="">Select…</option>
                         </select>
                     </div>
-                </div>
-                <div class="list-view-header">
-                    <div class="list-col list-col-title">Task</div>
-                    <div class="list-col list-col-status">Status</div>
-                    <div class="list-col list-col-project">Project</div>
-                    <div class="list-col list-col-due">Due Date</div>
-                    <div class="list-col list-col-time">Time</div>
-                    <div class="list-col list-col-actions"></div>
-                </div>
-                <div id="listViewBody" class="list-view-body"></div>
-            </div>
-
-
-        </main>
-    </div>
-
-    <!-- Modal for adding/editing tasks -->
-    <div id="taskModal" class="modal">
-        <div class="modal-content">
-            <h2 id="modalTitle">Add Task</h2>
-            <form id="taskForm">
-                <div class="form-group">
-                    <label for="taskTitle">Task Title</label>
-                    <input type="text" id="taskTitle" required>
+                    <div class="form-group">
+                        <label class="form-label">Priority</label>
+                        <select class="form-control" id="taskModalPriority">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                            <option value="critical">Critical</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Due Date</label>
+                        <input class="form-control" type="date" id="taskModalDueDate" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Start Date</label>
+                        <input class="form-control" type="date" id="taskModalStartDate" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Estimate (hours)</label>
+                        <input class="form-control" type="number" id="taskModalEstimate" placeholder="e.g. 4" min="0" step="0.5" />
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label for="taskStatus">Status</label>
-                    <select id="taskStatus">
-                        <option value="To Do">To Do</option>
-                        <option value="Done">Done</option>
+                    <label class="form-label">Sprint</label>
+                    <select class="form-control" id="taskModalSprint">
+                        <option value="">No sprint (Backlog)</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="taskDueDate">Due Date</label>
-                    <input type="date" id="taskDueDate">
-                </div>
-                <div class="modal-buttons">
-                    <button type="submit" class="btn-primary">Save</button>
-                    <button type="button" class="btn-secondary" id="cancelTaskBtn">Cancel</button>
-                    <button type="button" class="btn-delete" id="deleteTaskBtn" style="display: none;">
-                        <i class="fas fa-trash-alt"></i> Delete Task
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Modal for adding/editing projects -->
-    <div id="projectModal" class="modal">
-        <div class="modal-content">
-            <h2 id="projectModalTitle">Add Project</h2>
-            <form id="projectForm">
-                <div class="form-group">
-                    <label for="projectName">Project Name</label>
-                    <input type="text" id="projectName" required>
-                </div>
-                <div class="form-group">
-                    <label>Project Emoji</label>
-                    <div class="emoji-picker">
-                        <div class="emoji-grid">
-                            <span class="emoji-option" data-emoji="🎯">🎯</span>
-                            <span class="emoji-option" data-emoji="💻">💻</span>
-                            <span class="emoji-option" data-emoji="📱">📱</span>
-                            <span class="emoji-option" data-emoji="🎨">🎨</span>
-                            <span class="emoji-option" data-emoji="📊">📊</span>
-                            <span class="emoji-option" data-emoji="🚀">🚀</span>
-                            <span class="emoji-option" data-emoji="🔧">🔧</span>
-                            <span class="emoji-option" data-emoji="📝">📝</span>
-                            <span class="emoji-option" data-emoji="🎮">🎮</span>
-                            <span class="emoji-option" data-emoji="📚">📚</span>
-                            <span class="emoji-option" data-emoji="💡">💡</span>
-                            <span class="emoji-option" data-emoji="⭐">⭐</span>
-                            <span class="emoji-option" data-emoji="🏠">🏠</span>
-                            <span class="emoji-option" data-emoji="🎵">🎵</span>
-                            <span class="emoji-option" data-emoji="🎬">🎬</span>
-                            <span class="emoji-option" data-emoji="🏃">🏃</span>
-                            <span class="emoji-option" data-emoji="🎪">🎪</span>
-                            <span class="emoji-option" data-emoji="🏢">🏢</span>
-                            <span class="emoji-option" data-emoji="🌍">🌍</span>
-                            <span class="emoji-option" data-emoji="🎓">🎓</span>
-                            <span class="emoji-option" data-emoji="💼">💼</span>
-                            <span class="emoji-option" data-emoji="🔬">🔬</span>
-                            <span class="emoji-option" data-emoji="🎭">🎭</span>
-                            <span class="emoji-option" data-emoji="🏆">🏆</span>
-                            <span class="emoji-option" data-emoji="💎">💎</span>
-                            <span class="emoji-option" data-emoji="🌟">🌟</span>
-                        </div>
-                        <div class="selected-emoji-display">
-                            <span id="selectedEmoji">🎯</span>
-                            <small>Click an emoji above to select</small>
-                        </div>
+                    <label class="form-label">Labels</label>
+                    <div class="labels-wrap" id="taskModalLabels">
+                        <!-- populated by ui.js -->
                     </div>
                 </div>
-                <div class="modal-buttons">
-                    <button type="submit" class="btn-primary" id="saveProjectBtn">Save</button>
-                    <button type="button" class="btn-secondary" id="cancelProjectBtn">Cancel</button>
-                    <button type="button" class="btn-delete" id="deleteProjectBtn" style="display: none;">
-                        <i class="fas fa-trash-alt"></i> Delete Project
-                    </button>
-                </div>
-            </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" id="taskModalCancel">Cancel</button>
+                <button class="btn btn-primary" id="taskModalSave">Create Task</button>
+            </div>
         </div>
     </div>
 
-    <script>
-        // Check authentication before loading the app
-        if (localStorage.getItem('isLoggedIn') !== 'true') {
-            window.location.href = 'login.html';
-        }
-    </script>
-    <script src="app.js"></script>
+    <!-- Create/Edit Project Modal -->
+    <div class="modal-scrim" id="projectModalScrim">
+        <div class="modal" id="projectModal">
+            <div class="modal-header">
+                <div class="modal-title" id="projectModalTitle">New Project</div>
+                <button class="modal-close" id="projectModalClose"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="projectModalId" />
+                <div class="form-group">
+                    <label class="form-label">Project Name <span style="color:#ef4444;">*</span></label>
+                    <input class="form-control" type="text" id="projectModalName" placeholder="e.g. Website Redesign" maxlength="60" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" id="projectModalDesc" placeholder="What is this project about?" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Color</label>
+                    <div class="color-swatch-row" id="projectModalColors">
+                        <!-- populated by projects.js -->
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Workflow Columns</label>
+                    <div class="column-editor-list" id="projectModalColumns">
+                        <!-- populated by projects.js -->
+                    </div>
+                    <button class="btn btn-ghost btn-sm" id="addColumnBtn" style="margin-top:var(--sp-2);">
+                        <i class="fa-solid fa-plus"></i> Add Column
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" id="projectModalCancel">Cancel</button>
+                <button class="btn btn-primary" id="projectModalSave">Create Project</button>
+            </div>
+        </div>
+    </div>
 
-    <!-- Service Worker Registration -->
+    <!-- Create/Edit Sprint Modal -->
+    <div class="modal-scrim" id="sprintModalScrim">
+        <div class="modal" id="sprintModal">
+            <div class="modal-header">
+                <div class="modal-title" id="sprintModalTitle">New Sprint</div>
+                <button class="modal-close" id="sprintModalClose"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="sprintModalId" />
+                <div class="form-group">
+                    <label class="form-label">Sprint Name <span style="color:#ef4444;">*</span></label>
+                    <input class="form-control" type="text" id="sprintModalName" placeholder="e.g. Sprint 1" maxlength="60" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Goal</label>
+                    <textarea class="form-control" id="sprintModalGoal" placeholder="What do you want to achieve in this sprint?" rows="2"></textarea>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
+                    <div class="form-group">
+                        <label class="form-label">Start Date</label>
+                        <input class="form-control" type="date" id="sprintModalStart" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">End Date</label>
+                        <input class="form-control" type="date" id="sprintModalEnd" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Project</label>
+                    <select class="form-control" id="sprintModalProject">
+                        <option value="">All Projects</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" id="sprintModalCancel">Cancel</button>
+                <button class="btn btn-primary" id="sprintModalSave">Create Sprint</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Dialog -->
+    <div class="modal-scrim confirm-modal" id="confirmModalScrim">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="confirmTitle">Confirm</div>
+                <button class="modal-close" id="confirmModalClose"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage" style="font-size:14px;color:var(--text-secondary);line-height:1.6;"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
+                <button class="btn btn-danger" id="confirmOk">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════ COMMAND PALETTE ════════════ -->
+    <div id="command-palette-scrim">
+        <div class="command-palette">
+            <div class="command-palette-input-wrap">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" class="command-palette-input" id="cmdPaletteInput" placeholder="Search tasks, projects, or type a command…" autocomplete="off" />
+            </div>
+            <div class="command-palette-results" id="cmdPaletteResults">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════ TOAST CONTAINER ════════════ -->
+    <div id="toast-container"></div>
+
+    <!-- ══════════════════════════════ SCRIPTS ════════════ -->
+    <script src="firebase-rest-integration.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/projects.js"></script>
+    <script src="js/sprints.js"></script>
+    <script src="js/tasks.js"></script>
+    <script src="js/board.js"></script>
+    <script src="js/backlog.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/timeline.js"></script>
+    <script src="js/ui.js"></script>
+
     <script>
+        // ── Bootstrap ──────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            // Patch firebase REST integration showToast to use our UI
+            if (window.firebaseRESTIntegration) {
+                window.firebaseRESTIntegration.showToast = (msg, type) => {
+                    window.UI && window.UI.toast(msg, type);
+                };
+            }
+
+            // Init app
+            window.App && window.App.init();
+        });
+
+        // Service worker
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(registration => {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    }, err => {
-                        console.log('ServiceWorker registration failed: ', err);
-                    });
-            });
+            navigator.serviceWorker.register('sw.js').catch(() => {});
         }
     </script>
 </body>
-
 </html>

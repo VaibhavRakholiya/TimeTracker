@@ -1,13 +1,21 @@
-const CACHE_NAME = 'timetracker-cache-v1';
+const CACHE_NAME = 'flowboard-cache-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './login.html',
   './styles.css',
-  './app.js',
-  './firebase-config.js',
   './firebase-rest-integration.js',
-  './manifest.json'
+  './manifest.json',
+  './js/state.js',
+  './js/router.js',
+  './js/projects.js',
+  './js/tasks.js',
+  './js/board.js',
+  './js/backlog.js',
+  './js/sprints.js',
+  './js/dashboard.js',
+  './js/timeline.js',
+  './js/ui.js',
 ];
 
 // Install Event - cache core assets

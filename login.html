@@ -3,165 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script>
-        (function () {
-            try {
-                var t = localStorage.getItem('timetracker-theme');
-                if (t === 'light' || t === 'dark') {
-                    document.documentElement.setAttribute('data-theme', t);
-                    return;
-                }
-            } catch (e) { /* ignore */ }
-            var light = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-            document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
-        })();
-    </script>
-    <title>TimeTracker - Login</title>
+    <title>FlowBoard — Sign In</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="theme.js" defer></script>
-
-    <!-- PWA Setup -->
-    <link rel="manifest" href="./manifest.json">
-    <meta name="theme-color" content="#000000">
-    <link rel="apple-touch-icon" href="./icons/icon.svg">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <script>
+        (function() {
+            const theme = localStorage.getItem('flowboard-theme') ||
+                (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </head>
-<body class="login-page">
-    <div class="login-container">
-        <div class="login-card">
-            <div class="login-header">
-                <div class="login-logo">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <h1 class="login-title">TimeTracker</h1>
-                <p class="login-subtitle">Sign in to access your dashboard</p>
+<body>
+    <div class="login-page">
+        <!-- Branding panel -->
+        <div class="login-branding">
+            <div class="login-brand-logo">
+                <i class="fa-solid fa-diagram-project" style="color:#fff;"></i>
             </div>
+            <div class="login-brand-name">FlowBoard</div>
+            <div class="login-brand-tagline">The modern workspace for teams who ship great things.</div>
 
-            <form class="login-form" id="loginForm">
-                <div class="login-field">
-                    <label for="username">Username</label>
-                    <div class="login-input-wrap">
-                        <input type="text" id="username" name="username" required autocomplete="username">
-                        <i class="fas fa-user"></i>
+            <div class="login-features">
+                <div class="login-feature-item">
+                    <div class="login-feature-icon"><i class="fa-solid fa-table-columns"></i></div>
+                    <span>Kanban boards with custom workflows</span>
+                </div>
+                <div class="login-feature-item">
+                    <div class="login-feature-icon"><i class="fa-solid fa-bolt"></i></div>
+                    <span>Sprint planning &amp; backlog management</span>
+                </div>
+                <div class="login-feature-item">
+                    <div class="login-feature-icon"><i class="fa-solid fa-chart-gantt"></i></div>
+                    <span>Timeline &amp; roadmap visualization</span>
+                </div>
+                <div class="login-feature-item">
+                    <div class="login-feature-icon"><i class="fa-solid fa-clock"></i></div>
+                    <span>Built-in time tracking &amp; reports</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form panel -->
+        <div class="login-form-panel">
+            <!-- Theme toggle -->
+            <button class="login-theme-toggle" id="themeToggle" title="Toggle theme">
+                <i class="fa-solid fa-moon" id="themeIcon"></i>
+            </button>
+
+            <div class="login-form-title">Welcome back</div>
+            <div class="login-form-subtitle">Sign in to your FlowBoard workspace</div>
+
+            <form class="login-form" id="loginForm" autocomplete="off">
+                <div class="login-form-group">
+                    <label class="login-form-label" for="username">Username</label>
+                    <input
+                        class="login-form-input"
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="Enter your username"
+                        autocomplete="username"
+                        required
+                    />
+                </div>
+
+                <div class="login-form-group">
+                    <label class="login-form-label" for="password">Password</label>
+                    <div style="position:relative;">
+                        <input
+                            class="login-form-input"
+                            type="password"
+                            id="password"
+                            name="password"
+                            placeholder="Enter your password"
+                            autocomplete="current-password"
+                            required
+                            style="padding-right:44px;"
+                        />
+                        <button
+                            type="button"
+                            id="togglePassword"
+                            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-tertiary);cursor:pointer;padding:4px;font-size:14px;"
+                            title="Toggle password visibility"
+                        >
+                            <i class="fa-solid fa-eye" id="eyeIcon"></i>
+                        </button>
                     </div>
                 </div>
 
-                <div class="login-field">
-                    <label for="password">Password</label>
-                    <div class="login-input-wrap">
-                        <input type="password" id="password" name="password" required autocomplete="current-password">
-                        <i class="fas fa-lock"></i>
-                    </div>
+                <div class="login-error" id="loginError">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <span id="loginErrorText">Invalid username or password. Please try again.</span>
                 </div>
 
-                <button type="submit" class="login-button" id="loginButton">
-                    Sign In
+                <button type="submit" class="login-submit" id="loginBtn">
+                    <span id="loginBtnText">Sign In</span>
+                    <span id="loginSpinner" style="display:none;">
+                        <span class="spinner" style="width:16px;height:16px;border-width:2px;"></span>
+                    </span>
                 </button>
-
-                <div class="login-error" id="errorMessage">
-                    Invalid username or password. Please try again.
-                </div>
             </form>
 
-            <div class="login-footer">
-                <p>© 2026 TimeTracker</p>
+            <div class="login-demo-hint">
+                <i class="fa-solid fa-circle-info" style="margin-right:5px;"></i>
+                Demo credentials — Username: <strong>admin</strong> &nbsp;·&nbsp; Password: <strong>password123</strong>
             </div>
         </div>
     </div>
 
     <script>
-        const VALID_CREDENTIALS = {
-            username: 'admin',
-            password: 'password123'
-        };
+        // ── Theme toggle ──────────────────────────────────────
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon   = document.getElementById('themeIcon');
 
-        const loginForm = document.getElementById('loginForm');
-        const loginButton = document.getElementById('loginButton');
-        const errorMessage = document.getElementById('errorMessage');
-        const usernameInput = document.getElementById('username');
-        const passwordInput = document.getElementById('password');
-
-        function showError(message) {
-            errorMessage.textContent = message;
-            errorMessage.classList.add('show');
-            setTimeout(() => {
-                errorMessage.classList.remove('show');
-            }, 5000);
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('flowboard-theme', theme);
+            themeIcon.className = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
         }
 
-        function hideError() {
-            errorMessage.classList.remove('show');
-        }
+        themeToggle.addEventListener('click', () => {
+            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
 
-        function setLoading(loading) {
-            if (loading) {
-                loginButton.classList.add('loading');
-                loginButton.disabled = true;
-            } else {
-                loginButton.classList.remove('loading');
-                loginButton.disabled = false;
-            }
-        }
+        // Set correct icon on load
+        const initialTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+        themeIcon.className = initialTheme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
 
-        function checkAuthStatus() {
-            const isLoggedIn = localStorage.getItem('isLoggedIn');
-            if (isLoggedIn === 'true') {
-                window.location.href = 'index.html';
-            }
-        }
+        // ── Password visibility toggle ────────────────────────
+        const passwordInput  = document.getElementById('password');
+        const togglePassword = document.getElementById('togglePassword');
+        const eyeIcon        = document.getElementById('eyeIcon');
+
+        togglePassword.addEventListener('click', () => {
+            const isHidden = passwordInput.type === 'password';
+            passwordInput.type = isHidden ? 'text' : 'password';
+            eyeIcon.className  = isHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+        });
+
+        // ── Login form ────────────────────────────────────────
+        const loginForm    = document.getElementById('loginForm');
+        const loginError   = document.getElementById('loginError');
+        const loginBtn     = document.getElementById('loginBtn');
+        const loginBtnText = document.getElementById('loginBtnText');
+        const loginSpinner = document.getElementById('loginSpinner');
+        const errorText    = document.getElementById('loginErrorText');
+
+        const CREDENTIALS = { admin: 'password123' };
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            loginError.classList.remove('visible');
 
-            const username = usernameInput.value.trim();
-            const password = passwordInput.value;
-
-            hideError();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
 
             if (!username || !password) {
-                showError('Please enter both username and password.');
+                errorText.textContent = 'Please fill in all fields.';
+                loginError.classList.add('visible');
                 return;
             }
 
-            setLoading(true);
+            // Show spinner
+            loginBtnText.style.display = 'none';
+            loginSpinner.style.display = 'inline-flex';
+            loginBtn.disabled = true;
 
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Simulate auth delay
+            await new Promise(r => setTimeout(r, 500));
 
-            if (username === VALID_CREDENTIALS.username && password === VALID_CREDENTIALS.password) {
+            if (CREDENTIALS[username] && CREDENTIALS[username] === password) {
                 localStorage.setItem('isLoggedIn', 'true');
                 localStorage.setItem('username', username);
                 localStorage.setItem('loginTime', new Date().toISOString());
                 window.location.href = 'index.html';
             } else {
-                showError('Invalid username or password. Please try again.');
-                setLoading(false);
+                loginBtnText.style.display = 'inline';
+                loginSpinner.style.display = 'none';
+                loginBtn.disabled = false;
+                errorText.textContent = 'Invalid username or password. Please try again.';
+                loginError.classList.add('visible');
+                document.getElementById('username').classList.add('error');
+                document.getElementById('password').classList.add('error');
+                document.getElementById('username').addEventListener('input', () => {
+                    document.getElementById('username').classList.remove('error');
+                    document.getElementById('password').classList.remove('error');
+                }, { once: true });
             }
         });
 
-        usernameInput.addEventListener('input', hideError);
-        passwordInput.addEventListener('input', hideError);
+        // ── Redirect if already logged in ─────────────────────
+        if (localStorage.getItem('isLoggedIn') === 'true') {
+            window.location.href = 'index.html';
+        }
 
-        checkAuthStatus();
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !loginButton.disabled) {
-                loginForm.dispatchEvent(new Event('submit'));
-            }
-        });
-    </script>
-
-    <script>
+        // ── Service Worker registration ───────────────────────
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(registration => {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    }, err => {
-                        console.log('ServiceWorker registration failed: ', err);
-                    });
-            });
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
         }
     </script>
 </body>
