@@ -221,6 +221,16 @@ const UI = (() => {
             <!-- Time Tracking -->
             <div class="panel-section">
                 <div class="panel-section-title">Time Tracking</div>
+                <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-3);">
+                    <button type="button" class="btn btn-primary btn-sm" id="panelBodyStartTimer"
+                        style="display:${running ? 'none' : 'inline-flex'};align-items:center;gap:6px;">
+                        <i class="fa-solid fa-play"></i> Start timer
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="panelBodyStopTimer"
+                        style="display:${running ? 'inline-flex' : 'none'};align-items:center;gap:6px;border-color:rgba(34,197,94,0.35);color:#22c55e;">
+                        <i class="fa-solid fa-stop"></i> Stop timer
+                    </button>
+                </div>
                 <div class="time-tracking-row">
                     <div>
                         <div class="time-display" id="panelTimeDisplay">
@@ -392,6 +402,16 @@ const UI = (() => {
                 commentList.innerHTML = (updated.comments||[]).map(c => buildCommentItem(c)).join('');
             }
         }
+
+        function onPanelTimerToggle(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            State.Timer.toggle(task.id);
+            openTaskPanel(task.id);
+        }
+
+        document.getElementById('panelBodyStartTimer')?.addEventListener('click', onPanelTimerToggle);
+        document.getElementById('panelBodyStopTimer')?.addEventListener('click', onPanelTimerToggle);
 
         // Live timer
         if (running) startPanelTimer(task.id);
@@ -627,12 +647,19 @@ const UI = (() => {
             }
         });
 
-        // Timer toggle in panel header
-        document.getElementById('panelTimerBtn')?.addEventListener('click', () => {
+        // Timer toggle in panel header (same behavior as body controls)
+        document.getElementById('panelTimerBtn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             if (_openTaskId) {
                 State.Timer.toggle(_openTaskId);
                 openTaskPanel(_openTaskId);
             }
+        });
+
+        // Keep panel in sync when timer is started from board / list / elsewhere
+        State.on('timer:started', (taskId) => {
+            if (_openTaskId === taskId) openTaskPanel(taskId);
         });
 
         // Timer stopped → refresh panel

@@ -187,13 +187,27 @@ const Tasks = (() => {
         if (!container) return;
 
         const username = localStorage.getItem('username') || 'admin';
+
+        function projectSortKey(task) {
+            if (!task.projectId) return '\uffff'; // no project: last
+            const p = State.Projects.get(task.projectId);
+            return (p ? p.name : '\ufffe').toLowerCase();
+        }
+
+        function withinProjectSort(a, b) {
+            if (a.dueDate && b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate);
+            if (a.dueDate) return -1;
+            if (b.dueDate) return 1;
+            return (a.position || 0) - (b.position || 0);
+        }
+
         let tasks = State.Tasks.getAll()
             .filter(t => t.assignee === username)
             .sort((a, b) => {
-                if (a.dueDate && b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate);
-                if (a.dueDate) return -1;
-                if (b.dueDate) return 1;
-                return a.position - b.position;
+                const pa = projectSortKey(a);
+                const pb = projectSortKey(b);
+                if (pa !== pb) return pa.localeCompare(pb);
+                return withinProjectSort(a, b);
             });
 
         if (_myTasksFilter === 'active') tasks = tasks.filter(t => !isDoneColumn(t));
@@ -216,13 +230,27 @@ const Tasks = (() => {
             return;
         }
 
+        let lastProjectKey = null;
         container.innerHTML = tasks.map(t => {
             const done = isDoneColumn(t);
             const due  = formatDueDate(t.dueDate);
             const proj = t.projectId ? State.Projects.get(t.projectId) : null;
             const col  = columnForTask(t);
+            const projKey = t.projectId != null ? String(t.projectId) : '__none__';
 
-            return `<div class="task-list-row" data-task-id="${t.id}">
+            let header = '';
+            if (projKey !== lastProjectKey) {
+                lastProjectKey = projKey;
+                const label = proj
+                    ? escHtml(proj.name)
+                    : (t.projectId ? 'Unknown project' : 'No project');
+                const dot = proj
+                    ? `<span class="project-dot" style="background:${escHtml(proj.color || '#6366f1')};flex-shrink:0;"></span>`
+                    : '';
+                header = `<div class="my-tasks-project-header">${dot}<span>${label}</span></div>`;
+            }
+
+            return `${header}<div class="task-list-row" data-task-id="${t.id}">
                 <div class="task-list-checkbox${done ? ' done' : ''}" data-check="${t.id}">
                     ${done ? '<i class="fa-solid fa-check" style="font-size:9px;color:#fff;"></i>' : ''}
                 </div>
