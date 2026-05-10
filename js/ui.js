@@ -1,7 +1,7 @@
 /**
  * FlowBoard — UI Module
  * Task detail slide-in panel, toast notifications, confirm dialog,
- * command palette (Cmd+K), theme toggle, logout, settings wiring.
+ * command palette (Cmd+K), sidebar toggle (Cmd/Ctrl+B), theme toggle, logout, settings wiring.
  */
 
 const UI = (() => {
@@ -624,6 +624,25 @@ const UI = (() => {
         applyTheme(current === 'dark' ? 'light' : 'dark');
     }
 
+    function isTypingShortcutTarget(el) {
+        if (!el || !el.tagName) return false;
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+        return !!el.isContentEditable;
+    }
+
+    /** Toggle left nav: mobile drawer vs desktop collapsed rail (same as header button). */
+    function toggleAppSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar) return;
+        if (window.innerWidth <= 680) {
+            sidebar.classList.toggle('mobile-open');
+            document.getElementById('mobileSidebarOverlay')?.classList.toggle('visible');
+        } else {
+            sidebar.classList.toggle('collapsed');
+        }
+    }
+
     // ══════════════════════════════════════════════════════
     // INIT
     // ══════════════════════════════════════════════════════
@@ -641,9 +660,15 @@ const UI = (() => {
                 }
             }
             // Cmd/Ctrl + K → command palette
-            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
                 openCommandPalette();
+            }
+            // Cmd/Ctrl + B → toggle left sidebar
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+                if (isTypingShortcutTarget(e.target)) return;
+                e.preventDefault();
+                toggleAppSidebar();
             }
         });
 
@@ -740,14 +765,7 @@ const UI = (() => {
 
         // ── Sidebar toggle ─────────────────────────────────
         const sidebar = document.getElementById('sidebar');
-        document.getElementById('sidebarToggle')?.addEventListener('click', () => {
-            if (window.innerWidth <= 680) {
-                sidebar.classList.toggle('mobile-open');
-                document.getElementById('mobileSidebarOverlay')?.classList.toggle('visible');
-            } else {
-                sidebar.classList.toggle('collapsed');
-            }
-        });
+        document.getElementById('sidebarToggle')?.addEventListener('click', toggleAppSidebar);
 
         document.getElementById('mobileSidebarOverlay')?.addEventListener('click', () => {
             sidebar.classList.remove('mobile-open');
