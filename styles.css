@@ -2909,19 +2909,6 @@ select.form-control {
 
 .login-submit:active { transform: translateY(0); background: var(--primary-active); }
 
-.login-demo-hint {
-    margin-top: var(--sp-5);
-    padding: var(--sp-3) var(--sp-4);
-    background: var(--primary-subtle);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--primary-ring);
-    font-size: 12.5px;
-    color: var(--text-secondary);
-    text-align: center;
-}
-
-.login-demo-hint strong { color: var(--primary); }
-
 .login-theme-toggle {
     position: absolute;
     top: var(--sp-5);
