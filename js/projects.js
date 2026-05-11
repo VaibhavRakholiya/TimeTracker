@@ -8,6 +8,10 @@ const Projects = (() => {
     const PROJECT_COLORS = ['#6366f1','#3b82f6','#22c55e','#f59e0b','#ef4444','#ec4899','#8b5cf6','#06b6d4','#f97316','#10b981'];
 
     let _editingProjectId = null;
+    let _sidebarDragProjectId = null;
+    /** dragstart's e.target is the draggable row, not the grip — use this to allow drag only from the handle. */
+    let _sidebarGripMousedownId = null;
+    let _sidebarGripMouseupClear = null;
     let _selectedColor    = '#6366f1';
     let _editingColumns   = [];
 
@@ -15,6 +19,8 @@ const Projects = (() => {
     function renderSidebar() {
         const container = document.getElementById('sidebarProjects');
         if (!container) return;
+
+        bindSidebarProjectReorder(container);
 
         const projects  = State.Projects.getAll().sort((a, b) => a.position - b.position);
         const { view, projectId } = Router.getCurrent();
@@ -30,7 +36,11 @@ const Projects = (() => {
         container.innerHTML = projects.map(p => `
             <div class="project-item${(view === 'board' || view === 'backlog') && projectId === p.id ? ' active' : ''}"
                  data-project-id="${p.id}"
+                 draggable="true"
                  title="${p.name}">
+                <span class="project-drag-handle" title="Drag to reorder">
+                    <i class="fa-solid fa-grip-vertical"></i>
+                </span>
                 <span class="project-dot" style="background:${p.color || '#6366f1'};"></span>
                 <span class="project-name">${escHtml(p.name)}</span>
                 <button class="btn btn-ghost btn-icon btn-sm project-options-btn"
@@ -44,9 +54,58 @@ const Projects = (() => {
 
         // Project click → board view
         container.querySelectorAll('.project-item').forEach(el => {
+            const pid = Number(el.dataset.projectId);
+
+            el.querySelector('.project-drag-handle')?.addEventListener('mousedown', () => {
+                _sidebarGripMousedownId = pid;
+                if (_sidebarGripMouseupClear) {
+                    window.removeEventListener('mouseup', _sidebarGripMouseupClear);
+                }
+                _sidebarGripMouseupClear = () => {
+                    _sidebarGripMousedownId = null;
+                    window.removeEventListener('mouseup', _sidebarGripMouseupClear);
+                    _sidebarGripMouseupClear = null;
+                };
+                window.addEventListener('mouseup', _sidebarGripMouseupClear);
+            });
+
             el.addEventListener('click', (e) => {
-                if (e.target.closest('.project-options-btn')) return;
+                if (e.target.closest('.project-options-btn') || e.target.closest('.project-drag-handle')) return;
                 Router.navigate('board', parseInt(el.dataset.projectId, 10));
+            });
+
+            el.addEventListener('dragstart', (e) => {
+                if (_sidebarGripMousedownId !== pid) {
+                    e.preventDefault();
+                    return;
+                }
+                _sidebarGripMousedownId = null;
+                if (_sidebarGripMouseupClear) {
+                    window.removeEventListener('mouseup', _sidebarGripMouseupClear);
+                    _sidebarGripMouseupClear = null;
+                }
+                _sidebarDragProjectId = pid;
+                if (Number.isNaN(_sidebarDragProjectId)) {
+                    e.preventDefault();
+                    return;
+                }
+                try {
+                    e.dataTransfer.setData('text/plain', String(_sidebarDragProjectId));
+                    e.dataTransfer.setData('application/x-flowboard-project', String(_sidebarDragProjectId));
+                } catch (err) { /* ignore */ }
+                e.dataTransfer.effectAllowed = 'move';
+                el.classList.add('project-dragging');
+            });
+
+            el.addEventListener('dragend', () => {
+                el.classList.remove('project-dragging');
+                container.querySelectorAll('.project-item').forEach(x => x.classList.remove('project-drop-target'));
+                _sidebarDragProjectId = null;
+                _sidebarGripMousedownId = null;
+                if (_sidebarGripMouseupClear) {
+                    window.removeEventListener('mouseup', _sidebarGripMouseupClear);
+                    _sidebarGripMouseupClear = null;
+                }
             });
 
             const optBtn = el.querySelector('.project-options-btn');
@@ -60,6 +119,58 @@ const Projects = (() => {
                 e.stopPropagation();
                 showProjectContextMenu(e, parseInt(btn.dataset.pid, 10));
             });
+        });
+    }
+
+    function bindSidebarProjectReorder(container) {
+        if (!container || container.dataset.reorderBound === '1') return;
+        container.dataset.reorderBound = '1';
+
+        container.addEventListener('dragover', (e) => {
+            const types = e.dataTransfer ? Array.from(e.dataTransfer.types || []) : [];
+            const ourDrag = _sidebarDragProjectId ||
+                types.includes('application/x-flowboard-project');
+            if (!ourDrag || !container.contains(e.target)) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const item = e.target.closest('.project-item');
+            container.querySelectorAll('.project-item').forEach(x => x.classList.remove('project-drop-target'));
+            if (item) item.classList.add('project-drop-target');
+        });
+
+        container.addEventListener('drop', (e) => {
+            e.preventDefault();
+            let dragId = _sidebarDragProjectId;
+            if (!dragId || Number.isNaN(dragId)) {
+                dragId = Number(e.dataTransfer.getData('text/plain'));
+                if (Number.isNaN(dragId)) {
+                    dragId = Number(e.dataTransfer.getData('application/x-flowboard-project'));
+                }
+            }
+            container.querySelectorAll('.project-item').forEach(x => {
+                x.classList.remove('project-drop-target', 'project-dragging');
+            });
+            _sidebarDragProjectId = null;
+            if (!dragId || Number.isNaN(dragId)) return;
+            if (!container.querySelector(`[data-project-id="${dragId}"]`)) return;
+
+            const sorted = State.Projects.getAll().slice().sort((a, b) => (a.position || 0) - (b.position || 0));
+            let ids = sorted.map(p => p.id).filter(id => id !== dragId);
+
+            const rowsAll = [...container.querySelectorAll('.project-item')];
+            let insertAt = ids.length;
+            for (let i = 0; i < rowsAll.length; i++) {
+                const pid = Number(rowsAll[i].dataset.projectId);
+                if (pid === dragId) continue;
+                const r = rowsAll[i].getBoundingClientRect();
+                if (e.clientY < r.top + r.height / 2) {
+                    insertAt = ids.indexOf(pid);
+                    if (insertAt === -1) insertAt = ids.length;
+                    break;
+                }
+            }
+            ids.splice(insertAt, 0, dragId);
+            State.Projects.setOrder(ids);
         });
     }
 
@@ -294,7 +405,7 @@ const Projects = (() => {
     // ── Populate project selects (used by task/sprint modals) ─
     function populateProjectSelect(selectEl, includeNone = true) {
         if (!selectEl) return;
-        const projects = State.Projects.getAll();
+        const projects = State.Projects.getAll().slice().sort((a, b) => (a.position || 0) - (b.position || 0));
         selectEl.innerHTML = (includeNone ? '<option value="">No project</option>' : '') +
             projects.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
     }

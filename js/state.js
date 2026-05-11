@@ -213,6 +213,33 @@ const State = (() => {
         },
 
         /**
+         * Reassign `position` on projects to match sidebar order (first id = top).
+         * Unknown ids are ignored; any project missing from the list is appended in current order.
+         */
+        setOrder(orderedIds) {
+            if (!Array.isArray(orderedIds) || !orderedIds.length) return;
+            const sorted = _data.projects.slice().sort((a, b) => (a.position || 0) - (b.position || 0));
+            const allIds = sorted.map(p => p.id);
+            const seen = new Set();
+            const result = [];
+            orderedIds.forEach((id) => {
+                if (allIds.includes(id) && !seen.has(id)) {
+                    result.push(id);
+                    seen.add(id);
+                }
+            });
+            allIds.forEach((id) => {
+                if (!seen.has(id)) result.push(id);
+            });
+            result.forEach((id, i) => {
+                const p = _data.projects.find(x => x.id === id);
+                if (p) p.position = (i + 1) * 1000;
+            });
+            save();
+            emit('projects:changed');
+        },
+
+        /**
          * Clone a project (columns, labels, description, color) and all of its tasks.
          * Column / project-label IDs are remapped; sprint membership is not copied.
          */
