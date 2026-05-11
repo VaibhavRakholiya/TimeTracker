@@ -34,6 +34,28 @@ const State = (() => {
         };
     }
 
+    /** Fix imported / legacy tasks so timer stop and UI stay consistent. Mutates in place. */
+    function normalizeImportedTask(task) {
+        if (!task || typeof task !== 'object') return;
+        if (!Array.isArray(task.timeEntries)) task.timeEntries = [];
+        const r = task.isTimerRunning;
+        task.isTimerRunning = r === true || r === 1 ||
+            (typeof r === 'string' && ['true', '1', 'yes'].includes(r.trim().toLowerCase()));
+        if (task.timerStart != null && task.timerStart !== '') {
+            const n = Number(task.timerStart);
+            task.timerStart = Number.isFinite(n) ? n : null;
+        } else {
+            task.timerStart = null;
+        }
+        if (task.isTimerRunning && task.timerStart == null) {
+            task.isTimerRunning = false;
+        }
+    }
+
+    function normalizeAllTasks() {
+        (_data.tasks || []).forEach(normalizeImportedTask);
+    }
+
     let _data = getDefaults();
     let _listeners = {};
     let _syncDebounce = null;
@@ -74,6 +96,7 @@ const State = (() => {
                 if (!_data.labels || !_data.labels.length) _data.labels = defaultLabels;
                 if (!_data.sprints) _data.sprints = [];
                 if (!_data.activity) _data.activity = [];
+                normalizeAllTasks();
             }
         } catch (e) {
             console.warn('State: load failed, using defaults', e);
@@ -114,6 +137,7 @@ const State = (() => {
             if (projects && Array.isArray(projects)) _data.projects = projects;
             if (tasks    && Array.isArray(tasks))    _data.tasks    = tasks;
             if (sprints  && Array.isArray(sprints))  _data.sprints  = sprints;
+            normalizeAllTasks();
             save();
             return true;
         } catch (e) {
@@ -279,7 +303,8 @@ const State = (() => {
     // ── Task accessors ────────────────────────────────────
     const Tasks = {
         getAll()             { return _data.tasks; },
-        get(id)              { return _data.tasks.find(t => t.id === id); },
+        /** Loose id match so string ids from DOM / Firebase still resolve. */
+        get(id)              { return _data.tasks.find(t => t.id == id); },
         byProject(projectId) { return _data.tasks.filter(t => t.projectId === projectId); },
         bySprint(sprintId)   { return _data.tasks.filter(t => t.sprintId  === sprintId); },
         backlog(projectId)   {
@@ -320,7 +345,7 @@ const State = (() => {
         },
 
         update(id, fields) {
-            const idx = _data.tasks.findIndex(t => t.id === id);
+            const idx = _data.tasks.findIndex(t => t.id == id);
             if (idx === -1) return null;
             const oldTask = { ..._data.tasks[idx] };
             Object.assign(_data.tasks[idx], fields);
@@ -337,7 +362,7 @@ const State = (() => {
             if (!task) return;
             // Stop timer if running
             if (task.isTimerRunning) Timer.stop(id);
-            _data.tasks = _data.tasks.filter(t => t.id !== id);
+            _data.tasks = _data.tasks.filter(t => !(t.id == id));
             save();
             addActivity('task_deleted', task.title);
             emit('tasks:changed', { type: 'delete', task });
@@ -475,8 +500,12 @@ const State = (() => {
         stop(taskId) {
             const task = Tasks.get(taskId);
             if (!task || !task.isTimerRunning) return;
-            const elapsed = Date.now() - task.timerStart;
-            const seconds = Math.round(elapsed / 1000);
+            if (!Array.isArray(task.timeEntries)) task.timeEntries = [];
+            const start = task.timerStart != null ? Number(task.timerStart) : null;
+            const elapsedMs = start != null && Number.isFinite(start)
+                ? Math.max(0, Date.now() - start)
+                : 0;
+            const seconds = Math.max(0, Math.round(elapsedMs / 1000));
             task.timeEntries.push({
                 date:     new Date().toISOString(),
                 duration: seconds,
