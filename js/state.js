@@ -187,6 +187,93 @@ const State = (() => {
             addActivity('project_deleted', proj.name);
             emit('projects:changed');
         },
+
+        /**
+         * Clone a project (columns, labels, description, color) and all of its tasks.
+         * Column / project-label IDs are remapped; sprint membership is not copied.
+         */
+        duplicate(sourceId) {
+            const src = this.get(sourceId);
+            if (!src) return null;
+
+            let nid = Date.now();
+            const nextId = () => ++nid;
+
+            const sortedCols = [...(src.columns || [])].sort((a, b) => (a.position || 0) - (b.position || 0));
+            const colMap = {};
+            const newColumns = sortedCols.map((c, i) => {
+                const newColId = `col-${nextId()}`;
+                colMap[c.id] = newColId;
+                return { ...c, id: newColId, position: i };
+            });
+            if (!newColumns.length) return null;
+
+            const labelMap = {};
+            const newLabels = (src.labels || []).map((l) => {
+                const newLid = `lbl-${nextId()}`;
+                labelMap[l.id] = newLid;
+                return { ...l, id: newLid };
+            });
+
+            const prefix = 'Copy of ';
+            const maxName = 60;
+            const room = Math.max(0, maxName - prefix.length);
+            const trimmed = String(src.name || 'Untitled').slice(0, room);
+            const newName = (prefix + trimmed).slice(0, maxName);
+
+            const newProj = {
+                id:          nextId(),
+                name:        newName,
+                description: src.description || '',
+                emoji:       src.emoji || '',
+                color:       src.color || '#6366f1',
+                position:    (_data.projects.length + 1) * 1000,
+                columns:     newColumns,
+                labels:      newLabels,
+                createdAt:   new Date().toISOString(),
+            };
+            _data.projects.push(newProj);
+
+            const firstColId = newColumns[0].id;
+            const sourceTasks = _data.tasks.filter(t => t.projectId === sourceId);
+
+            sourceTasks.forEach((t) => {
+                const mappedCol = t.columnId && colMap[t.columnId] ? colMap[t.columnId] : firstColId;
+                const newLabelIds = (t.labels || []).map((lid) =>
+                    (labelMap[lid] !== undefined ? labelMap[lid] : lid)
+                );
+                const newTask = {
+                    id:            nextId(),
+                    taskKey:       nextTaskKey(),
+                    projectId:     newProj.id,
+                    sprintId:      null,
+                    columnId:      mappedCol,
+                    title:         t.title,
+                    description:   t.description || '',
+                    priority:      t.priority || 'medium',
+                    labels:        newLabelIds,
+                    assignee:      t.assignee || (localStorage.getItem('username') || 'admin'),
+                    startDate:     t.startDate || null,
+                    dueDate:       t.dueDate || null,
+                    timeEstimate:  t.timeEstimate != null ? t.timeEstimate : null,
+                    position:      t.position != null ? t.position : (_data.tasks.length + 1) * 1000,
+                    timeSpent:     t.timeSpent || 0,
+                    timeEntries:   (t.timeEntries || []).map((e) => ({ ...e })),
+                    subtasks:      (t.subtasks || []).map((s) => ({ ...s, id: nextId() })),
+                    comments:      (t.comments || []).map((c) => ({ ...c, id: nextId() })),
+                    isTimerRunning: false,
+                    timerStart:    null,
+                    createdAt:     new Date().toISOString(),
+                };
+                _data.tasks.push(newTask);
+            });
+
+            save();
+            addActivity('project_duplicated', newProj.name, src.name);
+            emit('projects:changed', newProj);
+            emit('tasks:changed', { type: 'duplicate', projectId: newProj.id });
+            return newProj;
+        },
     };
 
     // ── Task accessors ────────────────────────────────────

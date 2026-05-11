@@ -78,6 +78,7 @@ const Projects = (() => {
             <div class="dropdown-item" id="ctxBacklog"><i class="fa-solid fa-list"></i> View Backlog</div>
             <div class="dropdown-separator"></div>
             <div class="dropdown-item" id="ctxEdit"><i class="fa-solid fa-pen"></i> Edit Project</div>
+            <div class="dropdown-item" id="ctxDuplicate"><i class="fa-solid fa-copy"></i> Duplicate Project</div>
             <div class="dropdown-separator"></div>
             <div class="dropdown-item danger" id="ctxDelete"><i class="fa-solid fa-trash"></i> Delete Project</div>
         `;
@@ -91,6 +92,17 @@ const Projects = (() => {
         });
         menu.querySelector('#ctxEdit').addEventListener('click', () => {
             openModal(projectId); cleanup();
+        });
+        menu.querySelector('#ctxDuplicate').addEventListener('click', () => {
+            cleanup();
+            const copy = State.Projects.duplicate(projectId);
+            if (!copy) {
+                UI.toast('Could not duplicate project', 'error');
+                return;
+            }
+            renderSidebar();
+            UI.toast(`Duplicated "${proj.name}" → "${copy.name}"`, 'success');
+            setTimeout(() => Router.navigate('board', copy.id), 200);
         });
         menu.querySelector('#ctxDelete').addEventListener('click', () => {
             cleanup();
