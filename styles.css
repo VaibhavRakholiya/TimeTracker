@@ -1883,12 +1883,12 @@ select.form-control {
 #task-detail-panels {
     display: flex;
     flex-direction: row-reverse;
-    height: 100%;
+    height: calc(100% - var(--header-height));
     transform: translateX(100%);
     transition: transform var(--transition-slow);
     position: absolute;
     right: 0;
-    top: 0;
+    top: var(--header-height);
     bottom: 0;
     z-index: 50;
     pointer-events: none;
@@ -1964,22 +1964,43 @@ body.task-panel-fullscreen #content-area {
     padding: var(--sp-3) var(--sp-4);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    min-height: 48px;
+    background: var(--surface);
+    position: relative;
+    z-index: 2;
 }
 
-.panel-close {
+.task-detail-panel .panel-close,
+.task-detail-panel .panel-expand-btn {
     width: 28px;
     height: 28px;
+    min-width: 28px;
+    min-height: 28px;
     border-radius: var(--radius-sm);
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-tertiary);
-    transition: background var(--transition-fast), color var(--transition-fast);
-    cursor: pointer;
     flex-shrink: 0;
+    padding: 0;
+    color: var(--text-secondary);
+    background: var(--surface-overlay);
+    border: 1px solid var(--border);
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+    cursor: pointer;
 }
 
-.panel-close:hover { background: var(--surface-hover); color: var(--text); }
+.task-detail-panel .panel-close:hover,
+.task-detail-panel .panel-expand-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+    border-color: var(--border-strong);
+}
+
+.task-detail-panel .panel-expand-btn i,
+.task-detail-panel .panel-close i {
+    font-size: 13px;
+    pointer-events: none;
+}
 
 .panel-task-id {
     font-size: 12px;
@@ -1989,7 +2010,12 @@ body.task-panel-fullscreen #content-area {
     flex: 1;
 }
 
-.panel-actions { display: flex; gap: var(--sp-1); }
+.panel-actions {
+    display: flex;
+    gap: var(--sp-1);
+    flex-shrink: 0;
+    margin-left: auto;
+}
 
 .panel-body {
     flex: 1;
@@ -2863,7 +2889,8 @@ body.task-panel-fullscreen #content-area {
     }
 
     #task-detail-panels.fullscreen {
-        top: 0;
+        top: var(--header-height);
+        height: calc(100% - var(--header-height));
     }
 
     .task-detail-panel {

@@ -99,7 +99,7 @@ const UI = (() => {
                 <button class="panel-close" type="button" title="Close">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
-                <button class="btn btn-ghost btn-icon btn-sm panel-expand-btn" type="button" title="Open in full window">
+                <button class="panel-expand-btn" type="button" title="Open in full window">
                     <i class="fa-solid fa-expand"></i>
                 </button>
                 <div class="panel-task-id" id="panelTaskId-${taskId}"></div>
