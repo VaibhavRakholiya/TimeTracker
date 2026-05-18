@@ -7,6 +7,7 @@
 const UI = (() => {
     const MAX_TASK_PANELS = 2;
     let _openTaskIds      = [];
+    let _fullscreenTaskId = null;
     let _confirmCb        = null;
     const _timerIntervals = new Map();
 
@@ -98,6 +99,9 @@ const UI = (() => {
                 <button class="panel-close" type="button" title="Close">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
+                <button class="btn btn-ghost btn-icon btn-sm panel-expand-btn" type="button" title="Open in full window">
+                    <i class="fa-solid fa-expand"></i>
+                </button>
                 <div class="panel-task-id" id="panelTaskId-${taskId}"></div>
                 <div class="panel-actions">
                     <button class="btn btn-ghost btn-icon btn-sm" id="panelTimerBtn-${taskId}" title="Start/Stop timer">
@@ -112,6 +116,11 @@ const UI = (() => {
         `;
 
         panel.querySelector('.panel-close')?.addEventListener('click', () => closeTaskPanel(taskId));
+        panel.querySelector('.panel-expand-btn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleTaskPanelFullscreen(taskId);
+        });
         panel.querySelector(`#panelTimerBtn-${taskId}`)?.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -133,6 +142,51 @@ const UI = (() => {
         });
     }
 
+    function exitTaskPanelFullscreen() {
+        _fullscreenTaskId = null;
+        syncFullscreenState();
+    }
+
+    function toggleTaskPanelFullscreen(taskId) {
+        if (_fullscreenTaskId === taskId) {
+            exitTaskPanelFullscreen();
+            return;
+        }
+        if (!isTaskPanelOpen(taskId)) openTaskPanel(taskId);
+        _fullscreenTaskId = taskId;
+        focusTaskPanel(taskId);
+        syncFullscreenState();
+    }
+
+    function syncFullscreenState() {
+        const container = document.getElementById('task-detail-panels');
+        if (!container) return;
+
+        if (_fullscreenTaskId != null && !_openTaskIds.includes(_fullscreenTaskId)) {
+            _fullscreenTaskId = null;
+        }
+
+        const isFullscreen = _fullscreenTaskId != null;
+        container.classList.toggle('fullscreen', isFullscreen);
+        document.body.classList.toggle('task-panel-fullscreen', isFullscreen);
+
+        document.querySelectorAll('.task-detail-panel').forEach(el => {
+            const id = parseInt(el.dataset.taskId, 10);
+            const isActive = isFullscreen && id === _fullscreenTaskId;
+            el.classList.toggle('fullscreen-active', isActive);
+            el.classList.toggle('fullscreen-hidden', isFullscreen && !isActive);
+        });
+
+        document.querySelectorAll('.panel-expand-btn').forEach(btn => {
+            const panel = btn.closest('.task-detail-panel');
+            const id = parseInt(panel?.dataset.taskId, 10);
+            const expanded = _fullscreenTaskId === id;
+            btn.title = expanded ? 'Exit full window' : 'Open in full window';
+            btn.innerHTML = `<i class="fa-solid ${expanded ? 'fa-compress' : 'fa-expand'}"></i>`;
+            btn.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+        });
+    }
+
     function syncPanelsContainer() {
         const container = document.getElementById('task-detail-panels');
         if (!container) return;
@@ -143,8 +197,9 @@ const UI = (() => {
         });
 
         container.classList.toggle('open', _openTaskIds.length > 0);
-        container.classList.toggle('dual-open', _openTaskIds.length > 1);
+        container.classList.toggle('dual-open', _openTaskIds.length > 1 && _fullscreenTaskId == null);
         if (_openTaskIds.length) focusTaskPanel(_openTaskIds[0]);
+        syncFullscreenState();
     }
 
     function stopPanelTimer(taskId) {
@@ -188,6 +243,7 @@ const UI = (() => {
         if (idx === -1) return;
 
         _openTaskIds.splice(idx, 1);
+        if (_fullscreenTaskId === id) exitTaskPanelFullscreen();
         stopPanelTimer(id);
         removePanelShell(id);
         syncPanelsContainer();
@@ -602,13 +658,20 @@ const UI = (() => {
         const menu = document.createElement('div');
         menu.className = 'dropdown-menu open';
         menu.style.cssText = `position:fixed;top:${event.clientY+4}px;right:calc(100vw - ${event.clientX}px);z-index:600;`;
+        const fsLabel = _fullscreenTaskId === task.id ? 'Exit full window' : 'Open in full window';
+        const fsIcon  = _fullscreenTaskId === task.id ? 'fa-compress' : 'fa-expand';
         menu.innerHTML = `
+            <div class="dropdown-item" id="pmFullscreen"><i class="fa-solid ${fsIcon}"></i> ${fsLabel}</div>
             <div class="dropdown-item" id="pmEdit"><i class="fa-solid fa-pen"></i> Edit Task</div>
             <div class="dropdown-separator"></div>
             <div class="dropdown-item danger" id="pmDelete"><i class="fa-solid fa-trash"></i> Delete Task</div>
         `;
         document.body.appendChild(menu);
 
+        menu.querySelector('#pmFullscreen').addEventListener('click', () => {
+            cleanup();
+            toggleTaskPanelFullscreen(task.id);
+        });
         menu.querySelector('#pmEdit').addEventListener('click', () => {
             cleanup(); Tasks.openModal(task.id);
         });
@@ -789,6 +852,8 @@ const UI = (() => {
             if (e.key === 'Escape') {
                 if (document.getElementById('command-palette-scrim').classList.contains('open')) {
                     closeCommandPalette();
+                } else if (_fullscreenTaskId != null) {
+                    exitTaskPanelFullscreen();
                 } else if (document.getElementById('task-detail-panels')?.classList.contains('open')) {
                     closeTaskPanel();
                 }
@@ -921,6 +986,7 @@ const UI = (() => {
     return {
         init, toast, confirm,
         openTaskPanel, closeTaskPanel, getOpenTaskId, isTaskPanelOpen,
+        toggleTaskPanelFullscreen, exitTaskPanelFullscreen,
         openCommandPalette, closeCommandPalette,
         applyTheme, toggleTheme,
     };
