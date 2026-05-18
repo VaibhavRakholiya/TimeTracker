@@ -197,11 +197,20 @@ const UI = (() => {
             <!-- Description -->
             <div class="panel-section">
                 <div class="panel-section-title">Description</div>
+                <div class="description-toolbar" id="panelDescToolbar">
+                    <button type="button" class="desc-tool-btn" data-cmd="bold" title="Bold"><i class="fa-solid fa-bold"></i></button>
+                    <button type="button" class="desc-tool-btn" data-cmd="italic" title="Italic"><i class="fa-solid fa-italic"></i></button>
+                    <button type="button" class="desc-tool-btn" data-cmd="underline" title="Underline"><i class="fa-solid fa-underline"></i></button>
+                    <button type="button" class="desc-tool-btn" data-cmd="strikeThrough" title="Strikethrough"><i class="fa-solid fa-strikethrough"></i></button>
+                    <span class="desc-tool-sep"></span>
+                    <button type="button" class="desc-tool-btn" data-cmd="insertUnorderedList" title="Bullet list"><i class="fa-solid fa-list-ul"></i></button>
+                    <button type="button" class="desc-tool-btn" data-cmd="insertOrderedList" title="Numbered list"><i class="fa-solid fa-list-ol"></i></button>
+                </div>
                 <div class="panel-description"
                      id="panelDesc"
                      contenteditable="true"
-                     spellcheck="false"
-                     data-placeholder="Add a description…">${escHtml(task.description || '')}</div>
+                     spellcheck="true"
+                     data-placeholder="Add a description…"></div>
             </div>
 
             <!-- Subtasks -->
@@ -328,11 +337,30 @@ const UI = (() => {
             State.Tasks.update(task.id, { startDate: e.target.value || null });
         });
 
-        // Description blur → save
+        // Description — load, format toolbar, save
         const descEl = document.getElementById('panelDesc');
         if (descEl) {
+            Tasks.setDescriptionElement(descEl, task.description || '');
+
+            document.getElementById('panelDescToolbar')?.querySelectorAll('.desc-tool-btn').forEach(btn => {
+                btn.addEventListener('mousedown', e => {
+                    e.preventDefault();
+                    descEl.focus();
+                    document.execCommand(btn.dataset.cmd, false, null);
+                });
+            });
+
+            descEl.addEventListener('paste', e => {
+                e.preventDefault();
+                const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+                document.execCommand('insertText', false, text);
+            });
+
             descEl.addEventListener('blur', () => {
-                State.Tasks.update(task.id, { description: descEl.textContent.trim() });
+                const next = Tasks.getDescriptionFromElement(descEl);
+                if (next !== (task.description || '')) {
+                    State.Tasks.update(task.id, { description: next });
+                }
             });
         }
 

@@ -68,6 +68,80 @@ const Tasks = (() => {
         return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    const DESC_ALLOWED_TAGS = new Set([
+        'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE',
+        'UL', 'OL', 'LI', 'P', 'BR', 'A', 'DIV',
+    ]);
+
+    function normalizeDescription(text) {
+        if (!text) return '';
+        return String(text).replace(/^\s+/, '').replace(/\s+$/, '');
+    }
+
+    function sanitizeDescriptionHtml(html) {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+
+        function walk(node) {
+            const children = [...node.childNodes];
+            for (const child of children) {
+                if (child.nodeType === Node.TEXT_NODE) continue;
+                if (child.nodeType !== Node.ELEMENT_NODE) {
+                    node.removeChild(child);
+                    continue;
+                }
+                if (!DESC_ALLOWED_TAGS.has(child.tagName)) {
+                    while (child.firstChild) node.insertBefore(child.firstChild, child);
+                    node.removeChild(child);
+                    walk(node);
+                    return;
+                }
+                [...child.attributes].forEach(attr => {
+                    if (child.tagName === 'A' && attr.name === 'href') {
+                        const href = attr.value.trim();
+                        if (!/^https?:\/\//i.test(href)) child.removeAttribute('href');
+                    } else {
+                        child.removeAttribute(attr.name);
+                    }
+                });
+                walk(child);
+            }
+        }
+
+        walk(doc.body);
+        return doc.body.innerHTML.trim();
+    }
+
+    function descriptionHasFormatting(html) {
+        const probe = document.createElement('div');
+        probe.innerHTML = html;
+        return !!probe.querySelector('b, strong, i, em, u, s, strike, ul, ol, a');
+    }
+
+    function setDescriptionElement(el, stored) {
+        if (!el) return;
+        if (!stored) {
+            el.innerHTML = '';
+            return;
+        }
+        if (/<[a-z][\s\S]*>/i.test(stored)) {
+            el.innerHTML = sanitizeDescriptionHtml(stored);
+        } else {
+            el.textContent = stored;
+        }
+    }
+
+    function getDescriptionFromElement(el) {
+        if (!el) return '';
+        const raw = el.innerHTML.trim();
+        if (!raw || raw === '<br>') return '';
+
+        const sanitized = sanitizeDescriptionHtml(raw);
+        if (!descriptionHasFormatting(sanitized)) {
+            return normalizeDescription((el.innerText || '').replace(/\r\n/g, '\n'));
+        }
+        return normalizeDescription(sanitized);
+    }
+
     function labelChip(labelId, labels) {
         const allLabels = labels || State.Labels.getAll();
         const label = allLabels.find(l => l.id === labelId);
@@ -413,7 +487,7 @@ const Tasks = (() => {
 
         const fields = {
             title,
-            description:   document.getElementById('taskModalDesc').value.trim(),
+            description:   normalizeDescription(document.getElementById('taskModalDesc').value),
             priority:      document.getElementById('taskModalPriority').value,
             dueDate:       document.getElementById('taskModalDueDate').value   || null,
             startDate:     document.getElementById('taskModalStartDate').value || null,
@@ -541,6 +615,8 @@ const Tasks = (() => {
         buildTaskCard, buildTaskRow,
         renderMyTasks, formatDueDate, formatTime, formatHours, formatElapsed,
         priorityDot, priorityBadge, escHtml, hexToRgba, isDoneColumn, subtaskProgress,
+        normalizeDescription, setDescriptionElement, getDescriptionFromElement,
+        sanitizeDescriptionHtml,
         PRIORITIES,
     };
 })();
