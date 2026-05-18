@@ -443,26 +443,8 @@
 
             </div><!-- /content-area -->
 
-            <!-- Task Detail Panel -->
-            <div id="task-detail-panel">
-                <div class="panel-header">
-                    <button class="panel-close" id="panelClose">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                    <div class="panel-task-id" id="panelTaskId">TASK-000</div>
-                    <div class="panel-actions">
-                        <button class="btn btn-ghost btn-icon btn-sm" id="panelTimerBtn" title="Start/Stop timer">
-                            <i class="fa-solid fa-play"></i>
-                        </button>
-                        <button class="btn btn-ghost btn-icon btn-sm" id="panelOptionsBtn" title="Options">
-                            <i class="fa-solid fa-ellipsis-vertical"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="panel-body" id="panelBody">
-                    <!-- Filled by ui.js when a task is opened -->
-                </div>
-            </div>
+            <!-- Task Detail Panels (up to 2 side-by-side) -->
+            <div id="task-detail-panels"></div>
 
         </div><!-- /main-area -->
     </div><!-- /app -->

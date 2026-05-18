@@ -306,7 +306,7 @@ const Board = (() => {
                 }
                 State.Tasks.update(taskId, { columnId: newCol });
                 render(projectId);
-                if (UI.getOpenTaskId() === taskId) UI.openTaskPanel(taskId);
+                if (UI.isTaskPanelOpen(taskId)) UI.openTaskPanel(taskId);
             });
         });
 
@@ -381,7 +381,7 @@ const Board = (() => {
             render(_currentProjectId);
 
             // Re-render task panel if open
-            if (UI.getOpenTaskId() === taskId) UI.openTaskPanel(taskId);
+            if (UI.isTaskPanelOpen(taskId)) UI.openTaskPanel(taskId);
         });
     }
 

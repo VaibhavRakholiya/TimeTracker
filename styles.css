@@ -1878,14 +1878,10 @@ select.form-control {
 .time-table tr:last-child td { border-bottom: none; }
 .time-table tr:hover td { background: var(--surface-hover); }
 
-/* ── 13. TASK DETAIL PANEL ───────────────────────────────── */
-#task-detail-panel {
-    width: var(--detail-panel-width);
-    min-width: var(--detail-panel-width);
-    background: var(--surface);
-    border-left: 1px solid var(--border);
+/* ── 13. TASK DETAIL PANELS ──────────────────────────────── */
+#task-detail-panels {
     display: flex;
-    flex-direction: column;
+    flex-direction: row-reverse;
     height: 100%;
     transform: translateX(100%);
     transition: transform var(--transition-slow);
@@ -1894,11 +1890,37 @@ select.form-control {
     top: 0;
     bottom: 0;
     z-index: 50;
-    box-shadow: var(--shadow-xl);
+    pointer-events: none;
 }
 
-#task-detail-panel.open {
+#task-detail-panels.open {
     transform: translateX(0);
+    pointer-events: auto;
+}
+
+.task-detail-panel {
+    width: var(--detail-panel-width);
+    min-width: var(--detail-panel-width);
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-shadow: var(--shadow-xl);
+    flex-shrink: 0;
+}
+
+.task-detail-panel.focused {
+    z-index: 1;
+}
+
+.task-detail-panel + .task-detail-panel {
+    box-shadow: var(--shadow-lg);
+}
+
+#task-detail-panels.dual-open .task-detail-panel {
+    width: 380px;
+    min-width: 380px;
 }
 
 .panel-header {
@@ -2801,9 +2823,17 @@ select.form-control {
     .dashboard-row-2 { grid-template-columns: 1fr; }
     .panel-meta-grid { grid-template-columns: 1fr; }
 
-    #task-detail-panel {
+    #task-detail-panels {
+        flex-direction: column-reverse;
+        width: 100%;
+    }
+
+    .task-detail-panel {
         width: 100%;
         min-width: 100%;
+        max-height: 50%;
+        border-left: none;
+        border-top: 1px solid var(--border);
     }
 
     .view-header { padding: var(--sp-4); }

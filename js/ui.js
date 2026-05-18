@@ -5,9 +5,10 @@
  */
 
 const UI = (() => {
-    let _openTaskId     = null;
-    let _confirmCb      = null;
-    let _timerInterval  = null;
+    const MAX_TASK_PANELS = 2;
+    let _openTaskIds      = [];
+    let _confirmCb        = null;
+    const _timerIntervals = new Map();
 
     // ══════════════════════════════════════════════════════
     // TOAST NOTIFICATIONS
@@ -65,29 +66,136 @@ const UI = (() => {
     }
 
     // ══════════════════════════════════════════════════════
-    // TASK DETAIL PANEL
+    // TASK DETAIL PANELS (up to 2)
     // ══════════════════════════════════════════════════════
+    function maxTaskPanels() {
+        return window.innerWidth <= 680 ? 1 : MAX_TASK_PANELS;
+    }
+
+    function isTaskPanelOpen(taskId) {
+        return _openTaskIds.includes(taskId);
+    }
+
+    function getOpenTaskId() {
+        return _openTaskIds[0] ?? null;
+    }
+
+    function getPanelElement(taskId) {
+        return document.getElementById(`task-detail-panel-${taskId}`);
+    }
+
+    function ensurePanelShell(taskId) {
+        if (getPanelElement(taskId)) return;
+        const container = document.getElementById('task-detail-panels');
+        if (!container) return;
+
+        const panel = document.createElement('div');
+        panel.className = 'task-detail-panel';
+        panel.id = `task-detail-panel-${taskId}`;
+        panel.dataset.taskId = String(taskId);
+        panel.innerHTML = `
+            <div class="panel-header">
+                <button class="panel-close" type="button" title="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                <div class="panel-task-id" id="panelTaskId-${taskId}"></div>
+                <div class="panel-actions">
+                    <button class="btn btn-ghost btn-icon btn-sm" id="panelTimerBtn-${taskId}" title="Start/Stop timer">
+                        <i class="fa-solid fa-play"></i>
+                    </button>
+                    <button class="btn btn-ghost btn-icon btn-sm" id="panelOptionsBtn-${taskId}" title="Options">
+                        <i class="fa-solid fa-ellipsis-vertical"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="panel-body" id="panelBody-${taskId}"></div>
+        `;
+
+        panel.querySelector('.panel-close')?.addEventListener('click', () => closeTaskPanel(taskId));
+        panel.querySelector(`#panelTimerBtn-${taskId}`)?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            State.Timer.toggle(taskId);
+            openTaskPanel(taskId);
+        });
+        panel.addEventListener('mousedown', () => focusTaskPanel(taskId));
+
+        container.appendChild(panel);
+    }
+
+    function removePanelShell(taskId) {
+        getPanelElement(taskId)?.remove();
+    }
+
+    function focusTaskPanel(taskId) {
+        document.querySelectorAll('.task-detail-panel').forEach(el => {
+            el.classList.toggle('focused', parseInt(el.dataset.taskId, 10) === taskId);
+        });
+    }
+
+    function syncPanelsContainer() {
+        const container = document.getElementById('task-detail-panels');
+        if (!container) return;
+
+        _openTaskIds.forEach(taskId => {
+            const el = getPanelElement(taskId);
+            if (el) container.appendChild(el);
+        });
+
+        container.classList.toggle('open', _openTaskIds.length > 0);
+        container.classList.toggle('dual-open', _openTaskIds.length > 1);
+        if (_openTaskIds.length) focusTaskPanel(_openTaskIds[0]);
+    }
+
+    function stopPanelTimer(taskId) {
+        const interval = _timerIntervals.get(taskId);
+        if (interval) {
+            clearInterval(interval);
+            _timerIntervals.delete(taskId);
+        }
+    }
+
     function openTaskPanel(taskId) {
         const task = State.Tasks.get(taskId);
         if (!task) return;
-        _openTaskId = taskId;
 
-        const panel = document.getElementById('task-detail-panel');
-        if (!panel) return;
+        const limit = maxTaskPanels();
+        const existingIdx = _openTaskIds.indexOf(taskId);
+        if (existingIdx !== -1) {
+            _openTaskIds.splice(existingIdx, 1);
+        }
+        _openTaskIds.unshift(taskId);
 
-        renderPanel(task);
-        panel.classList.add('open');
+        while (_openTaskIds.length > limit) {
+            const removedId = _openTaskIds.pop();
+            stopPanelTimer(removedId);
+            removePanelShell(removedId);
+        }
+
+        ensurePanelShell(taskId);
+        const panelEl = getPanelElement(taskId);
+        if (!panelEl) return;
+
+        renderPanel(task, panelEl);
+        syncPanelsContainer();
     }
 
-    function closeTaskPanel() {
-        _openTaskId = null;
-        document.getElementById('task-detail-panel')?.classList.remove('open');
-        if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
+    function closeTaskPanel(taskId) {
+        if (_openTaskIds.length === 0) return;
+
+        const id = taskId != null ? taskId : _openTaskIds[0];
+        const idx = _openTaskIds.indexOf(id);
+        if (idx === -1) return;
+
+        _openTaskIds.splice(idx, 1);
+        stopPanelTimer(id);
+        removePanelShell(id);
+        syncPanelsContainer();
     }
 
-    function getOpenTaskId() { return _openTaskId; }
-
-    function renderPanel(task) {
+    function renderPanel(task, panelEl) {
+        const tid = task.id;
+        const q = (suffix) => panelEl.querySelector(`#${suffix}-${tid}`);
         const proj    = task.projectId ? State.Projects.get(task.projectId) : null;
         const col     = State.getColumnById(task.projectId, task.columnId);
         const columns = proj ? [...proj.columns].sort((a, b) => a.position - b.position) : [];
@@ -96,10 +204,11 @@ const UI = (() => {
         const elapsed = running ? State.Timer.getElapsed(task.id) : 0;
 
         // Panel ID
-        document.getElementById('panelTaskId').textContent = task.taskKey || `TASK-${task.id}`;
+        const taskIdEl = q('panelTaskId');
+        if (taskIdEl) taskIdEl.textContent = task.taskKey || `TASK-${task.id}`;
 
         // Timer button
-        const timerBtn = document.getElementById('panelTimerBtn');
+        const timerBtn = q('panelTimerBtn');
         if (timerBtn) {
             timerBtn.innerHTML = `<i class="fa-solid ${running ? 'fa-stop' : 'fa-play'}"></i>`;
             timerBtn.title = running ? 'Stop timer' : 'Start timer';
@@ -107,7 +216,7 @@ const UI = (() => {
         }
 
         // Options button
-        const optBtn = document.getElementById('panelOptionsBtn');
+        const optBtn = q('panelOptionsBtn');
         if (optBtn) {
             optBtn.onclick = (e) => {
                 e.stopPropagation();
@@ -115,13 +224,13 @@ const UI = (() => {
             };
         }
 
-        const body = document.getElementById('panelBody');
+        const body = q('panelBody');
         if (!body) return;
 
         body.innerHTML = `
             <!-- Title -->
             <div class="panel-title"
-                 id="panelTitleEl"
+                 id="panelTitleEl-${tid}"
                  contenteditable="true"
                  spellcheck="false"
                  data-task-id="${task.id}">${escHtml(task.title)}</div>
@@ -131,7 +240,7 @@ const UI = (() => {
                 <div class="panel-meta-item">
                     <div class="panel-meta-label">Status</div>
                     <div class="panel-meta-value">
-                        <select class="form-control" id="panelStatusSel" style="padding:4px 28px 4px 8px;font-size:12px;">
+                        <select class="form-control" id="panelStatusSel-${tid}" style="padding:4px 28px 4px 8px;font-size:12px;">
                             ${columns.map(c => `<option value="${c.id}"${c.id === task.columnId ? ' selected' : ''}
                                 style="color:${c.color};">${escHtml(c.name)}</option>`).join('')}
                         </select>
@@ -140,7 +249,7 @@ const UI = (() => {
                 <div class="panel-meta-item">
                     <div class="panel-meta-label">Priority</div>
                     <div class="panel-meta-value">
-                        <select class="form-control" id="panelPrioritySel" style="padding:4px 28px 4px 8px;font-size:12px;">
+                        <select class="form-control" id="panelPrioritySel-${tid}" style="padding:4px 28px 4px 8px;font-size:12px;">
                             <option value="critical"${task.priority==='critical'?' selected':''}>🔴 Critical</option>
                             <option value="high"${task.priority==='high'?' selected':''}>🟠 High</option>
                             <option value="medium"${task.priority==='medium'?' selected':''}>🔵 Medium</option>
@@ -151,7 +260,7 @@ const UI = (() => {
                 <div class="panel-meta-item">
                     <div class="panel-meta-label">Due Date</div>
                     <div class="panel-meta-value">
-                        <input type="date" class="form-control" id="panelDueDate"
+                        <input type="date" class="form-control" id="panelDueDate-${tid}"
                                value="${task.dueDate || ''}"
                                style="padding:4px 8px;font-size:12px;" />
                     </div>
@@ -172,7 +281,7 @@ const UI = (() => {
                 <div class="panel-meta-item">
                     <div class="panel-meta-label">Start Date</div>
                     <div class="panel-meta-value">
-                        <input type="date" class="form-control" id="panelStartDate"
+                        <input type="date" class="form-control" id="panelStartDate-${tid}"
                                value="${task.startDate || ''}"
                                style="padding:4px 8px;font-size:12px;" />
                     </div>
@@ -182,7 +291,7 @@ const UI = (() => {
             <!-- Labels -->
             <div class="panel-section">
                 <div class="panel-section-title">Labels</div>
-                <div class="labels-wrap" id="panelLabels">
+                <div class="labels-wrap" id="panelLabels-${tid}">
                     ${allLabels.map(l => {
                         const sel = (task.labels||[]).includes(l.id);
                         return `<div class="label-select-item${sel ? ' selected' : ''}"
@@ -197,7 +306,7 @@ const UI = (() => {
             <!-- Description -->
             <div class="panel-section">
                 <div class="panel-section-title">Description</div>
-                <div class="description-toolbar" id="panelDescToolbar">
+                <div class="description-toolbar" id="panelDescToolbar-${tid}">
                     <button type="button" class="desc-tool-btn" data-cmd="bold" title="Bold"><i class="fa-solid fa-bold"></i></button>
                     <button type="button" class="desc-tool-btn" data-cmd="italic" title="Italic"><i class="fa-solid fa-italic"></i></button>
                     <button type="button" class="desc-tool-btn" data-cmd="underline" title="Underline"><i class="fa-solid fa-underline"></i></button>
@@ -207,7 +316,7 @@ const UI = (() => {
                     <button type="button" class="desc-tool-btn" data-cmd="insertOrderedList" title="Numbered list"><i class="fa-solid fa-list-ol"></i></button>
                 </div>
                 <div class="panel-description"
-                     id="panelDesc"
+                     id="panelDesc-${tid}"
                      contenteditable="true"
                      spellcheck="true"
                      data-placeholder="Add a description…"></div>
@@ -219,10 +328,10 @@ const UI = (() => {
                     Subtasks
                     ${buildSubtaskProgress(task)}
                 </div>
-                <div class="subtask-list" id="panelSubtasks">
+                <div class="subtask-list" id="panelSubtasks-${tid}">
                     ${(task.subtasks||[]).map(sub => buildSubtaskItem(sub)).join('')}
                 </div>
-                <div class="add-subtask-row" id="addSubtaskRow">
+                <div class="add-subtask-row" id="addSubtaskRow-${tid}">
                     <i class="fa-solid fa-plus"></i> Add subtask
                 </div>
             </div>
@@ -231,18 +340,18 @@ const UI = (() => {
             <div class="panel-section">
                 <div class="panel-section-title">Time Tracking</div>
                 <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-3);">
-                    <button type="button" class="btn btn-primary btn-sm" id="panelBodyStartTimer"
+                    <button type="button" class="btn btn-primary btn-sm" id="panelBodyStartTimer-${tid}"
                         style="display:${running ? 'none' : 'inline-flex'};align-items:center;gap:6px;">
                         <i class="fa-solid fa-play"></i> Start timer
                     </button>
-                    <button type="button" class="btn btn-secondary btn-sm" id="panelBodyStopTimer"
+                    <button type="button" class="btn btn-secondary btn-sm" id="panelBodyStopTimer-${tid}"
                         style="display:${running ? 'inline-flex' : 'none'};align-items:center;gap:6px;border-color:rgba(34,197,94,0.35);color:#22c55e;">
                         <i class="fa-solid fa-stop"></i> Stop timer
                     </button>
                 </div>
                 <div class="time-tracking-row">
                     <div>
-                        <div class="time-display" id="panelTimeDisplay">
+                        <div class="time-display" id="panelTimeDisplay-${tid}">
                             ${Tasks.formatHours(task.timeSpent)}
                         </div>
                         <div class="time-sub">${running ? 'Running…' : 'Total spent'}</div>
@@ -260,7 +369,7 @@ const UI = (() => {
                         </div>
                     </div>` : ''}
                 </div>
-                ${running ? `<div id="panelLiveTimer" style="font-size:20px;font-weight:700;font-family:var(--font-mono);color:#22c55e;letter-spacing:-0.5px;">
+                ${running ? `<div id="panelLiveTimer-${tid}" style="font-size:20px;font-weight:700;font-family:var(--font-mono);color:#22c55e;letter-spacing:-0.5px;">
                     ${Tasks.formatElapsed(elapsed)}
                 </div>` : ''}
             </div>
@@ -268,20 +377,20 @@ const UI = (() => {
             <!-- Comments -->
             <div class="panel-section">
                 <div class="panel-section-title">Comments (${(task.comments||[]).length})</div>
-                <div class="comment-list" id="panelComments">
+                <div class="comment-list" id="panelComments-${tid}">
                     ${(task.comments||[]).map(c => buildCommentItem(c)).join('')}
                 </div>
                 <div class="comment-input-row">
                     <div class="task-card-assignee" style="flex-shrink:0;">${(localStorage.getItem('username')||'A')[0].toUpperCase()}</div>
-                    <textarea class="comment-input" id="panelCommentInput" placeholder="Add a comment… (Enter to send)" rows="1"></textarea>
-                    <button class="btn btn-primary btn-sm" id="panelCommentSend">Send</button>
+                    <textarea class="comment-input" id="panelCommentInput-${tid}" placeholder="Add a comment… (Enter to send)" rows="1"></textarea>
+                    <button class="btn btn-primary btn-sm" id="panelCommentSend-${tid}">Send</button>
                 </div>
             </div>
 
             <!-- Activity log -->
             <div class="panel-section">
                 <div class="panel-section-title">Activity</div>
-                <div class="activity-log" id="panelActivityLog">
+                <div class="activity-log" id="panelActivityLog-${tid}">
                     <div class="log-item">
                         <div class="log-dot"></div>
                         <div style="flex:1;">Task created</div>
@@ -302,7 +411,7 @@ const UI = (() => {
         // ── Inline event handlers ──────────────────────────
 
         // Title blur → save
-        const titleEl = document.getElementById('panelTitleEl');
+        const titleEl = q('panelTitleEl');
         if (titleEl) {
             titleEl.addEventListener('blur', () => {
                 const newTitle = titleEl.textContent.trim();
@@ -314,35 +423,35 @@ const UI = (() => {
         }
 
         // Status change
-        document.getElementById('panelStatusSel')?.addEventListener('change', (e) => {
+        q('panelStatusSel')?.addEventListener('change', (e) => {
             State.Tasks.update(task.id, { columnId: e.target.value });
             const { view, projectId } = Router.getCurrent();
             Router.renderView(view, projectId);
         });
 
         // Priority change
-        document.getElementById('panelPrioritySel')?.addEventListener('change', (e) => {
+        q('panelPrioritySel')?.addEventListener('change', (e) => {
             State.Tasks.update(task.id, { priority: e.target.value });
             const { view, projectId } = Router.getCurrent();
             Router.renderView(view, projectId);
         });
 
         // Due date
-        document.getElementById('panelDueDate')?.addEventListener('change', (e) => {
+        q('panelDueDate')?.addEventListener('change', (e) => {
             State.Tasks.update(task.id, { dueDate: e.target.value || null });
         });
 
         // Start date
-        document.getElementById('panelStartDate')?.addEventListener('change', (e) => {
+        q('panelStartDate')?.addEventListener('change', (e) => {
             State.Tasks.update(task.id, { startDate: e.target.value || null });
         });
 
         // Description — load, format toolbar, save
-        const descEl = document.getElementById('panelDesc');
+        const descEl = q('panelDesc');
         if (descEl) {
             Tasks.setDescriptionElement(descEl, task.description || '');
 
-            document.getElementById('panelDescToolbar')?.querySelectorAll('.desc-tool-btn').forEach(btn => {
+            q('panelDescToolbar')?.querySelectorAll('.desc-tool-btn').forEach(btn => {
                 btn.addEventListener('mousedown', e => {
                     e.preventDefault();
                     descEl.focus();
@@ -365,31 +474,31 @@ const UI = (() => {
         }
 
         // Labels toggle
-        document.querySelectorAll('#panelLabels .label-select-item').forEach(el => {
+        panelEl.querySelectorAll(`#panelLabels-${tid} .label-select-item`).forEach(el => {
             el.addEventListener('click', () => {
                 el.classList.toggle('selected');
-                const selected = Array.from(document.querySelectorAll('#panelLabels .label-select-item.selected'))
+                const selected = Array.from(panelEl.querySelectorAll(`#panelLabels-${tid} .label-select-item.selected`))
                     .map(x => x.dataset.labelId);
                 State.Tasks.update(task.id, { labels: selected });
             });
         });
 
         // Subtasks
-        document.querySelectorAll('#panelSubtasks .subtask-checkbox').forEach(el => {
+        panelEl.querySelectorAll(`#panelSubtasks-${tid} .subtask-checkbox`).forEach(el => {
             el.addEventListener('click', () => {
                 State.Tasks.toggleSubtask(task.id, parseInt(el.dataset.subId, 10));
                 openTaskPanel(task.id);
             });
         });
 
-        document.querySelectorAll('#panelSubtasks .subtask-delete').forEach(el => {
+        panelEl.querySelectorAll(`#panelSubtasks-${tid} .subtask-delete`).forEach(el => {
             el.addEventListener('click', () => {
                 State.Tasks.deleteSubtask(task.id, parseInt(el.dataset.subDel, 10));
                 openTaskPanel(task.id);
             });
         });
 
-        document.querySelectorAll('#panelSubtasks .subtask-text').forEach(el => {
+        panelEl.querySelectorAll(`#panelSubtasks-${tid} .subtask-text`).forEach(el => {
             el.contentEditable = true;
             el.addEventListener('blur', () => {
                 const newText = el.textContent.trim();
@@ -404,7 +513,7 @@ const UI = (() => {
             });
         });
 
-        document.getElementById('addSubtaskRow')?.addEventListener('click', () => {
+        q('addSubtaskRow')?.addEventListener('click', () => {
             const text = prompt('Subtask text:');
             if (text && text.trim()) {
                 State.Tasks.addSubtask(task.id, text.trim());
@@ -413,11 +522,11 @@ const UI = (() => {
         });
 
         // Comment
-        const commentInput = document.getElementById('panelCommentInput');
+        const commentInput = q('panelCommentInput');
         commentInput?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); }
         });
-        document.getElementById('panelCommentSend')?.addEventListener('click', sendComment);
+        q('panelCommentSend')?.addEventListener('click', sendComment);
 
         function sendComment() {
             const text = commentInput?.value.trim();
@@ -425,7 +534,7 @@ const UI = (() => {
             State.Tasks.addComment(task.id, text);
             commentInput.value = '';
             const updated = State.Tasks.get(task.id);
-            const commentList = document.getElementById('panelComments');
+            const commentList = q('panelComments');
             if (commentList && updated) {
                 commentList.innerHTML = (updated.comments||[]).map(c => buildCommentItem(c)).join('');
             }
@@ -438,8 +547,8 @@ const UI = (() => {
             openTaskPanel(task.id);
         }
 
-        document.getElementById('panelBodyStartTimer')?.addEventListener('click', onPanelTimerToggle);
-        document.getElementById('panelBodyStopTimer')?.addEventListener('click', onPanelTimerToggle);
+        q('panelBodyStartTimer')?.addEventListener('click', onPanelTimerToggle);
+        q('panelBodyStopTimer')?.addEventListener('click', onPanelTimerToggle);
 
         // Live timer
         if (running) startPanelTimer(task.id);
@@ -479,13 +588,13 @@ const UI = (() => {
     }
 
     function startPanelTimer(taskId) {
-        if (_timerInterval) clearInterval(_timerInterval);
-        _timerInterval = setInterval(() => {
-            const liveEl = document.getElementById('panelLiveTimer');
-            if (!liveEl) { clearInterval(_timerInterval); return; }
-            const elapsed = State.Timer.getElapsed(taskId);
-            liveEl.textContent = Tasks.formatElapsed(elapsed);
+        stopPanelTimer(taskId);
+        const interval = setInterval(() => {
+            const liveEl = document.getElementById(`panelLiveTimer-${taskId}`);
+            if (!liveEl) { stopPanelTimer(taskId); return; }
+            liveEl.textContent = Tasks.formatElapsed(State.Timer.getElapsed(taskId));
         }, 1000);
+        _timerIntervals.set(taskId, interval);
     }
 
     function showPanelOptionsMenu(event, task) {
@@ -507,7 +616,7 @@ const UI = (() => {
             cleanup();
             confirm(`Delete task "${task.title}"?`, () => {
                 State.Tasks.delete(task.id);
-                closeTaskPanel();
+                closeTaskPanel(task.id);
                 const { view, projectId } = Router.getCurrent();
                 Router.renderView(view, projectId);
                 toast(`Task deleted`, 'success');
@@ -675,15 +784,12 @@ const UI = (() => {
     // INIT
     // ══════════════════════════════════════════════════════
     function init() {
-        // ── Panel close ────────────────────────────────────
-        document.getElementById('panelClose')?.addEventListener('click', closeTaskPanel);
-
-        // Escape key
+        // Escape key — close most recent task panel
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 if (document.getElementById('command-palette-scrim').classList.contains('open')) {
                     closeCommandPalette();
-                } else if (document.getElementById('task-detail-panel').classList.contains('open')) {
+                } else if (document.getElementById('task-detail-panels')?.classList.contains('open')) {
                     closeTaskPanel();
                 }
             }
@@ -700,30 +806,20 @@ const UI = (() => {
             }
         });
 
-        // Timer toggle in panel header (same behavior as body controls)
-        document.getElementById('panelTimerBtn')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (_openTaskId) {
-                State.Timer.toggle(_openTaskId);
-                openTaskPanel(_openTaskId);
-            }
-        });
-
-        // Keep panel in sync when timer is started from board / list / elsewhere
+        // Keep panels in sync when timer is started from board / list / elsewhere
         State.on('timer:started', (taskId) => {
-            if (_openTaskId === taskId) openTaskPanel(taskId);
+            if (isTaskPanelOpen(taskId)) openTaskPanel(taskId);
         });
 
         // Timer stopped → refresh panel
         State.on('timer:stopped', (taskId) => {
-            if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
-            if (_openTaskId === taskId) openTaskPanel(taskId);
+            stopPanelTimer(taskId);
+            if (isTaskPanelOpen(taskId)) openTaskPanel(taskId);
         });
 
         // Tasks changed → refresh panel if open
         State.on('tasks:changed', ({ type, task }) => {
-            if (_openTaskId && task && task.id === _openTaskId && type === 'update') {
+            if (task && isTaskPanelOpen(task.id) && type === 'update') {
                 // Lightweight refresh: update title/status without re-rendering
             }
         });
@@ -824,7 +920,7 @@ const UI = (() => {
 
     return {
         init, toast, confirm,
-        openTaskPanel, closeTaskPanel, getOpenTaskId,
+        openTaskPanel, closeTaskPanel, getOpenTaskId, isTaskPanelOpen,
         openCommandPalette, closeCommandPalette,
         applyTheme, toggleTheme,
     };
