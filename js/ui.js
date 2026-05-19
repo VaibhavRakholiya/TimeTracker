@@ -795,7 +795,7 @@ const UI = (() => {
                 <div class="command-item" data-proj-id="${p.id}">
                     <i class="fa-solid fa-folder" style="width:18px;text-align:center;color:var(--text-tertiary);font-size:14px;"></i>
                     <span class="command-item-label">${escHtml(p.name)}</span>
-                    <span class="command-item-sub">Board</span>
+                    <span class="command-item-sub">Tasks</span>
                 </div>
             `).join('');
         }

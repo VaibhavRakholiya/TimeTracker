@@ -181,8 +181,7 @@ const Dashboard = (() => {
             const proj = t.projectId ? State.Projects.get(t.projectId) : null;
             const due  = Tasks.formatDueDate(t.dueDate);
             return `<div class="due-item" data-task-id="${t.id}">
-                ${Tasks.priorityDot(t.priority)}
-                <div class="due-item-info">
+<div class="due-item-info">
                     <div class="due-item-title">${escHtml(t.title)}</div>
                     <div class="due-item-project">${proj ? escHtml(proj.name) : 'No project'}</div>
                 </div>
@@ -303,32 +302,6 @@ const Dashboard = (() => {
             </div>
         `;
 
-        // ── Tasks by priority ────────────────────────────
-        const allTasks = State.Tasks.getAll();
-        const byPriority = { critical: 0, high: 0, medium: 0, low: 0 };
-        allTasks.forEach(t => { byPriority[t.priority] = (byPriority[t.priority] || 0) + 1; });
-        const maxPri = Math.max(...Object.values(byPriority), 1);
-        const priColors = { critical: '#ef4444', high: '#f97316', medium: '#3b82f6', low: '#6b7280' };
-
-        container.innerHTML += `
-            <div class="chart-container">
-                <div class="chart-header">
-                    <div class="chart-title">Tasks by Priority</div>
-                </div>
-                <div class="bar-chart">
-                    ${Object.entries(byPriority).map(([pri, count]) => `
-                        <div class="bar-chart-row">
-                            <div class="bar-chart-label">${pri.charAt(0).toUpperCase()+pri.slice(1)}</div>
-                            <div class="bar-chart-bar-wrap">
-                                <div class="bar-chart-bar-fill" style="width:${(count/maxPri*100).toFixed(1)}%;background:${priColors[pri]};"></div>
-                            </div>
-                            <div class="bar-chart-value">${count}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-
         // ── Time breakdown table ─────────────────────────
         const tasksWithTime = State.Tasks.getAll()
             .filter(t => t.timeSpent > 0)
@@ -346,7 +319,6 @@ const Dashboard = (() => {
                             <tr>
                                 <th>Task</th>
                                 <th>Project</th>
-                                <th>Priority</th>
                                 <th>Status</th>
                                 <th>Time Spent</th>
                                 <th>Estimate</th>
@@ -359,12 +331,11 @@ const Dashboard = (() => {
                                 return `<tr style="cursor:pointer;" data-task-row="${t.id}">
                                     <td style="font-weight:500;color:var(--text);">${escHtml(t.title)}</td>
                                     <td>${proj ? escHtml(proj.name) : '—'}</td>
-                                    <td>${Tasks.priorityBadge(t.priority)}</td>
                                     <td>${col ? `<span class="badge" style="background:${Tasks.hexToRgba(col.color,0.15)};color:${col.color};">${escHtml(col.name)}</span>` : '—'}</td>
                                     <td style="font-weight:600;">${Tasks.formatHours(t.timeSpent)}</td>
                                     <td>${t.timeEstimate ? Tasks.formatHours(t.timeEstimate) : '—'}</td>
                                 </tr>`;
-                            }).join('') : '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-tertiary);">No time data yet. Start a timer to track time.</td></tr>'}
+                            }).join('') : '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-tertiary);">No time data yet. Start a timer to track time.</td></tr>'}
                         </tbody>
                     </table>
                 </div>

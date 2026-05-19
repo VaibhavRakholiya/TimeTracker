@@ -185,7 +185,7 @@ const Projects = (() => {
         menu.className = 'dropdown-menu open';
         menu.style.cssText = `position:fixed;top:${event.clientY}px;left:${event.clientX}px;z-index:400;`;
         menu.innerHTML = `
-            <div class="dropdown-item" id="ctxBoard"><i class="fa-solid fa-table-columns"></i> View Board</div>
+            <div class="dropdown-item" id="ctxBoard"><i class="fa-solid fa-list"></i> View Tasks</div>
             <div class="dropdown-item" id="ctxBacklog"><i class="fa-solid fa-list"></i> View Backlog</div>
             <div class="dropdown-separator"></div>
             <div class="dropdown-item" id="ctxEdit"><i class="fa-solid fa-pen"></i> Edit Project</div>

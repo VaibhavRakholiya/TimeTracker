@@ -5,27 +5,12 @@
  */
 
 const Tasks = (() => {
-    const PRIORITIES = {
-        critical: { label: 'Critical', icon: 'fa-solid fa-circle-exclamation', color: 'var(--priority-critical)' },
-        high:     { label: 'High',     icon: 'fa-solid fa-arrow-up',           color: 'var(--priority-high)'     },
-        medium:   { label: 'Medium',   icon: 'fa-solid fa-minus',              color: 'var(--priority-medium)'   },
-        low:      { label: 'Low',      icon: 'fa-solid fa-arrow-down',         color: 'var(--priority-low)'      },
-    };
-
     let _editingTaskId = null;
     let _defaultColumn = null;
     let _defaultProject = null;
     let _myTasksFilter = 'all';
 
     // ── Public helpers ────────────────────────────────────
-    function priorityDot(priority) {
-        return `<span class="priority-dot priority-dot-${priority || 'low'}"></span>`;
-    }
-
-    function priorityBadge(priority) {
-        return `<span class="badge badge-priority-${priority || 'low'}">${PRIORITIES[priority]?.label || priority}</span>`;
-    }
-
     function formatDueDate(dateStr) {
         if (!dateStr) return null;
         const due  = new Date(dateStr + 'T00:00:00');
@@ -217,7 +202,6 @@ const Tasks = (() => {
                      data-task-id="${task.id}"
                      draggable="true">
             <div class="task-card-header">
-                <div class="task-card-priority">${priorityDot(task.priority)}</div>
                 <div class="task-card-title${done ? ' completed' : ''}">${escHtml(task.title)}</div>
             </div>
             ${labelHtml}
@@ -247,7 +231,6 @@ const Tasks = (() => {
 
         return `<div class="backlog-task" data-task-id="${task.id}" draggable="true">
             <i class="fa-solid fa-grip-vertical backlog-task-drag-handle"></i>
-            ${priorityDot(task.priority)}
             <span class="backlog-task-title${done ? ' completed' : ''}">${escHtml(task.title)}</span>
             <div class="backlog-task-meta">
                 ${col ? `<span class="badge" style="background:${hexToRgba(col.color,0.15)};color:${col.color};">${escHtml(col.name)}</span>` : ''}
@@ -331,7 +314,6 @@ const Tasks = (() => {
                 <div class="task-list-checkbox${done ? ' done' : ''}" data-check="${t.id}">
                     ${done ? '<i class="fa-solid fa-check" style="font-size:11px;color:#fff;"></i>' : ''}
                 </div>
-                ${priorityDot(t.priority)}
                 <span class="task-list-title${done ? ' done' : ''}">${escHtml(t.title)}</span>
                 <div class="task-list-meta">
                     ${col  ? `<span class="badge" style="background:${hexToRgba(col.color,0.15)};color:${col.color};">${escHtml(col.name)}</span>` : ''}
@@ -391,7 +373,6 @@ const Tasks = (() => {
             document.getElementById('taskModalId').value          = _editingTaskId;
             document.getElementById('taskModalTitleInput').value  = task.title;
             document.getElementById('taskModalDesc').value        = task.description || '';
-            document.getElementById('taskModalPriority').value    = task.priority || 'medium';
             document.getElementById('taskModalDueDate').value     = task.dueDate   || '';
             document.getElementById('taskModalStartDate').value   = task.startDate || '';
             document.getElementById('taskModalEstimate').value    = task.timeEstimate || '';
@@ -408,7 +389,6 @@ const Tasks = (() => {
             document.getElementById('taskModalId').value          = '';
             document.getElementById('taskModalTitleInput').value  = defaults?.title || '';
             document.getElementById('taskModalDesc').value        = '';
-            document.getElementById('taskModalPriority').value    = 'medium';
             document.getElementById('taskModalDueDate').value     = '';
             document.getElementById('taskModalStartDate').value   = '';
             document.getElementById('taskModalEstimate').value    = '';
@@ -491,7 +471,6 @@ const Tasks = (() => {
         const fields = {
             title,
             description:   normalizeDescription(document.getElementById('taskModalDesc').value),
-            priority:      document.getElementById('taskModalPriority').value,
             dueDate:       document.getElementById('taskModalDueDate').value   || null,
             startDate:     document.getElementById('taskModalStartDate').value || null,
             timeEstimate:  estimate,
@@ -617,10 +596,9 @@ const Tasks = (() => {
         init, openModal, closeModal,
         buildTaskCard, buildTaskRow,
         renderMyTasks, formatDueDate, formatTime, formatHours, formatElapsed,
-        priorityDot, priorityBadge, escHtml, hexToRgba, isDoneColumn, subtaskProgress,
+        escHtml, hexToRgba, isDoneColumn, subtaskProgress,
         normalizeDescription, setDescriptionElement, getDescriptionFromElement,
         sanitizeDescriptionHtml,
-        PRIORITIES,
     };
 })();
 

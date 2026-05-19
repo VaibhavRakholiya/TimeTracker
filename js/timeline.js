@@ -104,7 +104,6 @@ const Timeline = (() => {
 
             return `<div class="timeline-row">
                 <div class="timeline-task-label" data-task-id="${task.id}" title="${escHtml(task.title)}">
-                    <span style="margin-right:6px;">${Tasks.priorityDot(task.priority)}</span>
                     ${escHtml(task.title)}
                 </div>
                 <div class="timeline-bars-area" style="width:${days * dayW}px;">

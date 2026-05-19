@@ -2,7 +2,7 @@
  * FlowBoard — Router
  * Hash-based SPA routing. Routes:
  *   #dashboard
- *   #board/:projectId   (board only; no bare #board)
+ *   #board/:projectId   (project task list; no bare #board)
  *   #backlog/:projectId
  *   #timeline
  *   #reports
@@ -37,7 +37,7 @@ const Router = (() => {
     }
 
     /**
-     * Board is only reachable with #board/:projectId (e.g. from the Projects list).
+     * Project tasks view is only reachable with #board/:projectId (e.g. from the Projects list).
      * Other sections use a single-segment hash so a project id never "sticks" to them.
      */
     function navigate(view, projectId) {
@@ -135,7 +135,7 @@ const Router = (() => {
 
         const labels = {
             dashboard: 'Dashboard',
-            board:     'Board',
+            board:     'Tasks',
             backlog:   'Backlog',
             timeline:  'Timeline',
             reports:   'Reports',
