@@ -2079,10 +2079,10 @@ body.task-panel-fullscreen #content-area {
 }
 
 .panel-title {
-    font-size: 17px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--text);
-    line-height: 1.4;
+    line-height: 1.35;
     margin-bottom: var(--sp-2);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
@@ -2090,7 +2090,7 @@ body.task-panel-fullscreen #content-area {
     transition: border-color var(--transition-fast), background var(--transition-fast);
     cursor: text;
     outline: none;
-    letter-spacing: -0.2px;
+    letter-spacing: -0.35px;
     word-break: break-word;
 }
 
