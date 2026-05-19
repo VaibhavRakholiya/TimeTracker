@@ -48,14 +48,14 @@ const Board = (() => {
     }
 
     function syncStatusFilterUI(proj) {
-        const wrap  = document.getElementById('boardStatusFilterWrap');
-        const sep   = document.getElementById('boardStatusFilterSep');
-        const group = document.getElementById('boardStatusFilterGroup');
-        if (!wrap || !sep || !group) return;
+        const wrap     = document.getElementById('boardStatusFilterWrap');
+        const toolbar  = document.getElementById('boardViewToolbar');
+        const group    = document.getElementById('boardStatusFilterGroup');
+        if (!wrap || !group) return;
 
         const show = _viewMode === 'list' && !!proj;
         wrap.hidden = !show;
-        sep.hidden  = !show;
+        toolbar?.classList.toggle('has-status-filter', show);
         if (!show) return;
 
         const columns = [...proj.columns].sort((a, b) => a.position - b.position);
@@ -234,8 +234,8 @@ const Board = (() => {
             body += `<tr class="board-list-group"><td colspan="7">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <span style="width:8px;height:8px;border-radius:50%;background:${escHtml(col.color)};flex-shrink:0;"></span>
-                    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);">${escHtml(col.name)}</span>
-                    <span style="font-size:11px;color:var(--text-disabled);">${colTasks.length}</span>
+                    <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);">${escHtml(col.name)}</span>
+                    <span style="font-size:13px;color:var(--text-disabled);">${colTasks.length}</span>
                 </div>
             </td></tr>`;
 
@@ -262,16 +262,16 @@ const Board = (() => {
                     <td>${Tasks.priorityBadge(t.priority)}</td>
                     <td>
                         <select class="form-control list-col-select" data-task-id="${t.id}"
-                            style="min-width:140px;padding:4px 28px 4px 8px;font-size:12px;"
+                            style="min-width:140px;padding:4px 28px 4px 8px;font-size:14px;"
                             onclick="event.stopPropagation()">
                             ${columns.map(c =>
                                 `<option value="${escHtml(c.id)}"${c.id === t.columnId ? ' selected' : ''}>${escHtml(c.name)}</option>`
                             ).join('')}
                         </select>
                     </td>
-                    <td>${t.assignee ? `<div style="display:flex;align-items:center;gap:6px;"><div class="task-card-assignee" style="width:22px;height:22px;font-size:10px;">${(t.assignee || '?')[0].toUpperCase()}</div><span style="font-size:12px;color:var(--text-secondary);">${escHtml(t.assignee)}</span></div>` : '<span class="text-muted">—</span>'}</td>
+                    <td>${t.assignee ? `<div style="display:flex;align-items:center;gap:6px;"><div class="task-card-assignee" style="width:22px;height:22px;font-size:12px;">${(t.assignee || '?')[0].toUpperCase()}</div><span style="font-size:14px;color:var(--text-secondary);">${escHtml(t.assignee)}</span></div>` : '<span class="text-muted">—</span>'}</td>
                     <td>${due ? `<span class="due-date-chip ${due.cls}">${due.text}</span>` : '<span class="text-muted">—</span>'}</td>
-                    <td style="font-size:12px;color:var(--text-secondary);">${t.timeSpent > 0 ? Tasks.formatHours(t.timeSpent) : '—'}</td>
+                    <td style="font-size:14px;color:var(--text-secondary);">${t.timeSpent > 0 ? Tasks.formatHours(t.timeSpent) : '—'}</td>
                     <td>
                         <button type="button" class="task-card-timer${running ? ' running' : ''}" data-timer-task="${t.id}"
                             title="${running ? 'Stop timer' : 'Start timer'}"

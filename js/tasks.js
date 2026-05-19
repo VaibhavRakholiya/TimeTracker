@@ -253,7 +253,7 @@ const Tasks = (() => {
                 ${col ? `<span class="badge" style="background:${hexToRgba(col.color,0.15)};color:${col.color};">${escHtml(col.name)}</span>` : ''}
                 ${proj ? `<span class="text-muted text-sm">${escHtml(proj.name)}</span>` : ''}
                 ${due  ? `<span class="due-date-chip ${due.cls}"><i class="fa-regular fa-calendar"></i> ${due.text}</span>` : ''}
-                ${task.assignee ? `<div class="task-card-assignee" title="${escHtml(task.assignee)}" style="width:20px;height:20px;font-size:9px;">${userInitials(task.assignee)}</div>` : ''}
+                ${task.assignee ? `<div class="task-card-assignee" title="${escHtml(task.assignee)}" style="width:20px;height:20px;font-size:11px;">${userInitials(task.assignee)}</div>` : ''}
             </div>
         </div>`;
     }
@@ -329,7 +329,7 @@ const Tasks = (() => {
 
             return `${header}<div class="task-list-row" data-task-id="${t.id}">
                 <div class="task-list-checkbox${done ? ' done' : ''}" data-check="${t.id}">
-                    ${done ? '<i class="fa-solid fa-check" style="font-size:9px;color:#fff;"></i>' : ''}
+                    ${done ? '<i class="fa-solid fa-check" style="font-size:11px;color:#fff;"></i>' : ''}
                 </div>
                 ${priorityDot(t.priority)}
                 <span class="task-list-title${done ? ' done' : ''}">${escHtml(t.title)}</span>

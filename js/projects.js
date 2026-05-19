@@ -27,7 +27,7 @@ const Projects = (() => {
 
         if (!projects.length) {
             container.innerHTML = `
-                <div style="padding:8px 16px;font-size:12px;color:var(--text-tertiary);">
+                <div style="padding:8px 16px;font-size:14px;color:var(--text-tertiary);">
                     No projects yet
                 </div>`;
             return;

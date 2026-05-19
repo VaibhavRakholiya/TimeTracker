@@ -171,7 +171,7 @@ const Dashboard = (() => {
 
         if (!tasks.length) {
             container.innerHTML = `<div class="empty-state" style="padding:var(--sp-6) 0;">
-                <i class="fa-solid fa-calendar-check" style="font-size:28px;opacity:0.3;"></i>
+                <i class="fa-solid fa-calendar-check" style="font-size:32px;opacity:0.3;"></i>
                 <span class="text-sm text-muted">No tasks due soon</span>
             </div>`;
             return;
@@ -204,7 +204,7 @@ const Dashboard = (() => {
 
         if (!items.length) {
             container.innerHTML = `<div class="empty-state" style="padding:var(--sp-6) 0;">
-                <i class="fa-solid fa-bolt" style="font-size:28px;opacity:0.3;"></i>
+                <i class="fa-solid fa-bolt" style="font-size:32px;opacity:0.3;"></i>
                 <span class="text-sm text-muted">No recent activity</span>
             </div>`;
             return;

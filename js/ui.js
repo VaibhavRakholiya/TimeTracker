@@ -304,7 +304,7 @@ const UI = (() => {
                 <div class="panel-meta-item">
                     <div class="panel-meta-label">Status</div>
                     <div class="panel-meta-value">
-                        <select class="form-control" id="panelStatusSel-${tid}" style="padding:4px 28px 4px 8px;font-size:12px;">
+                        <select class="form-control" id="panelStatusSel-${tid}" style="padding:4px 28px 4px 8px;font-size:14px;">
                             ${columns.map(c => `<option value="${c.id}"${c.id === task.columnId ? ' selected' : ''}
                                 style="color:${c.color};">${escHtml(c.name)}</option>`).join('')}
                         </select>
@@ -313,7 +313,7 @@ const UI = (() => {
                 <div class="panel-meta-item">
                     <div class="panel-meta-label">Priority</div>
                     <div class="panel-meta-value">
-                        <select class="form-control" id="panelPrioritySel-${tid}" style="padding:4px 28px 4px 8px;font-size:12px;">
+                        <select class="form-control" id="panelPrioritySel-${tid}" style="padding:4px 28px 4px 8px;font-size:14px;">
                             <option value="critical"${task.priority==='critical'?' selected':''}>🔴 Critical</option>
                             <option value="high"${task.priority==='high'?' selected':''}>🟠 High</option>
                             <option value="medium"${task.priority==='medium'?' selected':''}>🔵 Medium</option>
@@ -326,20 +326,20 @@ const UI = (() => {
                     <div class="panel-meta-value">
                         <input type="date" class="form-control" id="panelDueDate-${tid}"
                                value="${task.dueDate || ''}"
-                               style="padding:4px 8px;font-size:12px;" />
+                               style="padding:4px 8px;font-size:14px;" />
                     </div>
                 </div>
                 <div class="panel-meta-item">
                     <div class="panel-meta-label">Assignee</div>
                     <div class="panel-meta-value" style="gap:6px;">
-                        <div class="task-card-assignee" style="width:22px;height:22px;font-size:10px;flex-shrink:0;">${(task.assignee||'?')[0].toUpperCase()}</div>
-                        <span style="font-size:12.5px;">${escHtml(task.assignee || '—')}</span>
+                        <div class="task-card-assignee" style="width:22px;height:22px;font-size:12px;flex-shrink:0;">${(task.assignee||'?')[0].toUpperCase()}</div>
+                        <span style="font-size:15px;">${escHtml(task.assignee || '—')}</span>
                     </div>
                 </div>
                 <div class="panel-meta-item">
                     <div class="panel-meta-label">Project</div>
                     <div class="panel-meta-value">
-                        <span style="font-size:12.5px;">${proj ? escHtml(proj.name) : '—'}</span>
+                        <span style="font-size:15px;">${proj ? escHtml(proj.name) : '—'}</span>
                     </div>
                 </div>
                 <div class="panel-meta-item">
@@ -347,7 +347,7 @@ const UI = (() => {
                     <div class="panel-meta-value">
                         <input type="date" class="form-control" id="panelStartDate-${tid}"
                                value="${task.startDate || ''}"
-                               style="padding:4px 8px;font-size:12px;" />
+                               style="padding:4px 8px;font-size:14px;" />
                     </div>
                 </div>
             </div>
@@ -437,7 +437,7 @@ const UI = (() => {
                         </div>
                     </div>` : ''}
                 </div>
-                ${running ? `<div id="panelLiveTimer-${tid}" style="font-size:20px;font-weight:700;font-family:var(--font-mono);color:#22c55e;letter-spacing:-0.5px;">
+                ${running ? `<div id="panelLiveTimer-${tid}" style="font-size:23px;font-weight:700;font-family:var(--font-mono);color:#22c55e;letter-spacing:-0.5px;">
                     ${Tasks.formatElapsed(elapsed)}
                 </div>` : ''}
             </div>
@@ -894,7 +894,7 @@ const UI = (() => {
             html += `<div class="command-group-title">Projects</div>`;
             html += projects.map((p, i) => `
                 <div class="command-item" data-proj-id="${p.id}">
-                    <i class="fa-solid fa-folder" style="width:18px;text-align:center;color:var(--text-tertiary);font-size:12px;"></i>
+                    <i class="fa-solid fa-folder" style="width:18px;text-align:center;color:var(--text-tertiary);font-size:14px;"></i>
                     <span class="command-item-label">${escHtml(p.name)}</span>
                     <span class="command-item-sub">Board</span>
                 </div>

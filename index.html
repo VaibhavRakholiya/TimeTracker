@@ -239,7 +239,7 @@
                             <div class="widget-body" style="padding:0 var(--sp-5);">
                                 <div id="dueSoonList">
                                     <div class="empty-state" style="padding:var(--sp-6) 0;">
-                                        <i class="fa-solid fa-calendar-check" style="font-size:28px;opacity:0.3;"></i>
+                                        <i class="fa-solid fa-calendar-check" style="font-size:32px;opacity:0.3;"></i>
                                         <span class="text-sm text-muted">No tasks due soon</span>
                     </div>
                 </div>
@@ -254,7 +254,7 @@
                             <div class="widget-body" style="padding:0 var(--sp-5);">
                                 <div id="activityFeed">
                                     <div class="empty-state" style="padding:var(--sp-6) 0;">
-                                        <i class="fa-solid fa-bolt" style="font-size:28px;opacity:0.3;"></i>
+                                        <i class="fa-solid fa-bolt" style="font-size:32px;opacity:0.3;"></i>
                                         <span class="text-sm text-muted">No recent activity</span>
                                     </div>
                                 </div>
@@ -287,9 +287,10 @@
                             </button>
                         </div>
                     </div>
-                    <div class="view-toolbar">
-                        <div class="filter-group" id="boardFilterGroup">
-                            <button class="filter-chip active" data-filter="all">All</button>
+                    <div class="view-toolbar" id="boardViewToolbar">
+                        <div class="view-toolbar-row">
+                            <div class="filter-group" id="boardFilterGroup">
+                                <button class="filter-chip active" data-filter="all">All</button>
                             <button class="filter-chip" data-filter="critical">
                                 <span class="priority-dot priority-dot-critical"></span> Critical
                             </button>
@@ -304,10 +305,10 @@
                         <button class="filter-chip" id="boardFilterDue">
                             <i class="fa-regular fa-calendar"></i> Due Date
                         </button>
-                        <div class="toolbar-separator" id="boardStatusFilterSep" hidden></div>
-                        <div class="filter-group board-status-filter" id="boardStatusFilterWrap" hidden>
+                        </div>
+                        <div class="view-toolbar-row board-status-filter" id="boardStatusFilterWrap" hidden>
                             <span class="toolbar-filter-label">Status</span>
-                            <div id="boardStatusFilterGroup"></div>
+                            <div class="filter-group" id="boardStatusFilterGroup"></div>
                         </div>
                     </div>
                     <div class="board-container" id="boardContainer">
@@ -348,7 +349,7 @@
                                 <button class="view-toggle-btn active" data-zoom="week" id="timelineZoomWeek">Week</button>
                                 <button class="view-toggle-btn" data-zoom="month" id="timelineZoomMonth">Month</button>
                             </div>
-                            <select class="form-control" id="timelineProjectFilter" style="width:auto;padding:5px 28px 5px 10px;font-size:12px;">
+                            <select class="form-control" id="timelineProjectFilter" style="width:auto;padding:5px 28px 5px 10px;font-size:14px;">
                                 <option value="all">All Projects</option>
                             </select>
                         </div>
@@ -366,9 +367,9 @@
                             <div class="view-subtitle">Time tracking &amp; project analytics</div>
                         </div>
                         <div class="view-actions">
-                            <input type="date" class="form-control" id="reportStartDate" style="width:auto;font-size:12px;" />
+                            <input type="date" class="form-control" id="reportStartDate" style="width:auto;font-size:14px;" />
                             <span class="text-muted">to</span>
-                            <input type="date" class="form-control" id="reportEndDate" style="width:auto;font-size:12px;" />
+                            <input type="date" class="form-control" id="reportEndDate" style="width:auto;font-size:14px;" />
                             <button class="btn btn-secondary btn-sm" id="applyReportRange">Apply</button>
                         </div>
                     </div>
@@ -422,7 +423,7 @@
                         <div class="settings-section">
                             <div class="settings-section-title">Account</div>
                             <div style="display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">
-                                <div class="user-avatar" id="settingsAvatar" style="width:40px;height:40px;font-size:16px;">A</div>
+                                <div class="user-avatar" id="settingsAvatar" style="width:40px;height:40px;font-size:18px;">A</div>
                                 <div>
                                     <div style="font-weight:700;" id="settingsUsername">Admin</div>
                                     <div class="text-muted text-sm">Workspace owner</div>
@@ -617,7 +618,7 @@
                 <button class="modal-close" id="confirmModalClose"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
-                <p id="confirmMessage" style="font-size:14px;color:var(--text-secondary);line-height:1.6;"></p>
+                <p id="confirmMessage" style="font-size:16px;color:var(--text-secondary);line-height:1.6;"></p>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-ghost" id="confirmCancel">Cancel</button>

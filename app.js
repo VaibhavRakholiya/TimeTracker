@@ -1087,7 +1087,7 @@ function renderListView(tasksToRender) {
             <div class="list-col list-col-project">${projectName}</div>
             <div class="list-col list-col-due">${dueDateText}</div>
             <div class="list-col list-col-time">
-                ${task.isTimerRunning ? '<i class="fas fa-circle-notch fa-spin" style="margin-right: 4px; font-size: 10px;"></i>' : ''}
+                ${task.isTimerRunning ? '<i class="fas fa-circle-notch fa-spin" style="margin-right: 4px; font-size:12px;"></i>' : ''}
                 <span id="list-timer-${task.id}">${timeDisplay}</span>
             </div>
             <div class="list-col list-col-actions">
