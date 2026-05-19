@@ -299,6 +299,28 @@ const UI = (() => {
                  spellcheck="false"
                  data-task-id="${task.id}">${escHtml(task.title)}</div>
 
+            <!-- Description -->
+            <div class="panel-section panel-section-description-top">
+                <div class="description-toolbar" id="panelDescToolbar-${tid}">
+                    <button type="button" class="desc-tool-btn" data-cmd="bold" title="Bold"><i class="fa-solid fa-bold"></i></button>
+                    <button type="button" class="desc-tool-btn" data-cmd="italic" title="Italic"><i class="fa-solid fa-italic"></i></button>
+                    <button type="button" class="desc-tool-btn" data-cmd="underline" title="Underline"><i class="fa-solid fa-underline"></i></button>
+                    <button type="button" class="desc-tool-btn" data-cmd="strikeThrough" title="Strikethrough"><i class="fa-solid fa-strikethrough"></i></button>
+                    <span class="desc-tool-sep"></span>
+                    <button type="button" class="desc-tool-btn" data-cmd="insertUnorderedList" title="Bullet list"><i class="fa-solid fa-list-ul"></i></button>
+                    <button type="button" class="desc-tool-btn" data-cmd="insertOrderedList" title="Numbered list"><i class="fa-solid fa-list-ol"></i></button>
+                    <span class="desc-tool-sep"></span>
+                    <button type="button" class="desc-tool-btn" id="panelDescCopy-${tid}" title="Copy description">
+                        <i class="fa-solid fa-copy"></i>
+                    </button>
+                </div>
+                <div class="panel-description"
+                     id="panelDesc-${tid}"
+                     contenteditable="true"
+                     spellcheck="true"
+                     data-placeholder="Add a description…"></div>
+            </div>
+
             <!-- Subtasks -->
             <div class="panel-section panel-section-subtasks">
                 <div class="panel-section-title">
@@ -355,29 +377,6 @@ const UI = (() => {
                         </div>`;
                     }).join('')}
                 </div>
-            </div>
-
-            <!-- Description -->
-            <div class="panel-section">
-                <div class="panel-section-title">Description</div>
-                <div class="description-toolbar" id="panelDescToolbar-${tid}">
-                    <button type="button" class="desc-tool-btn" data-cmd="bold" title="Bold"><i class="fa-solid fa-bold"></i></button>
-                    <button type="button" class="desc-tool-btn" data-cmd="italic" title="Italic"><i class="fa-solid fa-italic"></i></button>
-                    <button type="button" class="desc-tool-btn" data-cmd="underline" title="Underline"><i class="fa-solid fa-underline"></i></button>
-                    <button type="button" class="desc-tool-btn" data-cmd="strikeThrough" title="Strikethrough"><i class="fa-solid fa-strikethrough"></i></button>
-                    <span class="desc-tool-sep"></span>
-                    <button type="button" class="desc-tool-btn" data-cmd="insertUnorderedList" title="Bullet list"><i class="fa-solid fa-list-ul"></i></button>
-                    <button type="button" class="desc-tool-btn" data-cmd="insertOrderedList" title="Numbered list"><i class="fa-solid fa-list-ol"></i></button>
-                    <span class="desc-tool-sep"></span>
-                    <button type="button" class="desc-tool-btn" id="panelDescCopy-${tid}" title="Copy description">
-                        <i class="fa-solid fa-copy"></i>
-                    </button>
-                </div>
-                <div class="panel-description"
-                     id="panelDesc-${tid}"
-                     contenteditable="true"
-                     spellcheck="true"
-                     data-placeholder="Add a description…"></div>
             </div>
 
             <!-- Time Tracking -->

@@ -2083,7 +2083,7 @@ body.task-panel-fullscreen #content-area {
     font-weight: 700;
     color: var(--text);
     line-height: 1.4;
-    margin-bottom: var(--sp-4);
+    margin-bottom: var(--sp-2);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     padding: var(--sp-2);
@@ -2132,9 +2132,19 @@ body.task-panel-fullscreen #content-area {
     padding-top: var(--sp-4);
 }
 
-.panel-section-subtasks {
+.panel-section-description-top {
     border-top: none;
     padding-top: 0;
+    margin-bottom: var(--sp-4);
+}
+
+.panel-section-description-top .panel-description {
+    min-height: 48px;
+}
+
+.panel-section-subtasks {
+    border-top: 1px solid var(--border-subtle);
+    padding-top: var(--sp-4);
     margin-bottom: var(--sp-4);
 }
 
