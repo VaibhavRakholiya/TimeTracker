@@ -8,6 +8,7 @@ const Board = (() => {
     let _currentProjectId = null;
     let _filterPriority   = 'all';
     let _filterDue        = false;
+    let _filterStatus     = 'all'; // column id, list view only
     let _viewMode         = 'board'; // 'board' | 'list'
     let _dragTaskId       = null;
     let _dragSourceColId  = null;
@@ -27,6 +28,50 @@ const Board = (() => {
         return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    function applyTaskFilters(tasks, columns) {
+        if (_filterPriority !== 'all') {
+            tasks = tasks.filter(t => t.priority === _filterPriority);
+        }
+        if (_filterDue) {
+            const now = Date.now();
+            tasks = tasks.filter(t => {
+                if (!t.dueDate) return false;
+                const diff = (new Date(t.dueDate + 'T00:00:00') - now) / 86400000;
+                return diff <= 7;
+            });
+        }
+        if (_viewMode === 'list' && _filterStatus !== 'all') {
+            const defaultColId = columns[0]?.id;
+            tasks = tasks.filter(t => (t.columnId || defaultColId) === _filterStatus);
+        }
+        return tasks;
+    }
+
+    function syncStatusFilterUI(proj) {
+        const wrap  = document.getElementById('boardStatusFilterWrap');
+        const sep   = document.getElementById('boardStatusFilterSep');
+        const group = document.getElementById('boardStatusFilterGroup');
+        if (!wrap || !sep || !group) return;
+
+        const show = _viewMode === 'list' && !!proj;
+        wrap.hidden = !show;
+        sep.hidden  = !show;
+        if (!show) return;
+
+        const columns = [...proj.columns].sort((a, b) => a.position - b.position);
+        if (_filterStatus !== 'all' && !columns.some(c => c.id === _filterStatus)) {
+            _filterStatus = 'all';
+        }
+
+        const chips = [
+            `<button type="button" class="filter-chip${_filterStatus === 'all' ? ' active' : ''}" data-status="all">All</button>`,
+            ...columns.map(c => `<button type="button" class="filter-chip${_filterStatus === c.id ? ' active' : ''}" data-status="${escHtml(c.id)}">
+                <span class="status-dot" style="background:${escHtml(c.color)};"></span>${escHtml(c.name)}
+            </button>`),
+        ];
+        group.innerHTML = chips.join('');
+    }
+
     // ── Render (dispatcher) ────────────────────────────────
     function render(projectId) {
         _currentProjectId = projectId;
@@ -40,6 +85,7 @@ const Board = (() => {
         if (!projectId || !proj) {
             container.classList.remove('board-list-mode');
             setBoardViewToggleVisible(false);
+            syncStatusFilterUI(null);
             document.getElementById('boardViewSubtitle').textContent =
                 'Select a project to view its board';
             container.innerHTML = `<div class="empty-state" style="flex:1;">
@@ -55,6 +101,7 @@ const Board = (() => {
 
         setBoardViewToggleVisible(true);
         syncViewToggle();
+        syncStatusFilterUI(proj);
         document.getElementById('boardViewSubtitle').textContent =
             _viewMode === 'list' ? 'List view' : 'Kanban workflow';
 
@@ -67,18 +114,7 @@ const Board = (() => {
         container.classList.remove('board-list-mode');
 
         const columns = [...proj.columns].sort((a, b) => a.position - b.position);
-        let tasks     = State.Tasks.byProject(projectId);
-
-        // Apply filters
-        if (_filterPriority !== 'all') tasks = tasks.filter(t => t.priority === _filterPriority);
-        if (_filterDue) {
-            const now = Date.now();
-            tasks = tasks.filter(t => {
-                if (!t.dueDate) return false;
-                const diff = (new Date(t.dueDate + 'T00:00:00') - now) / 86400000;
-                return diff <= 7;
-            });
-        }
+        let tasks     = applyTaskFilters(State.Tasks.byProject(projectId), columns);
 
         const tasksByCol = {};
         columns.forEach(c => { tasksByCol[c.id] = []; });
@@ -167,17 +203,7 @@ const Board = (() => {
     // ── List view (table by column) ───────────────────────
     function renderList(projectId, proj, container) {
         const columns = [...proj.columns].sort((a, b) => a.position - b.position);
-        let tasks = State.Tasks.byProject(projectId);
-
-        if (_filterPriority !== 'all') tasks = tasks.filter(t => t.priority === _filterPriority);
-        if (_filterDue) {
-            const now = Date.now();
-            tasks = tasks.filter(t => {
-                if (!t.dueDate) return false;
-                const diff = (new Date(t.dueDate + 'T00:00:00') - now) / 86400000;
-                return diff <= 7;
-            });
-        }
+        let tasks = applyTaskFilters(State.Tasks.byProject(projectId), columns);
 
         const tasksByCol = {};
         columns.forEach(c => { tasksByCol[c.id] = []; });
@@ -481,6 +507,16 @@ const Board = (() => {
         document.getElementById('boardFilterDue')?.addEventListener('click', (e) => {
             _filterDue = !_filterDue;
             e.currentTarget.classList.toggle('active', _filterDue);
+            if (_currentProjectId) render(_currentProjectId);
+        });
+
+        document.getElementById('boardStatusFilterGroup')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-status]');
+            if (!btn) return;
+            _filterStatus = btn.dataset.status;
+            document.querySelectorAll('#boardStatusFilterGroup .filter-chip').forEach(b => {
+                b.classList.toggle('active', b === btn);
+            });
             if (_currentProjectId) render(_currentProjectId);
         });
     }

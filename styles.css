@@ -727,6 +727,28 @@ img, svg { display: block; max-width: 100%; }
     background: var(--border);
 }
 
+.toolbar-filter-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    margin-right: var(--sp-1);
+    flex-shrink: 0;
+}
+
+.board-status-filter {
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.board-status-filter .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
 /* ── 4. BUTTONS ──────────────────────────────────────────── */
 .btn {
     display: inline-flex;
