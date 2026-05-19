@@ -894,7 +894,7 @@ const UI = (() => {
                 if (document.getElementById('command-palette-scrim').classList.contains('open')) {
                     closeCommandPalette();
                 } else if (_fullscreenTaskId != null) {
-                    exitTaskPanelFullscreen();
+                    closeTaskPanel(_fullscreenTaskId);
                 } else if (document.getElementById('task-detail-panels')?.classList.contains('open')) {
                     closeTaskPanel();
                 }
