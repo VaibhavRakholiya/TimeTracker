@@ -6,7 +6,18 @@
 const Board = (() => {
     let _currentProjectId = null;
     let _filterDue        = false;
-    let _filterStatus     = 'all';
+    let _filterStatus     = null; // null => first column (To Do); 'all' => show all statuses
+
+    function getFirstColumnId(columns) {
+        const sorted = [...columns].sort((a, b) => a.position - b.position);
+        return sorted[0]?.id || 'all';
+    }
+
+    function getEffectiveFilterStatus(columns) {
+        if (_filterStatus === 'all') return 'all';
+        if (_filterStatus && columns.some(c => c.id === _filterStatus)) return _filterStatus;
+        return getFirstColumnId(columns);
+    }
 
     function escHtml(str) {
         return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -21,9 +32,10 @@ const Board = (() => {
                 return diff <= 7;
             });
         }
-        if (_filterStatus !== 'all') {
-            const defaultColId = columns[0]?.id;
-            tasks = tasks.filter(t => (t.columnId || defaultColId) === _filterStatus);
+        const effectiveStatus = getEffectiveFilterStatus(columns);
+        if (effectiveStatus !== 'all') {
+            const defaultColId = getFirstColumnId(columns);
+            tasks = tasks.filter(t => (t.columnId || defaultColId) === effectiveStatus);
         }
         return tasks;
     }
@@ -40,13 +52,11 @@ const Board = (() => {
         if (!show) return;
 
         const columns = [...proj.columns].sort((a, b) => a.position - b.position);
-        if (_filterStatus !== 'all' && !columns.some(c => c.id === _filterStatus)) {
-            _filterStatus = 'all';
-        }
+        const effectiveStatus = getEffectiveFilterStatus(columns);
 
         const chips = [
             `<button type="button" class="filter-chip${_filterStatus === 'all' ? ' active' : ''}" data-status="all">All</button>`,
-            ...columns.map(c => `<button type="button" class="filter-chip${_filterStatus === c.id ? ' active' : ''}" data-status="${escHtml(c.id)}">
+            ...columns.map(c => `<button type="button" class="filter-chip${effectiveStatus === c.id && _filterStatus !== 'all' ? ' active' : ''}" data-status="${escHtml(c.id)}">
                 <span class="status-dot" style="background:${escHtml(c.color)};"></span>${escHtml(c.name)}
             </button>`),
         ];
