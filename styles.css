@@ -2132,6 +2132,12 @@ body.task-panel-fullscreen #content-area {
     padding-top: var(--sp-4);
 }
 
+.panel-section-subtasks {
+    border-top: none;
+    padding-top: 0;
+    margin-bottom: var(--sp-4);
+}
+
 .panel-section-title {
     font-size:14px;
     font-weight: 700;
@@ -2180,7 +2186,7 @@ body.task-panel-fullscreen #content-area {
 .panel-description {
     font-size:16px;
     line-height: 1.6;
-    color: #fff;
+    color: var(--text);
     white-space: pre-wrap;
     word-break: break-word;
     border: 1px solid transparent;
@@ -2206,7 +2212,7 @@ body.task-panel-fullscreen #content-area {
 .panel-description b,
 .panel-description strong {
     font-weight: 700;
-    color: #fff;
+    color: var(--text);
 }
 
 .panel-description i,

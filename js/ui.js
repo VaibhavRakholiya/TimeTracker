@@ -299,6 +299,21 @@ const UI = (() => {
                  spellcheck="false"
                  data-task-id="${task.id}">${escHtml(task.title)}</div>
 
+            <!-- Subtasks -->
+            <div class="panel-section panel-section-subtasks">
+                <div class="panel-section-title">
+                    Subtasks
+                    ${buildSubtaskProgress(task)}
+                </div>
+                <div class="subtask-list" id="panelSubtasks-${tid}">
+                    ${buildSubtaskTree(task.subtasks || [])}
+                </div>
+                <div class="add-subtask-row" id="addSubtaskRow-${tid}">
+                    <i class="fa-solid fa-plus"></i> Add subtask
+                </div>
+            </div>
+
+
             <!-- Meta grid -->
             <div class="panel-meta-grid">
                 <div class="panel-meta-item">
@@ -307,17 +322,6 @@ const UI = (() => {
                         <select class="form-control" id="panelStatusSel-${tid}" style="padding:4px 28px 4px 8px;font-size:14px;">
                             ${columns.map(c => `<option value="${c.id}"${c.id === task.columnId ? ' selected' : ''}
                                 style="color:${c.color};">${escHtml(c.name)}</option>`).join('')}
-                        </select>
-                    </div>
-                </div>
-                <div class="panel-meta-item">
-                    <div class="panel-meta-label">Priority</div>
-                    <div class="panel-meta-value">
-                        <select class="form-control" id="panelPrioritySel-${tid}" style="padding:4px 28px 4px 8px;font-size:14px;">
-                            <option value="critical"${task.priority==='critical'?' selected':''}>🔴 Critical</option>
-                            <option value="high"${task.priority==='high'?' selected':''}>🟠 High</option>
-                            <option value="medium"${task.priority==='medium'?' selected':''}>🔵 Medium</option>
-                            <option value="low"${task.priority==='low'?' selected':''}>⚪ Low</option>
                         </select>
                     </div>
                 </div>
@@ -336,21 +340,7 @@ const UI = (() => {
                         <span style="font-size:15px;">${escHtml(task.assignee || '—')}</span>
                     </div>
                 </div>
-                <div class="panel-meta-item">
-                    <div class="panel-meta-label">Project</div>
-                    <div class="panel-meta-value">
-                        <span style="font-size:15px;">${proj ? escHtml(proj.name) : '—'}</span>
-                    </div>
-                </div>
-                <div class="panel-meta-item">
-                    <div class="panel-meta-label">Start Date</div>
-                    <div class="panel-meta-value">
-                        <input type="date" class="form-control" id="panelStartDate-${tid}"
-                               value="${task.startDate || ''}"
-                               style="padding:4px 8px;font-size:14px;" />
-                    </div>
-                </div>
-            </div>
+            </motion>
 
             <!-- Labels -->
             <div class="panel-section">
@@ -388,20 +378,6 @@ const UI = (() => {
                      contenteditable="true"
                      spellcheck="true"
                      data-placeholder="Add a description…"></div>
-            </div>
-
-            <!-- Subtasks -->
-            <div class="panel-section">
-                <div class="panel-section-title">
-                    Subtasks
-                    ${buildSubtaskProgress(task)}
-                </div>
-                <div class="subtask-list" id="panelSubtasks-${tid}">
-                    ${buildSubtaskTree(task.subtasks || [])}
-                </div>
-                <div class="add-subtask-row" id="addSubtaskRow-${tid}">
-                    <i class="fa-solid fa-plus"></i> Add subtask
-                </div>
             </div>
 
             <!-- Time Tracking -->
@@ -442,38 +418,6 @@ const UI = (() => {
                 </div>` : ''}
             </div>
 
-            <!-- Comments -->
-            <div class="panel-section">
-                <div class="panel-section-title">Comments (${(task.comments||[]).length})</div>
-                <div class="comment-list" id="panelComments-${tid}">
-                    ${(task.comments||[]).map(c => buildCommentItem(c)).join('')}
-                </div>
-                <div class="comment-input-row">
-                    <div class="task-card-assignee" style="flex-shrink:0;">${(localStorage.getItem('username')||'A')[0].toUpperCase()}</div>
-                    <textarea class="comment-input" id="panelCommentInput-${tid}" placeholder="Add a comment… (Enter to send)" rows="1"></textarea>
-                    <button class="btn btn-primary btn-sm" id="panelCommentSend-${tid}">Send</button>
-                </div>
-            </div>
-
-            <!-- Activity log -->
-            <div class="panel-section">
-                <div class="panel-section-title">Activity</div>
-                <div class="activity-log" id="panelActivityLog-${tid}">
-                    <div class="log-item">
-                        <div class="log-dot"></div>
-                        <div style="flex:1;">Task created</div>
-                        <div class="log-item-time">${new Date(task.createdAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
-                    </div>
-                    ${(State.Activity.getAll())
-                        .filter(a => a.taskTitle === task.title)
-                        .slice(0,5)
-                        .map(a => `<div class="log-item">
-                            <div class="log-dot"></div>
-                            <div style="flex:1;">${escHtml(a.action.replace(/_/g,' '))}${a.extra ? ' ' + escHtml(a.extra) : ''}</div>
-                            <div class="log-item-time">${timeAgo(new Date(a.at))}</div>
-                        </div>`).join('')}
-                </div>
-            </div>
         `;
 
         // ── Inline event handlers ──────────────────────────
@@ -497,21 +441,9 @@ const UI = (() => {
             Router.renderView(view, projectId);
         });
 
-        // Priority change
-        q('panelPrioritySel')?.addEventListener('change', (e) => {
-            State.Tasks.update(task.id, { priority: e.target.value });
-            const { view, projectId } = Router.getCurrent();
-            Router.renderView(view, projectId);
-        });
-
         // Due date
         q('panelDueDate')?.addEventListener('change', (e) => {
             State.Tasks.update(task.id, { dueDate: e.target.value || null });
-        });
-
-        // Start date
-        q('panelStartDate')?.addEventListener('change', (e) => {
-            State.Tasks.update(task.id, { startDate: e.target.value || null });
         });
 
         // Description — load, format toolbar, save
@@ -601,25 +533,6 @@ const UI = (() => {
         });
 
         attachSubtaskDragEvents(task.id, panelEl);
-
-        // Comment
-        const commentInput = q('panelCommentInput');
-        commentInput?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); }
-        });
-        q('panelCommentSend')?.addEventListener('click', sendComment);
-
-        function sendComment() {
-            const text = commentInput?.value.trim();
-            if (!text) return;
-            State.Tasks.addComment(task.id, text);
-            commentInput.value = '';
-            const updated = State.Tasks.get(task.id);
-            const commentList = q('panelComments');
-            if (commentList && updated) {
-                commentList.innerHTML = (updated.comments||[]).map(c => buildCommentItem(c)).join('');
-            }
-        }
 
         function onPanelTimerToggle(e) {
             e.preventDefault();
@@ -755,20 +668,6 @@ const UI = (() => {
                 <i class="fa-solid fa-xmark subtask-delete" data-sub-del="${sub.id}" title="Remove subtask"></i>
             </div>
             ${childList}
-        </div>`;
-    }
-
-    function buildCommentItem(comment) {
-        const init = (comment.author || 'A')[0].toUpperCase();
-        return `<div class="comment-item">
-            <div class="comment-avatar">${init}</div>
-            <div class="comment-content">
-                <div class="comment-header">
-                    <span class="comment-author">${escHtml(comment.author)}</span>
-                    <span class="comment-time">${timeAgo(new Date(comment.createdAt))}</span>
-                </div>
-                <div class="comment-text">${escHtml(comment.text)}</div>
-            </div>
         </div>`;
     }
 
