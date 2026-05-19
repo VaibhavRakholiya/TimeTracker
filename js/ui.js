@@ -340,7 +340,7 @@ const UI = (() => {
                         <span style="font-size:15px;">${escHtml(task.assignee || '—')}</span>
                     </div>
                 </div>
-            </motion>
+            </div>
 
             <!-- Labels -->
             <div class="panel-section">
