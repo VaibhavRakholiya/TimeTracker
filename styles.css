@@ -2125,7 +2125,7 @@ body.task-panel-fullscreen #content-area {
 .panel-description {
     font-size: 13.5px;
     line-height: 1.6;
-    color: var(--text-secondary);
+    color: #fff;
     white-space: pre-wrap;
     word-break: break-word;
     border: 1px solid transparent;
@@ -2151,7 +2151,7 @@ body.task-panel-fullscreen #content-area {
 .panel-description b,
 .panel-description strong {
     font-weight: 700;
-    color: var(--text);
+    color: #fff;
 }
 
 .panel-description i,
@@ -2172,11 +2172,20 @@ body.task-panel-fullscreen #content-area {
 /* Subtasks */
 .subtask-list { display: flex; flex-direction: column; gap: var(--sp-1); }
 
+.subtask-group { display: flex; flex-direction: column; gap: var(--sp-1); }
+
+.subtask-children {
+    margin-left: var(--sp-3);
+    padding-left: var(--sp-2);
+    border-left: 1px solid var(--border);
+}
+
 .subtask-item {
     display: flex;
     align-items: center;
     gap: var(--sp-2);
     padding: var(--sp-2);
+    padding-left: calc(var(--sp-2) + var(--subtask-depth, 0) * 16px);
     border-radius: var(--radius-sm);
     transition: background var(--transition-fast);
 }
@@ -2251,11 +2260,24 @@ body.task-panel-fullscreen #content-area {
     color: var(--text-tertiary);
 }
 
+.subtask-add-child {
+    opacity: 0;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.subtask-item:hover .subtask-add-child { opacity: 1; }
+.subtask-add-child:hover { color: var(--primary); }
+
 .subtask-delete {
     opacity: 0;
     color: var(--text-tertiary);
     font-size: 12px;
     cursor: pointer;
+    flex-shrink: 0;
     transition: opacity var(--transition-fast), color var(--transition-fast);
 }
 

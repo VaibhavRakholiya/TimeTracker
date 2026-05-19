@@ -156,10 +156,13 @@ const Tasks = (() => {
     }
 
     function subtaskProgress(task) {
-        const subs = task.subtasks || [];
-        if (!subs.length) return null;
-        const done = subs.filter(s => s.completed).length;
-        return { done, total: subs.length, pct: Math.round((done / subs.length) * 100) };
+        const stats = State.Tasks.subtaskStats(task);
+        if (!stats.total) return null;
+        return {
+            done:  stats.done,
+            total: stats.total,
+            pct:   Math.round((stats.done / stats.total) * 100),
+        };
     }
 
     function userInitials(name) {

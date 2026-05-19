@@ -50,6 +50,50 @@ const State = (() => {
         if (task.isTimerRunning && task.timerStart == null) {
             task.isTimerRunning = false;
         }
+        if (!Array.isArray(task.subtasks)) task.subtasks = [];
+        normalizeSubtasksList(task.subtasks);
+    }
+
+    function normalizeSubtasksList(list) {
+        if (!Array.isArray(list)) return;
+        list.forEach((s) => {
+            if (!s || typeof s !== 'object') return;
+            if (!Array.isArray(s.subtasks)) s.subtasks = [];
+            normalizeSubtasksList(s.subtasks);
+        });
+    }
+
+    function findSubtaskEntry(list, subtaskId) {
+        if (!Array.isArray(list)) return null;
+        for (let i = 0; i < list.length; i++) {
+            const s = list[i];
+            if (s.id == subtaskId) return { list, index: i, sub: s };
+            const nested = findSubtaskEntry(s.subtasks, subtaskId);
+            if (nested) return nested;
+        }
+        return null;
+    }
+
+    function cloneSubtasksTree(subs, nextId) {
+        return (subs || []).map((s) => ({
+            id:        nextId(),
+            text:      s.text || '',
+            completed: !!s.completed,
+            subtasks:  cloneSubtasksTree(s.subtasks, nextId),
+        }));
+    }
+
+    function countSubtasksTree(subs) {
+        let done = 0;
+        let total = 0;
+        (subs || []).forEach((s) => {
+            total++;
+            if (s.completed) done++;
+            const nested = countSubtasksTree(s.subtasks);
+            done += nested.done;
+            total += nested.total;
+        });
+        return { done, total };
     }
 
     function normalizeAllTasks() {
@@ -310,7 +354,7 @@ const State = (() => {
                     position:      t.position != null ? t.position : (_data.tasks.length + 1) * 1000,
                     timeSpent:     t.timeSpent || 0,
                     timeEntries:   (t.timeEntries || []).map((e) => ({ ...e })),
-                    subtasks:      (t.subtasks || []).map((s) => ({ ...s, id: nextId() })),
+                    subtasks:      cloneSubtasksTree(t.subtasks, nextId),
                     comments:      (t.comments || []).map((c) => ({ ...c, id: nextId() })),
                     isTimerRunning: false,
                     timerStart:    null,
@@ -395,11 +439,18 @@ const State = (() => {
             emit('tasks:changed', { type: 'delete', task });
         },
 
-        addSubtask(taskId, text) {
+        addSubtask(taskId, text, parentSubtaskId = null) {
             const task = this.get(taskId);
             if (!task) return;
-            const sub = { id: Date.now(), text, completed: false };
-            task.subtasks.push(sub);
+            const sub = { id: Date.now(), text, completed: false, subtasks: [] };
+            if (parentSubtaskId) {
+                const parent = findSubtaskEntry(task.subtasks, parentSubtaskId);
+                if (!parent) return;
+                if (!Array.isArray(parent.sub.subtasks)) parent.sub.subtasks = [];
+                parent.sub.subtasks.push(sub);
+            } else {
+                task.subtasks.push(sub);
+            }
             save();
             emit('tasks:changed', { type: 'update', task });
             return sub;
@@ -408,9 +459,20 @@ const State = (() => {
         toggleSubtask(taskId, subtaskId) {
             const task = this.get(taskId);
             if (!task) return;
-            const sub = task.subtasks.find(s => s.id === subtaskId);
-            if (sub) {
-                sub.completed = !sub.completed;
+            const entry = findSubtaskEntry(task.subtasks, subtaskId);
+            if (entry) {
+                entry.sub.completed = !entry.sub.completed;
+                save();
+                emit('tasks:changed', { type: 'update', task });
+            }
+        },
+
+        updateSubtaskText(taskId, subtaskId, text) {
+            const task = this.get(taskId);
+            if (!task) return;
+            const entry = findSubtaskEntry(task.subtasks, subtaskId);
+            if (entry && text) {
+                entry.sub.text = text;
                 save();
                 emit('tasks:changed', { type: 'update', task });
             }
@@ -419,18 +481,24 @@ const State = (() => {
         deleteSubtask(taskId, subtaskId) {
             const task = this.get(taskId);
             if (!task) return;
-            task.subtasks = task.subtasks.filter(s => s.id !== subtaskId);
+            const entry = findSubtaskEntry(task.subtasks, subtaskId);
+            if (!entry) return;
+            entry.list.splice(entry.index, 1);
             save();
             emit('tasks:changed', { type: 'update', task });
         },
 
         reorderSubtask(taskId, dragSubId, targetSubId, insertBefore) {
             const task = this.get(taskId);
-            if (!task || !task.subtasks?.length) return;
-            const subs = task.subtasks;
-            const fromIdx = subs.findIndex(s => s.id == dragSubId);
-            let toIdx = subs.findIndex(s => s.id == targetSubId);
-            if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+            if (!task) return;
+            const dragEntry = findSubtaskEntry(task.subtasks, dragSubId);
+            const targetEntry = findSubtaskEntry(task.subtasks, targetSubId);
+            if (!dragEntry || !targetEntry || dragEntry.list !== targetEntry.list) return;
+
+            const subs = dragEntry.list;
+            const fromIdx = dragEntry.index;
+            let toIdx = targetEntry.index;
+            if (fromIdx === toIdx) return;
 
             const [moved] = subs.splice(fromIdx, 1);
             if (fromIdx < toIdx) toIdx--;
@@ -438,6 +506,10 @@ const State = (() => {
             subs.splice(toIdx, 0, moved);
             save();
             emit('tasks:changed', { type: 'update', task });
+        },
+
+        subtaskStats(task) {
+            return countSubtasksTree(task?.subtasks || []);
         },
 
         /**
@@ -474,7 +546,7 @@ const State = (() => {
                 position:      (src.position != null ? src.position : 0) + 0.5,
                 timeSpent:     0,
                 timeEntries:   [],
-                subtasks:      (src.subtasks || []).map((s) => ({ ...s, id: nextId() })),
+                subtasks:      cloneSubtasksTree(src.subtasks, nextId),
                 comments:      (src.comments || []).map((c) => ({ ...c, id: nextId() })),
                 isTimerRunning: false,
                 timerStart:    null,

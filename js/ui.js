@@ -397,7 +397,7 @@ const UI = (() => {
                     ${buildSubtaskProgress(task)}
                 </div>
                 <div class="subtask-list" id="panelSubtasks-${tid}">
-                    ${(task.subtasks||[]).map(sub => buildSubtaskItem(sub)).join('')}
+                    ${buildSubtaskTree(task.subtasks || [])}
                 </div>
                 <div class="add-subtask-row" id="addSubtaskRow-${tid}">
                     <i class="fa-solid fa-plus"></i> Add subtask
@@ -555,39 +555,46 @@ const UI = (() => {
             });
         });
 
-        // Subtasks
-        panelEl.querySelectorAll(`#panelSubtasks-${tid} .subtask-checkbox`).forEach(el => {
-            el.addEventListener('click', () => {
-                State.Tasks.toggleSubtask(task.id, parseInt(el.dataset.subId, 10));
+        // Subtasks (delegated — supports nested subtasks)
+        const subtasksRoot = panelEl.querySelector(`#panelSubtasks-${tid}`);
+        subtasksRoot?.addEventListener('click', (e) => {
+            const addChildBtn = e.target.closest('.subtask-add-child');
+            if (addChildBtn) {
+                e.stopPropagation();
+                const parentId = parseInt(addChildBtn.dataset.parentSub, 10);
+                const text = prompt('Subtask text:');
+                if (text?.trim()) {
+                    State.Tasks.addSubtask(task.id, text.trim(), parentId);
+                    openTaskPanel(task.id);
+                }
+                return;
+            }
+            const checkbox = e.target.closest('.subtask-checkbox');
+            if (checkbox) {
+                State.Tasks.toggleSubtask(task.id, parseInt(checkbox.dataset.subId, 10));
                 openTaskPanel(task.id);
-            });
+                return;
+            }
+            const delBtn = e.target.closest('.subtask-delete');
+            if (delBtn) {
+                e.stopPropagation();
+                State.Tasks.deleteSubtask(task.id, parseInt(delBtn.dataset.subDel, 10));
+                openTaskPanel(task.id);
+            }
         });
 
-        panelEl.querySelectorAll(`#panelSubtasks-${tid} .subtask-delete`).forEach(el => {
-            el.addEventListener('click', () => {
-                State.Tasks.deleteSubtask(task.id, parseInt(el.dataset.subDel, 10));
-                openTaskPanel(task.id);
-            });
-        });
-
-        panelEl.querySelectorAll(`#panelSubtasks-${tid} .subtask-text`).forEach(el => {
+        subtasksRoot?.querySelectorAll('.subtask-text').forEach(el => {
             el.contentEditable = true;
             el.addEventListener('blur', () => {
                 const newText = el.textContent.trim();
                 const subId   = parseInt(el.dataset.subId, 10);
-                if (newText) {
-                    const t = State.Tasks.get(task.id);
-                    if (t) {
-                        const sub = t.subtasks.find(s => s.id === subId);
-                        if (sub) { sub.text = newText; State.save(); }
-                    }
-                }
+                if (newText) State.Tasks.updateSubtaskText(task.id, subId, newText);
             });
         });
 
         q('addSubtaskRow')?.addEventListener('click', () => {
             const text = prompt('Subtask text:');
-            if (text && text.trim()) {
+            if (text?.trim()) {
                 State.Tasks.addSubtask(task.id, text.trim());
                 openTaskPanel(task.id);
             }
@@ -655,10 +662,12 @@ const UI = (() => {
     }
 
     function attachSubtaskDragEvents(taskId, panelEl) {
-        const list = panelEl.querySelector(`#panelSubtasks-${taskId}`);
-        if (!list) return;
+        const root = panelEl.querySelector(`#panelSubtasks-${taskId}`);
+        if (!root) return;
 
-        list.querySelectorAll('.subtask-item').forEach(item => {
+        const lists = [root, ...root.querySelectorAll('.subtask-children')];
+        lists.forEach((list) => {
+        list.querySelectorAll(':scope > .subtask-group > .subtask-item').forEach(item => {
             const subId = parseInt(item.dataset.subId, 10);
             item.draggable = true;
 
@@ -715,25 +724,37 @@ const UI = (() => {
                 openTaskPanel(taskId);
             });
         });
+        });
     }
 
     function buildSubtaskProgress(task) {
-        const subs  = task.subtasks || [];
-        if (!subs.length) return '';
-        const done  = subs.filter(s => s.completed).length;
-        const pct   = Math.round((done / subs.length) * 100);
-        return `<span class="text-muted text-sm" style="font-weight:400;margin-left:6px;">${done}/${subs.length}</span>
+        const stats = State.Tasks.subtaskStats(task);
+        if (!stats.total) return '';
+        const pct = Math.round((stats.done / stats.total) * 100);
+        return `<span class="text-muted text-sm" style="font-weight:400;margin-left:6px;">${stats.done}/${stats.total}</span>
                 <div class="progress-bar" style="width:60px;display:inline-block;vertical-align:middle;margin-left:6px;">
-                    <div class="progress-fill${pct===100?' success':''}" style="width:${pct}%;"></div>
+                    <div class="progress-fill${pct === 100 ? ' success' : ''}" style="width:${pct}%;"></div>
                 </div>`;
     }
 
-    function buildSubtaskItem(sub) {
-        return `<div class="subtask-item" data-sub-id="${sub.id}">
-            <i class="fa-solid fa-grip-vertical subtask-drag-handle" title="Drag to reorder"></i>
-            <div class="subtask-checkbox${sub.completed ? ' checked' : ''}" data-sub-id="${sub.id}"></div>
-            <span class="subtask-text${sub.completed ? ' completed' : ''}" data-sub-id="${sub.id}">${escHtml(sub.text)}</span>
-            <i class="fa-solid fa-xmark subtask-delete" data-sub-del="${sub.id}" title="Remove subtask"></i>
+    function buildSubtaskTree(subs, depth = 0) {
+        return (subs || []).map((sub) => buildSubtaskGroup(sub, depth)).join('');
+    }
+
+    function buildSubtaskGroup(sub, depth) {
+        const kids = sub.subtasks || [];
+        const childList = kids.length
+            ? `<div class="subtask-list subtask-children">${buildSubtaskTree(kids, depth + 1)}</div>`
+            : '';
+        return `<div class="subtask-group">
+            <div class="subtask-item" data-sub-id="${sub.id}" style="--subtask-depth:${depth}">
+                <i class="fa-solid fa-grip-vertical subtask-drag-handle" title="Drag to reorder"></i>
+                <div class="subtask-checkbox${sub.completed ? ' checked' : ''}" data-sub-id="${sub.id}"></div>
+                <span class="subtask-text${sub.completed ? ' completed' : ''}" data-sub-id="${sub.id}">${escHtml(sub.text)}</span>
+                <i class="fa-solid fa-plus subtask-add-child" data-parent-sub="${sub.id}" title="Add subtask"></i>
+                <i class="fa-solid fa-xmark subtask-delete" data-sub-del="${sub.id}" title="Remove subtask"></i>
+            </div>
+            ${childList}
         </div>`;
     }
 
