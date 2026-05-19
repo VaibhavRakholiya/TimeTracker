@@ -424,6 +424,69 @@ const State = (() => {
             emit('tasks:changed', { type: 'update', task });
         },
 
+        reorderSubtask(taskId, dragSubId, targetSubId, insertBefore) {
+            const task = this.get(taskId);
+            if (!task || !task.subtasks?.length) return;
+            const subs = task.subtasks;
+            const fromIdx = subs.findIndex(s => s.id == dragSubId);
+            let toIdx = subs.findIndex(s => s.id == targetSubId);
+            if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+
+            const [moved] = subs.splice(fromIdx, 1);
+            if (fromIdx < toIdx) toIdx--;
+            if (!insertBefore) toIdx++;
+            subs.splice(toIdx, 0, moved);
+            save();
+            emit('tasks:changed', { type: 'update', task });
+        },
+
+        /**
+         * Clone a task in the same project/column/sprint (new id, key, subtasks, comments).
+         * Timer and logged time are not copied.
+         */
+        duplicate(id) {
+            const src = this.get(id);
+            if (!src) return null;
+
+            let nid = Date.now();
+            const nextId = () => ++nid;
+
+            const prefix = 'Copy of ';
+            const maxTitle = 120;
+            const room = Math.max(0, maxTitle - prefix.length);
+            const trimmed = String(src.title || 'Untitled').slice(0, room);
+            const newTitle = (prefix + trimmed).slice(0, maxTitle);
+
+            const newTask = {
+                id:            nextId(),
+                taskKey:       nextTaskKey(),
+                projectId:     src.projectId ?? null,
+                sprintId:      src.sprintId ?? null,
+                columnId:      src.columnId ?? null,
+                title:         newTitle,
+                description:   src.description || '',
+                priority:      src.priority || 'medium',
+                labels:        [...(src.labels || [])],
+                assignee:      src.assignee || (localStorage.getItem('username') || 'admin'),
+                startDate:     src.startDate || null,
+                dueDate:       src.dueDate || null,
+                timeEstimate:  src.timeEstimate != null ? src.timeEstimate : null,
+                position:      (src.position != null ? src.position : 0) + 0.5,
+                timeSpent:     0,
+                timeEntries:   [],
+                subtasks:      (src.subtasks || []).map((s) => ({ ...s, id: nextId() })),
+                comments:      (src.comments || []).map((c) => ({ ...c, id: nextId() })),
+                isTimerRunning: false,
+                timerStart:    null,
+                createdAt:     new Date().toISOString(),
+            };
+            _data.tasks.push(newTask);
+            save();
+            addActivity('task_duplicated', newTask.title, src.title);
+            emit('tasks:changed', { type: 'duplicate', task: newTask, sourceTask: src });
+            return newTask;
+        },
+
         addComment(taskId, text) {
             const task = this.get(taskId);
             if (!task) return;

@@ -2183,6 +2183,32 @@ body.task-panel-fullscreen #content-area {
 
 .subtask-item:hover { background: var(--surface-hover); }
 
+.subtask-item.subtask-dragging {
+    opacity: 0.45;
+}
+
+.subtask-item.subtask-drag-over-top {
+    box-shadow: inset 0 2px 0 var(--primary);
+}
+
+.subtask-item.subtask-drag-over-bottom {
+    box-shadow: inset 0 -2px 0 var(--primary);
+}
+
+.subtask-drag-handle {
+    flex-shrink: 0;
+    width: 14px;
+    color: var(--text-disabled);
+    font-size: 11px;
+    cursor: grab;
+    opacity: 0;
+    transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.subtask-item:hover .subtask-drag-handle { opacity: 1; }
+
+.subtask-drag-handle:active { cursor: grabbing; }
+
 .subtask-checkbox {
     width: 16px;
     height: 16px;

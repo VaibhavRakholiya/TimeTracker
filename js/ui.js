@@ -10,6 +10,9 @@ const UI = (() => {
     let _fullscreenTaskId = null;
     let _confirmCb        = null;
     const _timerIntervals = new Map();
+    let _dragSubtaskId     = null;
+    let _dragSubtaskTaskId = null;
+    let _subtaskDragAllowed = false;
 
     // ══════════════════════════════════════════════════════
     // TOAST NOTIFICATIONS
@@ -370,6 +373,10 @@ const UI = (() => {
                     <span class="desc-tool-sep"></span>
                     <button type="button" class="desc-tool-btn" data-cmd="insertUnorderedList" title="Bullet list"><i class="fa-solid fa-list-ul"></i></button>
                     <button type="button" class="desc-tool-btn" data-cmd="insertOrderedList" title="Numbered list"><i class="fa-solid fa-list-ol"></i></button>
+                    <span class="desc-tool-sep"></span>
+                    <button type="button" class="desc-tool-btn" id="panelDescCopy-${tid}" title="Copy description">
+                        <i class="fa-solid fa-copy"></i>
+                    </button>
                 </div>
                 <div class="panel-description"
                      id="panelDesc-${tid}"
@@ -527,6 +534,10 @@ const UI = (() => {
                     State.Tasks.update(task.id, { description: next });
                 }
             });
+
+            q('panelDescCopy')?.addEventListener('click', () => {
+                copyDescriptionToClipboard(descEl);
+            });
         }
 
         // Labels toggle
@@ -577,6 +588,8 @@ const UI = (() => {
             }
         });
 
+        attachSubtaskDragEvents(task.id, panelEl);
+
         // Comment
         const commentInput = q('panelCommentInput');
         commentInput?.addEventListener('keydown', (e) => {
@@ -610,6 +623,95 @@ const UI = (() => {
         if (running) startPanelTimer(task.id);
     }
 
+    async function copyDescriptionToClipboard(descEl) {
+        const text = (descEl.innerText || '').trim();
+        if (!text) {
+            toast('No description to copy', 'warning');
+            return;
+        }
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+            toast('Description copied to clipboard', 'success');
+        } catch {
+            toast('Could not copy description', 'error');
+        }
+    }
+
+    function attachSubtaskDragEvents(taskId, panelEl) {
+        const list = panelEl.querySelector(`#panelSubtasks-${taskId}`);
+        if (!list) return;
+
+        list.querySelectorAll('.subtask-item').forEach(item => {
+            const subId = parseInt(item.dataset.subId, 10);
+            item.draggable = true;
+
+            const handle = item.querySelector('.subtask-drag-handle');
+            handle?.addEventListener('mousedown', () => { _subtaskDragAllowed = true; });
+            handle?.addEventListener('mouseup', () => { _subtaskDragAllowed = false; });
+            handle?.addEventListener('mouseleave', () => { _subtaskDragAllowed = false; });
+
+            item.addEventListener('dragstart', (e) => {
+                if (!_subtaskDragAllowed) {
+                    e.preventDefault();
+                    return;
+                }
+                _dragSubtaskId = subId;
+                _dragSubtaskTaskId = taskId;
+                item.classList.add('subtask-dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(subId));
+            });
+
+            item.addEventListener('dragend', () => {
+                _subtaskDragAllowed = false;
+                _dragSubtaskId = null;
+                _dragSubtaskTaskId = null;
+                item.classList.remove('subtask-dragging');
+                list.querySelectorAll('.subtask-item').forEach(el => {
+                    el.classList.remove('subtask-drag-over-top', 'subtask-drag-over-bottom');
+                });
+            });
+
+            item.addEventListener('dragover', (e) => {
+                if (_dragSubtaskTaskId !== taskId || _dragSubtaskId === subId) return;
+                e.preventDefault();
+                const rect = item.getBoundingClientRect();
+                const isTop = e.clientY < rect.top + rect.height / 2;
+                item.classList.toggle('subtask-drag-over-top', isTop);
+                item.classList.toggle('subtask-drag-over-bottom', !isTop);
+            });
+
+            item.addEventListener('dragleave', () => {
+                item.classList.remove('subtask-drag-over-top', 'subtask-drag-over-bottom');
+            });
+
+            item.addEventListener('drop', (e) => {
+                e.preventDefault();
+                item.classList.remove('subtask-drag-over-top', 'subtask-drag-over-bottom');
+                const dragId = _dragSubtaskId || parseInt(e.dataTransfer.getData('text/plain'), 10);
+                const targetId = parseInt(item.dataset.subId, 10);
+                if (!dragId || dragId === targetId || _dragSubtaskTaskId !== taskId) return;
+
+                const rect = item.getBoundingClientRect();
+                const insertBefore = e.clientY < rect.top + rect.height / 2;
+                State.Tasks.reorderSubtask(taskId, dragId, targetId, insertBefore);
+                openTaskPanel(taskId);
+            });
+        });
+    }
+
     function buildSubtaskProgress(task) {
         const subs  = task.subtasks || [];
         if (!subs.length) return '';
@@ -622,7 +724,8 @@ const UI = (() => {
     }
 
     function buildSubtaskItem(sub) {
-        return `<div class="subtask-item">
+        return `<div class="subtask-item" data-sub-id="${sub.id}">
+            <i class="fa-solid fa-grip-vertical subtask-drag-handle" title="Drag to reorder"></i>
             <div class="subtask-checkbox${sub.completed ? ' checked' : ''}" data-sub-id="${sub.id}"></div>
             <span class="subtask-text${sub.completed ? ' completed' : ''}" data-sub-id="${sub.id}">${escHtml(sub.text)}</span>
             <i class="fa-solid fa-xmark subtask-delete" data-sub-del="${sub.id}" title="Remove subtask"></i>
@@ -663,6 +766,7 @@ const UI = (() => {
         menu.innerHTML = `
             <div class="dropdown-item" id="pmFullscreen"><i class="fa-solid ${fsIcon}"></i> ${fsLabel}</div>
             <div class="dropdown-item" id="pmEdit"><i class="fa-solid fa-pen"></i> Edit Task</div>
+            <div class="dropdown-item" id="pmDuplicate"><i class="fa-solid fa-copy"></i> Duplicate Task</div>
             <div class="dropdown-separator"></div>
             <div class="dropdown-item danger" id="pmDelete"><i class="fa-solid fa-trash"></i> Delete Task</div>
         `;
@@ -674,6 +778,18 @@ const UI = (() => {
         });
         menu.querySelector('#pmEdit').addEventListener('click', () => {
             cleanup(); Tasks.openModal(task.id);
+        });
+        menu.querySelector('#pmDuplicate').addEventListener('click', () => {
+            cleanup();
+            const copy = State.Tasks.duplicate(task.id);
+            if (!copy) {
+                toast('Could not duplicate task', 'error');
+                return;
+            }
+            const { view, projectId } = Router.getCurrent();
+            Router.renderView(view, projectId);
+            openTaskPanel(copy.id);
+            toast(`Duplicated "${task.title}"`, 'success');
         });
         menu.querySelector('#pmDelete').addEventListener('click', () => {
             cleanup();

@@ -214,6 +214,7 @@ const Dashboard = (() => {
             task_created:    'created task',
             task_moved:      'moved task',
             task_deleted:    'deleted task',
+            task_duplicated: 'duplicated task',
             project_created: 'created project',
             project_duplicated: 'duplicated project',
             project_deleted: 'deleted project',
