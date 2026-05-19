@@ -219,10 +219,15 @@ const UI = (() => {
 
         const limit = maxTaskPanels();
         const existingIdx = _openTaskIds.indexOf(taskId);
+        const wasAlreadyOpen = existingIdx !== -1;
         if (existingIdx !== -1) {
             _openTaskIds.splice(existingIdx, 1);
         }
         _openTaskIds.unshift(taskId);
+
+        if (!wasAlreadyOpen) {
+            _fullscreenTaskId = taskId;
+        }
 
         while (_openTaskIds.length > limit) {
             const removedId = _openTaskIds.pop();
