@@ -7,6 +7,8 @@ const Board = (() => {
     let _currentProjectId = null;
     let _filterDue        = false;
     let _filterStatus     = null; // null => first column (To Do); 'all' => show all statuses
+    let _listDragTaskId   = null;
+    let _listDragFromHandle = false;
 
     function getFirstColumnId(columns) {
         const sorted = [...columns].sort((a, b) => a.position - b.position);
@@ -124,7 +126,7 @@ const Board = (() => {
             const colTasks = tasksByCol[col.id] || [];
             if (!colTasks.length) return;
 
-            body += `<tr class="board-list-group"><td colspan="6">
+            body += `<tr class="board-list-group"><td colspan="7">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <span style="width:8px;height:8px;border-radius:50%;background:${escHtml(col.color)};flex-shrink:0;"></span>
                     <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);">${escHtml(col.name)}</span>
@@ -144,7 +146,12 @@ const Board = (() => {
                     }).join('')}`
                     : '';
 
-                body += `<tr class="list-task-row" data-task-id="${t.id}">
+                body += `<tr class="list-task-row" data-task-id="${t.id}" data-column-id="${escHtml(col.id)}" draggable="true">
+                    <td class="list-drag-cell">
+                        <span class="list-task-drag-handle" title="Drag to reorder">
+                            <i class="fa-solid fa-grip-vertical"></i>
+                        </span>
+                    </td>
                     <td>
                         <div style="display:flex;align-items:center;gap:8px;">
                             <span style="font-weight:500;${done ? 'text-decoration:line-through;color:var(--text-tertiary);' : ''}">${escHtml(t.title)}</span>
@@ -177,6 +184,7 @@ const Board = (() => {
         container.innerHTML = `
             <table class="board-list-table">
                 <thead><tr>
+                    <th class="list-drag-cell" aria-label="Reorder"></th>
                     <th>Task</th>
                     <th>Status</th>
                     <th>Assignee</th>
@@ -195,9 +203,12 @@ const Board = (() => {
                 </button>
             </div>`;
 
+        attachListDragEvents(container.querySelectorAll('.list-task-row'), projectId, proj);
+
         container.querySelectorAll('.list-task-row').forEach(row => {
             row.addEventListener('click', (e) => {
-                if (e.target.closest('.list-col-select') || e.target.closest('[data-timer-task]')) return;
+                if (e.target.closest('.list-col-select') || e.target.closest('[data-timer-task]')
+                    || e.target.closest('.list-task-drag-handle')) return;
                 UI.openTaskPanel(parseInt(row.dataset.taskId, 10));
             });
         });
@@ -231,6 +242,85 @@ const Board = (() => {
         });
         document.getElementById('listViewEditColumns')?.addEventListener('click', () => {
             Projects.openModal(projectId);
+        });
+    }
+
+    function attachListDragEvents(rows, projectId, proj) {
+        rows.forEach(row => {
+            const handle = row.querySelector('.list-task-drag-handle');
+            handle?.addEventListener('mousedown', () => { _listDragFromHandle = true; });
+            handle?.addEventListener('mouseup', () => {
+                if (!row.classList.contains('list-task-dragging')) _listDragFromHandle = false;
+            });
+
+            row.addEventListener('dragstart', (e) => {
+                if (!_listDragFromHandle) {
+                    e.preventDefault();
+                    return;
+                }
+                _listDragTaskId = parseInt(row.dataset.taskId, 10);
+                row.classList.add('list-task-dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(_listDragTaskId));
+            });
+
+            row.addEventListener('dragend', () => {
+                _listDragFromHandle = false;
+                _listDragTaskId = null;
+                row.classList.remove('list-task-dragging');
+                document.querySelectorAll('.list-task-row').forEach(r => {
+                    r.classList.remove('list-drag-over-top', 'list-drag-over-bottom');
+                });
+            });
+
+            row.addEventListener('dragover', (e) => {
+                if (!_listDragTaskId) return;
+                const targetId = parseInt(row.dataset.taskId, 10);
+                if (_listDragTaskId === targetId) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const rect  = row.getBoundingClientRect();
+                const isTop = e.clientY < rect.top + rect.height / 2;
+                row.classList.toggle('list-drag-over-top', isTop);
+                row.classList.toggle('list-drag-over-bottom', !isTop);
+            });
+
+            row.addEventListener('dragleave', () => {
+                row.classList.remove('list-drag-over-top', 'list-drag-over-bottom');
+            });
+
+            row.addEventListener('drop', (e) => {
+                e.preventDefault();
+                row.classList.remove('list-drag-over-top', 'list-drag-over-bottom');
+                const targetId = parseInt(row.dataset.taskId, 10);
+                if (!_listDragTaskId || _listDragTaskId === targetId) return;
+
+                const dragTask   = State.Tasks.get(_listDragTaskId);
+                const targetTask = State.Tasks.get(targetId);
+                if (!dragTask || !targetTask) return;
+
+                const rect  = row.getBoundingClientRect();
+                const isTop = e.clientY < rect.top + rect.height / 2;
+                const newPos = isTop ? targetTask.position - 0.5 : targetTask.position + 0.5;
+                const updates = { position: newPos };
+
+                const newColId = targetTask.columnId;
+                if (newColId && dragTask.columnId !== newColId) {
+                    const col = proj.columns.find(c => c.id === newColId);
+                    if (col?.wipLimit) {
+                        const count = State.Tasks.byProject(projectId)
+                            .filter(t => t.columnId === newColId && t.id !== _listDragTaskId).length;
+                        if (count >= col.wipLimit) {
+                            UI.toast(`WIP limit (${col.wipLimit}) reached for "${col.name}"`, 'warning');
+                            return;
+                        }
+                    }
+                    updates.columnId = newColId;
+                }
+
+                State.Tasks.update(_listDragTaskId, updates);
+                render(projectId);
+            });
         });
     }
 

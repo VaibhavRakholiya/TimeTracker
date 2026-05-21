@@ -1305,6 +1305,52 @@ select.form-control {
     background: var(--surface-hover);
 }
 
+.board-list-table .list-drag-cell {
+    width: 32px;
+    padding-left: var(--sp-2);
+    padding-right: 0;
+    text-align: center;
+}
+
+.list-task-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: var(--text-disabled);
+    cursor: grab;
+    border-radius: var(--radius-sm);
+    opacity: 0;
+    transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+}
+
+.list-task-row:hover .list-task-drag-handle,
+.list-task-row.list-task-dragging .list-task-drag-handle {
+    opacity: 1;
+}
+
+.list-task-drag-handle:hover {
+    color: var(--text-secondary);
+    background: var(--surface-hover);
+}
+
+.list-task-drag-handle:active {
+    cursor: grabbing;
+}
+
+.board-list-table tr.list-task-row.list-task-dragging td {
+    opacity: 0.45;
+}
+
+.board-list-table tr.list-task-row.list-drag-over-top td {
+    border-top: 2px solid var(--primary, #6366f1);
+}
+
+.board-list-table tr.list-task-row.list-drag-over-bottom td {
+    border-bottom: 2px solid var(--primary, #6366f1);
+}
+
 .board-list-group td {
     padding-top: var(--sp-4);
     padding-bottom: var(--sp-1);
