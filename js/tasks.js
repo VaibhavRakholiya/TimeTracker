@@ -288,6 +288,7 @@ const Tasks = (() => {
         const proj = t.projectId ? State.Projects.get(t.projectId) : null;
         const col  = columnForTask(t);
         const hideProject = !!opts.hideProject;
+        const running = t.isTimerRunning;
         return `<div class="task-list-row" data-task-id="${t.id}">
             <div class="task-list-checkbox${done ? ' done' : ''}" data-check="${t.id}">
                 ${done ? '<i class="fa-solid fa-check" style="font-size:11px;color:#fff;"></i>' : ''}
@@ -298,13 +299,27 @@ const Tasks = (() => {
                 ${proj && !hideProject ? `<span class="text-muted text-sm">${escHtml(proj.name)}</span>` : ''}
                 ${due  ? `<span class="due-date-chip ${due.cls}">${due.text}</span>` : ''}
             </div>
+            <button type="button" class="task-card-timer${running ? ' running' : ''}" data-timer-task="${t.id}"
+                title="${running ? 'Stop timer' : 'Start timer'}"
+                onclick="event.stopPropagation(); State.Timer.toggle(${t.id});">
+                <i class="fa-solid ${running ? 'fa-stop' : 'fa-play'}"></i>
+            </button>
         </div>`;
+    }
+
+    function syncMyTasksTimerButton(taskId, running) {
+        document.querySelectorAll(`#myTasksList [data-timer-task="${taskId}"]`).forEach(btn => {
+            btn.classList.toggle('running', running);
+            btn.title = running ? 'Stop timer' : 'Start timer';
+            const icon = btn.querySelector('i');
+            if (icon) icon.className = `fa-solid ${running ? 'fa-stop' : 'fa-play'}`;
+        });
     }
 
     function attachMyTasksRowEvents(container) {
         container.querySelectorAll('.task-list-row').forEach(el => {
             el.addEventListener('click', (e) => {
-                if (e.target.closest('[data-check]')) return;
+                if (e.target.closest('[data-check]') || e.target.closest('[data-timer-task]')) return;
                 UI.openTaskPanel(parseInt(el.dataset.taskId, 10));
             });
         });
@@ -630,23 +645,31 @@ const Tasks = (() => {
         });
 
         // Timer header display
-        State.on('timer:tick', ({ elapsed }) => {
+        State.on('timer:tick', ({ elapsed, taskId }) => {
             const indicator = document.getElementById('timerIndicator');
             const display   = document.getElementById('timerDisplay');
             if (indicator && display) {
                 indicator.classList.add('active');
                 display.textContent = formatElapsed(elapsed);
             }
+            if (taskId) syncMyTasksTimerButton(taskId, true);
         });
 
-        State.on('timer:stopped', () => {
+        State.on('timer:started', (taskId) => {
+            document.querySelectorAll('#myTasksList [data-timer-task]').forEach(btn => {
+                const id = parseInt(btn.dataset.timerTask, 10);
+                syncMyTasksTimerButton(id, id === taskId);
+            });
+        });
+
+        State.on('timer:stopped', (taskId) => {
             const indicator = document.getElementById('timerIndicator');
             if (indicator) indicator.classList.remove('active');
-            // If there's still a running timer, show it
             const still = State.Timer.getRunning();
             if (still) {
-                document.getElementById('timerIndicator').classList.add('active');
+                document.getElementById('timerIndicator')?.classList.add('active');
             }
+            if (taskId) syncMyTasksTimerButton(taskId, false);
         });
 
         // Resume timer display on load

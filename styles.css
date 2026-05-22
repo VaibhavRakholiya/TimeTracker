@@ -3398,6 +3398,10 @@ body.task-panel-fullscreen #content-area {
 
 .task-list-meta { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
 
+.task-list-row .task-card-timer {
+    flex-shrink: 0;
+}
+
 /* ── 27. SKELETON LOADING ────────────────────────────────── */
 .skeleton {
     background: linear-gradient(90deg, var(--surface-overlay) 25%, var(--surface-active) 50%, var(--surface-overlay) 75%);
