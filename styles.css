@@ -3309,6 +3309,41 @@ body.task-panel-fullscreen #content-area {
     padding-top: var(--sp-1);
 }
 
+.my-tasks-group-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4) var(--sp-1);
+    margin-top: var(--sp-2);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    border-top: 1px solid var(--border-subtle);
+}
+
+.my-tasks-group-header:first-child {
+    margin-top: 0;
+    border-top: none;
+    padding-top: var(--sp-1);
+}
+
+.my-tasks-group-header.my-tasks-group-overdue {
+    color: #ef4444;
+}
+
+.my-tasks-project-header-nested {
+    margin-top: var(--sp-1);
+    padding: var(--sp-2) var(--sp-4) var(--sp-1) calc(var(--sp-4) + var(--sp-2));
+    border-top: none;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text-secondary);
+}
+
 .tasks-list-container {
     padding: 0 var(--sp-6) var(--sp-6);
     display: flex;

@@ -363,11 +363,15 @@
                         <div>
                             <div class="view-title">My Tasks</div>
                         </div>
-                        <div class="view-actions">
+                        <div class="view-actions" style="flex-wrap:wrap;gap:var(--sp-2);">
                             <div class="filter-group">
                                 <button class="filter-chip active" data-myfilter="all">All</button>
                                 <button class="filter-chip" data-myfilter="active">Active</button>
                                 <button class="filter-chip" data-myfilter="done">Done</button>
+                            </div>
+                            <div class="filter-group">
+                                <button class="filter-chip active" data-mygroup="dueDate">By due date</button>
+                                <button class="filter-chip" data-mygroup="project">By project</button>
                             </div>
                         </div>
                     </div>

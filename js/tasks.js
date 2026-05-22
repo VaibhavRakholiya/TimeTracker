@@ -8,7 +8,16 @@ const Tasks = (() => {
     let _editingTaskId = null;
     let _defaultColumn = null;
     let _defaultProject = null;
-    let _myTasksFilter = 'all';
+    let _myTasksFilter  = 'all';
+    let _myTasksGroupBy = 'dueDate';
+
+    const MY_TASKS_DUE_GROUPS = [
+        { id: 'overdue',   label: 'Overdue' },
+        { id: 'today',     label: 'Today' },
+        { id: 'tomorrow',  label: 'Tomorrow' },
+        { id: 'week',      label: 'This week' },
+        { id: 'later',     label: 'Later' },
+    ];
 
     // ── Public helpers ────────────────────────────────────
     function formatDueDate(dateStr) {
@@ -241,6 +250,85 @@ const Tasks = (() => {
         </div>`;
     }
 
+    function getDueDateGroup(task) {
+        if (!task.dueDate) return 'none';
+        const due  = new Date(task.dueDate + 'T00:00:00');
+        const now  = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const dueD = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+        const diff = Math.round((dueD - today) / 86400000);
+        if (diff < 0) return 'overdue';
+        if (diff === 0) return 'today';
+        if (diff === 1) return 'tomorrow';
+        if (diff <= 7) return 'week';
+        return 'later';
+    }
+
+    function dueDateGroupOrder(id) {
+        return MY_TASKS_DUE_GROUPS.findIndex(g => g.id === id);
+    }
+
+    function buildMyTaskProjectHeader(task, nested = false) {
+        const proj = task.projectId ? State.Projects.get(task.projectId) : null;
+        const label = proj
+            ? escHtml(proj.name)
+            : (task.projectId ? 'Unknown project' : 'No project');
+        const dot = proj
+            ? `<span class="project-dot" style="background:${escHtml(proj.color || '#6366f1')};flex-shrink:0;"></span>`
+            : '';
+        const cls = nested
+            ? 'my-tasks-project-header my-tasks-project-header-nested'
+            : 'my-tasks-project-header';
+        return `<div class="${cls}">${dot}<span>${label}</span></div>`;
+    }
+
+    function buildMyTaskRowHtml(t, opts = {}) {
+        const done = isDoneColumn(t);
+        const due  = formatDueDate(t.dueDate);
+        const proj = t.projectId ? State.Projects.get(t.projectId) : null;
+        const col  = columnForTask(t);
+        const hideProject = !!opts.hideProject;
+        return `<div class="task-list-row" data-task-id="${t.id}">
+            <div class="task-list-checkbox${done ? ' done' : ''}" data-check="${t.id}">
+                ${done ? '<i class="fa-solid fa-check" style="font-size:11px;color:#fff;"></i>' : ''}
+            </div>
+            <span class="task-list-title${done ? ' done' : ''}">${escHtml(t.title)}</span>
+            <div class="task-list-meta">
+                ${col  ? `<span class="badge" style="background:${hexToRgba(col.color,0.15)};color:${col.color};">${escHtml(col.name)}</span>` : ''}
+                ${proj && !hideProject ? `<span class="text-muted text-sm">${escHtml(proj.name)}</span>` : ''}
+                ${due  ? `<span class="due-date-chip ${due.cls}">${due.text}</span>` : ''}
+            </div>
+        </div>`;
+    }
+
+    function attachMyTasksRowEvents(container) {
+        container.querySelectorAll('.task-list-row').forEach(el => {
+            el.addEventListener('click', (e) => {
+                if (e.target.closest('[data-check]')) return;
+                UI.openTaskPanel(parseInt(el.dataset.taskId, 10));
+            });
+        });
+
+        container.querySelectorAll('[data-check]').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const taskId = parseInt(el.dataset.check, 10);
+                const task   = State.Tasks.get(taskId);
+                if (!task) return;
+                const proj   = task.projectId ? State.Projects.get(task.projectId) : null;
+                if (proj) {
+                    const sortedCols = [...proj.columns].sort((a, b) => b.position - a.position);
+                    const doneCol    = sortedCols[0];
+                    if (doneCol && task.columnId !== doneCol.id) {
+                        State.Tasks.update(taskId, { columnId: doneCol.id });
+                        UI.toast(`"${task.title}" marked done`, 'success');
+                    }
+                }
+                renderMyTasks();
+            });
+        });
+    }
+
     // ── My Tasks view ─────────────────────────────────────
     function renderMyTasks() {
         const container = document.getElementById('myTasksList');
@@ -261,17 +349,31 @@ const Tasks = (() => {
             return (a.position || 0) - (b.position || 0);
         }
 
-        let tasks = State.Tasks.getAll()
-            .filter(t => t.assignee === username)
-            .sort((a, b) => {
+        let tasks = State.Tasks.getAll().filter(t => t.assignee === username);
+
+        if (_myTasksFilter === 'active') tasks = tasks.filter(t => !isDoneColumn(t));
+        if (_myTasksFilter === 'done')   tasks = tasks.filter(t =>  isDoneColumn(t));
+
+        if (_myTasksGroupBy === 'dueDate') {
+            tasks = tasks.filter(t => t.dueDate);
+            tasks.sort((a, b) => {
+                const ga = getDueDateGroup(a);
+                const gb = getDueDateGroup(b);
+                const go = dueDateGroupOrder(ga) - dueDateGroupOrder(gb);
+                if (go !== 0) return go;
                 const pa = projectSortKey(a);
                 const pb = projectSortKey(b);
                 if (pa !== pb) return pa.localeCompare(pb);
                 return withinProjectSort(a, b);
             });
-
-        if (_myTasksFilter === 'active') tasks = tasks.filter(t => !isDoneColumn(t));
-        if (_myTasksFilter === 'done')   tasks = tasks.filter(t =>  isDoneColumn(t));
+        } else {
+            tasks.sort((a, b) => {
+                const pa = projectSortKey(a);
+                const pb = projectSortKey(b);
+                if (pa !== pb) return pa.localeCompare(pb);
+                return withinProjectSort(a, b);
+            });
+        }
 
         // Update my tasks badge
         const activeMy = State.Tasks.getAll().filter(t => t.assignee === username && !isDoneColumn(t)).length;
@@ -290,66 +392,43 @@ const Tasks = (() => {
             return;
         }
 
-        let lastProjectKey = null;
-        container.innerHTML = tasks.map(t => {
-            const done = isDoneColumn(t);
-            const due  = formatDueDate(t.dueDate);
-            const proj = t.projectId ? State.Projects.get(t.projectId) : null;
-            const col  = columnForTask(t);
-            const projKey = t.projectId != null ? String(t.projectId) : '__none__';
+        let html = '';
+        if (_myTasksGroupBy === 'dueDate') {
+            let lastGroup = null;
+            let lastProjectKey = null;
+            tasks.forEach(t => {
+                const groupId = getDueDateGroup(t);
+                const projKey = t.projectId != null ? String(t.projectId) : '__none__';
 
-            let header = '';
-            if (projKey !== lastProjectKey) {
-                lastProjectKey = projKey;
-                const label = proj
-                    ? escHtml(proj.name)
-                    : (t.projectId ? 'Unknown project' : 'No project');
-                const dot = proj
-                    ? `<span class="project-dot" style="background:${escHtml(proj.color || '#6366f1')};flex-shrink:0;"></span>`
-                    : '';
-                header = `<div class="my-tasks-project-header">${dot}<span>${label}</span></div>`;
-            }
-
-            return `${header}<div class="task-list-row" data-task-id="${t.id}">
-                <div class="task-list-checkbox${done ? ' done' : ''}" data-check="${t.id}">
-                    ${done ? '<i class="fa-solid fa-check" style="font-size:11px;color:#fff;"></i>' : ''}
-                </div>
-                <span class="task-list-title${done ? ' done' : ''}">${escHtml(t.title)}</span>
-                <div class="task-list-meta">
-                    ${col  ? `<span class="badge" style="background:${hexToRgba(col.color,0.15)};color:${col.color};">${escHtml(col.name)}</span>` : ''}
-                    ${proj ? `<span class="text-muted text-sm">${escHtml(proj.name)}</span>` : ''}
-                    ${due  ? `<span class="due-date-chip ${due.cls}">${due.text}</span>` : ''}
-                </div>
-            </div>`;
-        }).join('');
-
-        // Click to open detail
-        container.querySelectorAll('.task-list-row').forEach(el => {
-            el.addEventListener('click', (e) => {
-                if (e.target.closest('[data-check]')) return;
-                UI.openTaskPanel(parseInt(el.dataset.taskId, 10));
-            });
-        });
-
-        // Quick complete checkbox
-        container.querySelectorAll('[data-check]').forEach(el => {
-            el.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const taskId = parseInt(el.dataset.check, 10);
-                const task   = State.Tasks.get(taskId);
-                if (!task) return;
-                const proj   = task.projectId ? State.Projects.get(task.projectId) : null;
-                if (proj) {
-                    const sortedCols = [...proj.columns].sort((a, b) => b.position - a.position);
-                    const doneCol    = sortedCols[0];
-                    if (doneCol && task.columnId !== doneCol.id) {
-                        State.Tasks.update(taskId, { columnId: doneCol.id });
-                        UI.toast(`"${task.title}" marked done`, 'success');
-                    }
+                if (groupId !== lastGroup) {
+                    lastGroup = groupId;
+                    lastProjectKey = null;
+                    const meta = MY_TASKS_DUE_GROUPS.find(g => g.id === groupId);
+                    const overdue = groupId === 'overdue';
+                    html += `<div class="my-tasks-group-header${overdue ? ' my-tasks-group-overdue' : ''}">
+                        <span>${escHtml(meta?.label || groupId)}</span>
+                    </div>`;
                 }
-                renderMyTasks();
+                if (projKey !== lastProjectKey) {
+                    lastProjectKey = projKey;
+                    html += buildMyTaskProjectHeader(t, true);
+                }
+                html += buildMyTaskRowHtml(t, { hideProject: true });
             });
-        });
+        } else {
+            let lastProjectKey = null;
+            tasks.forEach(t => {
+                const projKey = t.projectId != null ? String(t.projectId) : '__none__';
+                if (projKey !== lastProjectKey) {
+                    lastProjectKey = projKey;
+                    html += buildMyTaskProjectHeader(t, false);
+                }
+                html += buildMyTaskRowHtml(t);
+            });
+        }
+
+        container.innerHTML = html;
+        attachMyTasksRowEvents(container);
     }
 
     // ── Task Modal ─────────────────────────────────────────
@@ -536,6 +615,15 @@ const Tasks = (() => {
             btn.addEventListener('click', () => {
                 _myTasksFilter = btn.dataset.myfilter;
                 document.querySelectorAll('[data-myfilter]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderMyTasks();
+            });
+        });
+
+        document.querySelectorAll('[data-mygroup]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                _myTasksGroupBy = btn.dataset.mygroup;
+                document.querySelectorAll('[data-mygroup]').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 renderMyTasks();
             });
