@@ -100,6 +100,30 @@ const State = (() => {
         (_data.tasks || []).forEach(normalizeImportedTask);
     }
 
+    /** True when task.projectId references an existing project. */
+    function taskHasValidProject(task) {
+        if (!task || task.projectId == null || task.projectId === '') return false;
+        return _data.projects.some(p => p.id == task.projectId);
+    }
+
+    /** Drop tasks with no project or a missing project; returns count removed. */
+    function removeOrphanedTasks() {
+        const orphans = (_data.tasks || []).filter(t => !taskHasValidProject(t));
+        if (!orphans.length) return 0;
+
+        orphans.forEach(t => {
+            if (t.isTimerRunning) {
+                t.isTimerRunning = false;
+                t.timerStart = null;
+            }
+        });
+
+        const orphanIds = new Set(orphans.map(t => t.id));
+        _data.tasks = _data.tasks.filter(t => !orphanIds.has(t.id));
+        console.log(`State: removed ${orphans.length} task(s) without a valid project`);
+        return orphans.length;
+    }
+
     let _data = getDefaults();
     let _listeners = {};
     let _syncDebounce = null;
@@ -141,6 +165,7 @@ const State = (() => {
                 if (!_data.sprints) _data.sprints = [];
                 if (!_data.activity) _data.activity = [];
                 normalizeAllTasks();
+                if (removeOrphanedTasks()) save();
             }
         } catch (e) {
             console.warn('State: load failed, using defaults', e);
@@ -182,6 +207,7 @@ const State = (() => {
             if (tasks    && Array.isArray(tasks))    _data.tasks    = tasks;
             if (sprints  && Array.isArray(sprints))  _data.sprints  = sprints;
             normalizeAllTasks();
+            removeOrphanedTasks();
             save();
             return true;
         } catch (e) {
@@ -249,11 +275,18 @@ const State = (() => {
             const proj = this.get(id);
             if (!proj) return;
             _data.projects = _data.projects.filter(p => p.id !== id);
-            // Orphan tasks (remove projectId)
-            _data.tasks.forEach(t => { if (t.projectId === id) t.projectId = null; });
+            _data.tasks = _data.tasks.filter(t => {
+                if (t.projectId != id) return true;
+                if (t.isTimerRunning) {
+                    t.isTimerRunning = false;
+                    t.timerStart = null;
+                }
+                return false;
+            });
             save();
             addActivity('project_deleted', proj.name);
             emit('projects:changed');
+            emit('tasks:changed', { type: 'delete', projectId: id });
         },
 
         /**
@@ -385,10 +418,15 @@ const State = (() => {
         },
 
         create(fields) {
+            if (!taskHasValidProject({ projectId: fields.projectId })) {
+                console.warn('State: cannot create task without a valid project');
+                return null;
+            }
+
             const task = {
                 id:            Date.now(),
                 taskKey:       nextTaskKey(),
-                projectId:     fields.projectId   || null,
+                projectId:     fields.projectId,
                 sprintId:      fields.sprintId    || null,
                 columnId:      fields.columnId    || null,
                 title:         fields.title       || 'Untitled Task',
@@ -419,6 +457,11 @@ const State = (() => {
             const idx = _data.tasks.findIndex(t => t.id == id);
             if (idx === -1) return null;
             const oldTask = { ..._data.tasks[idx] };
+            const merged = { ..._data.tasks[idx], ...fields };
+            if (!taskHasValidProject(merged)) {
+                this.delete(id);
+                return null;
+            }
             Object.assign(_data.tasks[idx], fields);
             save();
             if (fields.columnId && fields.columnId !== oldTask.columnId) {

@@ -562,6 +562,12 @@ const Tasks = (() => {
         const sprintId = parseInt(document.getElementById('taskModalSprint').value, 10) || null;
         const estimate = parseFloat(document.getElementById('taskModalEstimate').value) || null;
 
+        if (!projId || !State.Projects.get(projId)) {
+            UI.toast('A project is required', 'error');
+            document.getElementById('taskModalProject').focus();
+            return;
+        }
+
         const fields = {
             title,
             description:   normalizeDescription(document.getElementById('taskModalDesc').value),
@@ -575,10 +581,18 @@ const Tasks = (() => {
         };
 
         if (_editingTaskId) {
-            State.Tasks.update(_editingTaskId, fields);
-            UI.toast('Task updated', 'success');
+            const updated = State.Tasks.update(_editingTaskId, fields);
+            if (updated) {
+                UI.toast('Task updated', 'success');
+            } else {
+                UI.toast('Task removed — a project is required', 'info');
+            }
         } else {
-            State.Tasks.create(fields);
+            const created = State.Tasks.create(fields);
+            if (!created) {
+                UI.toast('A project is required', 'error');
+                return;
+            }
             UI.toast('Task created', 'success');
         }
 
