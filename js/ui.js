@@ -464,6 +464,8 @@ const UI = (() => {
                 document.execCommand('insertText', false, text);
             });
 
+            Tasks.bindDescriptionTabKey(descEl);
+
             descEl.addEventListener('blur', () => {
                 const next = Tasks.getDescriptionFromElement(descEl);
                 if (next !== (task.description || '')) {

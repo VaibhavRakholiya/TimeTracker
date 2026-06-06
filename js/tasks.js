@@ -136,6 +136,22 @@ const Tasks = (() => {
         return normalizeDescription(sanitized);
     }
 
+    function bindDescriptionTabKey(el) {
+        if (!el) return;
+        el.addEventListener('keydown', e => {
+            if (e.key !== 'Tab') return;
+            e.preventDefault();
+            if (el.tagName === 'TEXTAREA') {
+                const start = el.selectionStart;
+                const end = el.selectionEnd;
+                el.value = el.value.slice(0, start) + '\t' + el.value.slice(end);
+                el.selectionStart = el.selectionEnd = start + 1;
+            } else {
+                document.execCommand('insertText', false, '\t');
+            }
+        });
+    }
+
     function labelChip(labelId, labels) {
         const allLabels = labels || State.Labels.getAll();
         const label = allLabels.find(l => l.id === labelId);
@@ -638,6 +654,7 @@ const Tasks = (() => {
         document.getElementById('taskModalTitleInput')?.addEventListener('keydown', e => {
             if (e.key === 'Enter') saveTask();
         });
+        bindDescriptionTabKey(document.getElementById('taskModalDesc'));
 
         // My Tasks filter chips
         document.querySelectorAll('[data-myfilter]').forEach(btn => {
@@ -723,7 +740,7 @@ const Tasks = (() => {
         renderMyTasks, formatDueDate, formatTime, formatHours, formatElapsed,
         escHtml, hexToRgba, isDoneColumn, subtaskProgress,
         normalizeDescription, setDescriptionElement, getDescriptionFromElement,
-        sanitizeDescriptionHtml,
+        bindDescriptionTabKey, sanitizeDescriptionHtml,
     };
 })();
 
