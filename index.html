@@ -455,6 +455,11 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Description</label>
+                    <div class="description-toolbar description-toolbar--modal" id="taskModalDescToolbar">
+                        <button type="button" class="desc-tool-btn desc-tool-speech" id="taskModalDescSpeech" title="Speech to text" aria-label="Speech to text" aria-pressed="false">
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
+                    </div>
                     <textarea class="form-control" id="taskModalDesc" placeholder="Add more details…" rows="3"></textarea>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
@@ -623,6 +628,7 @@
     <script src="js/router.js"></script>
     <script src="js/projects.js"></script>
     <script src="js/sprints.js"></script>
+    <script src="js/speech-to-text.js"></script>
     <script src="js/tasks.js"></script>
     <script src="js/board.js"></script>
     <script src="js/backlog.js"></script>

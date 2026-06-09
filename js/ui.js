@@ -258,6 +258,8 @@ const UI = (() => {
     }
 
     function renderPanel(task, panelEl) {
+        SpeechToText.stopAll();
+
         const tid = task.id;
         const q = (suffix) => panelEl.querySelector(`#${suffix}-${tid}`);
         const proj    = task.projectId ? State.Projects.get(task.projectId) : null;
@@ -312,6 +314,10 @@ const UI = (() => {
                     <span class="desc-tool-sep"></span>
                     <button type="button" class="desc-tool-btn" id="panelDescCopy-${tid}" title="Copy description">
                         <i class="fa-solid fa-copy"></i>
+                    </button>
+                    <span class="desc-tool-sep"></span>
+                    <button type="button" class="desc-tool-btn desc-tool-speech" id="panelDescSpeech-${tid}" title="Speech to text" aria-label="Speech to text" aria-pressed="false">
+                        <i class="fa-solid fa-microphone"></i>
                     </button>
                 </div>
                 <div class="panel-description"
@@ -450,13 +456,16 @@ const UI = (() => {
         if (descEl) {
             Tasks.setDescriptionElement(descEl, task.description || '');
 
-            q('panelDescToolbar')?.querySelectorAll('.desc-tool-btn').forEach(btn => {
+            q('panelDescToolbar')?.querySelectorAll('.desc-tool-btn[data-cmd]').forEach(btn => {
                 btn.addEventListener('mousedown', e => {
                     e.preventDefault();
                     descEl.focus();
                     document.execCommand(btn.dataset.cmd, false, null);
                 });
             });
+
+            const speechBtn = q('panelDescSpeech');
+            if (speechBtn) SpeechToText.attach(speechBtn, descEl);
 
             descEl.addEventListener('paste', e => {
                 e.preventDefault();

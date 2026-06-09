@@ -528,6 +528,7 @@ const Tasks = (() => {
     }
 
     function closeModal() {
+        SpeechToText.stopAll();
         document.getElementById('taskModalScrim').classList.remove('open');
     }
 
@@ -655,6 +656,10 @@ const Tasks = (() => {
             if (e.key === 'Enter') saveTask();
         });
         bindDescriptionTabKey(document.getElementById('taskModalDesc'));
+        SpeechToText.attach(
+            document.getElementById('taskModalDescSpeech'),
+            document.getElementById('taskModalDesc')
+        );
 
         // My Tasks filter chips
         document.querySelectorAll('[data-myfilter]').forEach(btn => {
