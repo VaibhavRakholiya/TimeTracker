@@ -39,11 +39,6 @@
                 <!-- Main navigation -->
                 <div class="sidebar-section-title">Navigation</div>
 
-                <div class="nav-item" data-route="dashboard" id="nav-dashboard">
-                    <i class="fa-solid fa-house"></i>
-                    <span class="nav-label">Dashboard</span>
-                </div>
-
                 <div class="nav-item" data-route="mytasks" id="nav-mytasks">
                     <i class="fa-solid fa-check-circle"></i>
                     <span class="nav-label">My Tasks</span>
@@ -103,7 +98,7 @@
 
                 <!-- Breadcrumb -->
                 <div class="header-breadcrumb" id="headerBreadcrumb">
-                    <strong>Dashboard</strong>
+                    <strong>My Tasks</strong>
         </div>
 
                 <div class="header-spacer"></div>
@@ -137,131 +132,6 @@
 
             <!-- ──────────────────────────────── CONTENT ──── -->
             <div id="content-area">
-
-                <!-- ─────────────────────────── DASHBOARD ─── -->
-                <div class="view" id="view-dashboard">
-                    <div class="view-header">
-                        <div>
-                            <div class="view-title" id="dashboardGreeting">Good morning!</div>
-                            <div class="view-subtitle">Here's what's happening across your projects.</div>
-                        </div>
-                        <div class="view-actions">
-                            <button class="btn btn-secondary btn-sm" id="refreshDashboard">
-                                <i class="fa-solid fa-rotate-right"></i> Refresh
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Stat cards row -->
-                    <div class="dashboard-row" id="dashboardStats">
-                        <div class="stat-card">
-                            <div class="stat-card-header">
-                                <div>
-                                    <div class="stat-value" id="stat-total-tasks">—</div>
-                                    <div class="stat-label">Total Tasks</div>
-                                </div>
-                                <div class="stat-card-icon" style="background:rgba(99,102,241,0.12);color:var(--primary);">
-                                    <i class="fa-solid fa-list-check"></i>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-card-header">
-                                <div>
-                                    <div class="stat-value" id="stat-in-progress">—</div>
-                                    <div class="stat-label">In Progress</div>
-                                </div>
-                                <div class="stat-card-icon" style="background:rgba(59,130,246,0.12);color:#3b82f6;">
-                                    <i class="fa-solid fa-spinner"></i>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-card-header">
-                                <div>
-                                    <div class="stat-value" id="stat-completed">—</div>
-                                    <div class="stat-label">Completed</div>
-                                </div>
-                                <div class="stat-card-icon" style="background:rgba(34,197,94,0.12);color:#22c55e;">
-                                    <i class="fa-solid fa-circle-check"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Widgets row -->
-                    <div class="dashboard-row-2" id="dashboardWidgets">
-                        <!-- Status donut -->
-                        <div class="widget-card">
-                            <div class="widget-header">
-                                <div class="widget-title">Tasks by Status</div>
-                            </div>
-                            <div class="donut-chart-wrapper">
-                                <canvas id="donutChart" width="110" height="110"></canvas>
-                                <div class="donut-legend" id="donutLegend"></div>
-                            </div>
-                        </div>
-
-                        <!-- Sprint progress -->
-                        <div class="widget-card">
-                            <div class="widget-header">
-                                <div class="widget-title">Active Sprint</div>
-                                <button class="btn btn-ghost btn-sm btn-icon" id="viewSprintsBtn" title="View sprints">
-                                    <i class="fa-solid fa-arrow-right"></i>
-                                </button>
-                            </div>
-                            <div id="sprintProgressWidget">
-                                <div class="sprint-progress">
-                                    <div class="sprint-meta">
-                                        <span id="sprintWidgetName" class="text-muted">No active sprint</span>
-                                        <span id="sprintWidgetPercent" class="text-muted">—</span>
-                                    </div>
-                                    <div class="progress-bar">
-                                        <div class="progress-fill" id="sprintProgressFill" style="width:0%"></div>
-                                    </div>
-                                    <div class="sprint-meta">
-                                        <span id="sprintWidgetDone" class="text-muted text-sm">0 done</span>
-                                        <span id="sprintWidgetTotal" class="text-muted text-sm">0 total</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Due soon + Activity row -->
-                    <div class="dashboard-row-2" style="padding:0 var(--sp-6) var(--sp-6);">
-                        <!-- Due soon -->
-                        <div class="widget-card">
-                            <div class="widget-header">
-                                <div class="widget-title">Due Soon</div>
-                                <span class="text-muted text-sm">Next 7 days</span>
-                            </div>
-                            <div class="widget-body" style="padding:0 var(--sp-5);">
-                                <div id="dueSoonList">
-                                    <div class="empty-state" style="padding:var(--sp-6) 0;">
-                                        <i class="fa-solid fa-calendar-check" style="font-size:32px;opacity:0.3;"></i>
-                                        <span class="text-sm text-muted">No tasks due soon</span>
-                    </div>
-                </div>
-            </div>
-                        </div>
-
-                        <!-- Activity feed -->
-                        <div class="widget-card">
-                            <div class="widget-header">
-                                <div class="widget-title">Recent Activity</div>
-                            </div>
-                            <div class="widget-body" style="padding:0 var(--sp-5);">
-                                <div id="activityFeed">
-                                    <div class="empty-state" style="padding:var(--sp-6) 0;">
-                                        <i class="fa-solid fa-bolt" style="font-size:32px;opacity:0.3;"></i>
-                                        <span class="text-sm text-muted">No recent activity</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- ──────────────────────────────── TASKS ─── -->
                 <div class="view" id="view-board">
@@ -353,7 +223,7 @@
                         </div>
                     </div>
                     <div class="reports-grid" id="reportsGrid">
-                        <!-- Rendered by dashboard.js -->
+                        <!-- Rendered by reports.js -->
                     </div>
                 </div>
 
@@ -632,7 +502,7 @@
     <script src="js/tasks.js"></script>
     <script src="js/board.js"></script>
     <script src="js/backlog.js"></script>
-    <script src="js/dashboard.js"></script>
+    <script src="js/reports.js"></script>
     <script src="js/timeline.js"></script>
     <script src="js/ui.js"></script>
 

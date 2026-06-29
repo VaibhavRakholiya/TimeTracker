@@ -1,7 +1,6 @@
 /**
  * FlowBoard — Router
  * Hash-based SPA routing. Routes:
- *   #dashboard
  *   #board/:projectId   (project task list; no bare #board)
  *   #backlog/:projectId
  *   #timeline
@@ -11,8 +10,9 @@
  */
 
 const Router = (() => {
+    const DEFAULT_VIEW = 'mytasks';
+
     const VIEWS = {
-        dashboard: 'view-dashboard',
         board:     'view-board',
         backlog:   'view-backlog',
         timeline:  'view-timeline',
@@ -27,7 +27,8 @@ const Router = (() => {
     function parseHash(hash) {
         const raw = (hash || window.location.hash).replace(/^#/, '').replace(/\/$/, '');
         const parts = raw.split('/').filter(p => p !== '');
-        const view = parts[0] || 'dashboard';
+        let view = parts[0] || DEFAULT_VIEW;
+        if (view === 'dashboard') view = DEFAULT_VIEW;
         let projectId = null;
         if (parts.length > 1) {
             const n = parseInt(parts[1], 10);
@@ -41,7 +42,8 @@ const Router = (() => {
      * Other sections use a single-segment hash so a project id never "sticks" to them.
      */
     function navigate(view, projectId) {
-        const v = VIEWS[view] ? view : 'dashboard';
+        if (view === 'dashboard') view = DEFAULT_VIEW;
+        const v = VIEWS[view] ? view : DEFAULT_VIEW;
 
         if (v !== 'board' && v !== 'backlog') {
             window.location.hash = `#${v}`;
@@ -51,7 +53,7 @@ const Router = (() => {
         const idNum = projectId != null ? Number(projectId) : NaN;
         if (v === 'board') {
             if (!Number.isFinite(idNum)) {
-                window.location.hash = '#dashboard';
+                window.location.hash = `#${DEFAULT_VIEW}`;
                 return;
             }
             window.location.hash = `#board/${Math.floor(idNum)}`;
@@ -64,13 +66,15 @@ const Router = (() => {
     }
 
     function activate({ view, projectId }) {
+        if (view === 'dashboard') view = DEFAULT_VIEW;
+
         // Never show board without a concrete project (invalid or bookmarked #board)
         if (view === 'board' && (projectId == null || !Number.isFinite(Number(projectId)))) {
-            window.location.hash = '#dashboard';
+            window.location.hash = `#${DEFAULT_VIEW}`;
             return;
         }
 
-        const viewName = VIEWS[view] ? view : 'dashboard';
+        const viewName = VIEWS[view] ? view : DEFAULT_VIEW;
         _currentRoute    = viewName;
         _currentProjectId = projectId;
 
@@ -105,9 +109,6 @@ const Router = (() => {
 
     function renderView(view, projectId) {
         switch (view) {
-            case 'dashboard':
-                window.Dashboard  && Dashboard.render();
-                break;
             case 'board':
                 window.Board      && Board.render(projectId);
                 break;
@@ -118,7 +119,7 @@ const Router = (() => {
                 window.Timeline   && Timeline.render();
                 break;
             case 'reports':
-                window.Dashboard  && Dashboard.renderReports();
+                window.Reports    && Reports.render();
                 break;
             case 'mytasks':
                 window.Tasks      && Tasks.renderMyTasks();
@@ -134,7 +135,6 @@ const Router = (() => {
         if (!bc) return;
 
         const labels = {
-            dashboard: 'Dashboard',
             board:     'Tasks',
             backlog:   'Backlog',
             timeline:  'Timeline',
@@ -193,7 +193,7 @@ const Router = (() => {
         // Initial load
         const parsed = parseHash();
         if (!parsed.view || !VIEWS[parsed.view]) {
-            navigate('dashboard');
+            navigate(DEFAULT_VIEW);
         } else {
             activate(parsed);
         }

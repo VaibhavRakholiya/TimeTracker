@@ -775,7 +775,6 @@ const UI = (() => {
 
         // ── Navigation commands ────────────────────────────
         const navCmds = [
-            { icon: 'fa-house',          label: 'Go to Dashboard',  action: () => { closeCommandPalette(); Router.navigate('dashboard'); } },
             { icon: 'fa-check-circle',   label: 'My Tasks',         action: () => { closeCommandPalette(); Router.navigate('mytasks'); } },
             { icon: 'fa-chart-gantt',    label: 'Timeline',         action: () => { closeCommandPalette(); Router.navigate('timeline'); } },
             { icon: 'fa-chart-bar',      label: 'Reports',          action: () => { closeCommandPalette(); Router.navigate('reports'); } },
@@ -865,9 +864,6 @@ const UI = (() => {
         document.querySelectorAll('[data-theme-pick]').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.themePick === theme);
         });
-
-        // Redraw donut (theme affects canvas fill)
-        if (Router.getCurrent().view === 'dashboard') Dashboard.render();
     }
 
     function toggleTheme() {
@@ -998,7 +994,7 @@ const UI = (() => {
             confirm('Clear ALL data? This cannot be undone.', () => {
                 State.clearAll();
                 Projects.renderSidebar();
-                Router.navigate('dashboard');
+                Router.navigate('mytasks');
                 toast('All data cleared', 'warning');
             });
         });
@@ -1058,7 +1054,7 @@ const App = (() => {
         Board.init();
         Backlog.init();
         Sprints.init();
-        Dashboard.init();
+        Reports.init();
         Timeline.init();
         Router.init();
 

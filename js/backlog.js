@@ -127,7 +127,6 @@ const Backlog = (() => {
                 State.Sprints.complete(sprint.id);
                 render(_currentProjectId);
                 UI.toast(`Sprint "${sprint.name}" completed`, 'success');
-                Dashboard.render();
             }, 'Complete', 'btn-success');
         });
 

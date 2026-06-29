@@ -14,7 +14,7 @@ const ASSETS_TO_CACHE = [
   './js/backlog.js',
   './js/sprints.js',
   './js/speech-to-text.js',
-  './js/dashboard.js',
+  './js/reports.js',
   './js/timeline.js',
   './js/ui.js',
 ];

@@ -220,7 +220,7 @@ const Projects = (() => {
             UI.confirm(`Delete project "${proj.name}"? All tasks will be unassigned.`, () => {
                 State.Projects.delete(projectId);
                 renderSidebar();
-                Router.navigate('dashboard');
+                Router.navigate('mytasks');
                 UI.toast(`Project "${proj.name}" deleted`, 'success');
             });
         });

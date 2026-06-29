@@ -1026,120 +1026,7 @@ select.form-control {
     transform: translateY(-1px);
 }
 
-/* ── 8. DASHBOARD VIEW ───────────────────────────────────── */
-#view-dashboard {
-    overflow: auto;
-}
-
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: var(--sp-4);
-    padding: 0 var(--sp-6) var(--sp-6);
-}
-
-.dashboard-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: var(--sp-4);
-    padding: 0 var(--sp-6) var(--sp-4);
-}
-
-.dashboard-row-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--sp-4);
-    padding: 0 var(--sp-6) var(--sp-6);
-}
-
-.stat-card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius-lg);
-    padding: var(--sp-5);
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-3);
-}
-
-.stat-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.stat-card-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-md);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size:18px;
-}
-
-.stat-value {
-    font-size:32px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    line-height: 1.1;
-}
-
-.stat-label {
-    font-size:14px;
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-.stat-trend {
-    font-size:13px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-}
-
-.stat-trend.up { color: #22c55e; }
-.stat-trend.down { color: #ef4444; }
-
-.widget-card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-}
-
-.widget-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--sp-4) var(--sp-5);
-    border-bottom: 1px solid var(--border-subtle);
-}
-
-.widget-title {
-    font-size:16px;
-    font-weight: 600;
-    color: var(--text);
-}
-
-.widget-body { padding: var(--sp-4) var(--sp-5); }
-
-/* Sprint progress bar */
-.sprint-progress {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-2);
-    padding: var(--sp-4) var(--sp-5);
-}
-
-.sprint-meta {
-    display: flex;
-    justify-content: space-between;
-    font-size:14px;
-    color: var(--text-secondary);
-}
-
+/* ── 8. PROGRESS BARS (task panels, etc.) ───────────────── */
 .progress-bar {
     height: 6px;
     background: var(--surface-overlay);
@@ -1158,51 +1045,6 @@ select.form-control {
 .progress-fill.warning { background: #f59e0b; }
 .progress-fill.danger  { background: #ef4444; }
 
-/* Activity feed */
-.activity-item {
-    display: flex;
-    gap: var(--sp-3);
-    padding: var(--sp-3) 0;
-    border-bottom: 1px solid var(--border-subtle);
-}
-
-.activity-item:last-child { border-bottom: none; }
-
-.activity-avatar {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: var(--primary);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size:13px;
-    font-weight: 700;
-    flex-shrink: 0;
-    margin-top: 1px;
-}
-
-.activity-content { flex: 1; min-width: 0; }
-.activity-text { font-size:15px; color: var(--text); line-height: 1.4; }
-.activity-text strong { font-weight: 600; }
-.activity-time { font-size:13px; color: var(--text-tertiary); margin-top: 2px; }
-
-/* Due soon list */
-.due-item {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-3);
-    padding: var(--sp-2) 0;
-    border-bottom: 1px solid var(--border-subtle);
-    cursor: pointer;
-    transition: background var(--transition-fast);
-}
-
-.due-item:last-child { border-bottom: none; }
-.due-item-info { flex: 1; min-width: 0; }
-.due-item-title { font-size:15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.due-item-project { font-size:13px; color: var(--text-tertiary); }
 .due-date-chip {
     font-size:13px;
     font-weight: 600;
@@ -1215,41 +1057,9 @@ select.form-control {
 .due-date-chip.today   { background: rgba(249,115,22,0.12); color: #f97316; }
 .due-date-chip.soon    { background: rgba(245,158,11,0.12); color: #f59e0b; }
 
-/* Donut chart */
-.donut-chart-wrapper {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-5);
-    padding: var(--sp-3) var(--sp-5);
-}
-
-.donut-legend {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-2);
-    flex: 1;
-}
-
-.donut-legend-item {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    font-size:14px;
-    color: var(--text-secondary);
-}
-
-.legend-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.legend-count { font-weight: 700; color: var(--text); margin-left: auto; }
-
 /* ── 9. BOARD (KANBAN) VIEW ──────────────────────────────── */
 /* Do not set display here — #view-board must stay display:none until .view.active
-   (ID-only display:flex was overriding .view and kept the board visible on Dashboard). */
+   (ID-only display:flex was overriding .view and kept the board visible on load). */
 #view-board {
     overflow: hidden;
     flex-direction: column;
@@ -3031,7 +2841,6 @@ body.task-panel-fullscreen #content-area {
         --detail-panel-width: 360px;
     }
 
-    .dashboard-row { grid-template-columns: 1fr 1fr; }
     .reports-grid  { grid-template-columns: 1fr; }
     .board-column  { width: 240px; min-width: 240px; }
 }
@@ -3065,8 +2874,6 @@ body.task-panel-fullscreen #content-area {
     .mobile-sidebar-overlay.visible { display: block; }
 
     .header-search { display: none; }
-    .dashboard-row { grid-template-columns: 1fr 1fr; }
-    .dashboard-row-2 { grid-template-columns: 1fr; }
     .panel-meta-grid { grid-template-columns: 1fr; }
 
     #task-detail-panels {

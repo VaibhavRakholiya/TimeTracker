@@ -104,12 +104,6 @@ const Sprints = (() => {
             if (e.target === document.getElementById('sprintModalScrim')) closeModal();
         });
         document.getElementById('sprintModalSave')?.addEventListener('click', save);
-
-        // View sprints from dashboard
-        document.getElementById('viewSprintsBtn')?.addEventListener('click', () => {
-            const pid = Router.getCurrentProjectId() || State.Projects.getAll()[0]?.id;
-            Router.navigate('backlog', pid);
-        });
     }
 
     return { init, openModal, closeModal };
