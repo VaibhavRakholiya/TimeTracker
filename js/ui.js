@@ -1,7 +1,7 @@
 /**
  * FlowBoard — UI Module
  * Task detail slide-in panel, toast notifications, confirm dialog,
- * command palette (Cmd+K), sidebar toggle (Cmd/Ctrl+B), theme toggle, logout, settings wiring.
+ * command palette (Cmd+P), sidebar toggle (Cmd/Ctrl+B), theme toggle, logout, settings wiring.
  */
 
 const UI = (() => {
@@ -749,6 +749,7 @@ const UI = (() => {
     // COMMAND PALETTE
     // ══════════════════════════════════════════════════════
     let _cmdSelectedIdx = 0;
+    let _cmdActions = [];
 
     function openCommandPalette() {
         const scrim = document.getElementById('command-palette-scrim');
@@ -766,12 +767,50 @@ const UI = (() => {
         document.getElementById('command-palette-scrim')?.classList.remove('open');
     }
 
+    function applyCmdSelection() {
+        const items = document.querySelectorAll('#cmdPaletteResults .command-item');
+        items.forEach((el, i) => el.classList.toggle('selected', i === _cmdSelectedIdx));
+        items[_cmdSelectedIdx]?.scrollIntoView({ block: 'nearest' });
+    }
+
+    function bindCmdItems(container) {
+        const items = container.querySelectorAll('.command-item');
+        items.forEach((el, i) => {
+            el.addEventListener('click', () => _cmdActions[i]?.());
+            el.addEventListener('mouseenter', () => {
+                _cmdSelectedIdx = i;
+                applyCmdSelection();
+            });
+        });
+        applyCmdSelection();
+    }
+
+    function handleCmdPaletteKeydown(e) {
+        const items = document.querySelectorAll('#cmdPaletteResults .command-item');
+        if (!items.length) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            _cmdSelectedIdx = Math.min(_cmdSelectedIdx + 1, items.length - 1);
+            applyCmdSelection();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            _cmdSelectedIdx = Math.max(_cmdSelectedIdx - 1, 0);
+            applyCmdSelection();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            _cmdActions[_cmdSelectedIdx]?.();
+        }
+    }
+
     function renderCmdResults(query) {
         const container = document.getElementById('cmdPaletteResults');
         if (!container) return;
 
         const q = query.toLowerCase().trim();
         let html = '';
+        _cmdActions = [];
+        _cmdSelectedIdx = 0;
 
         // ── Navigation commands ────────────────────────────
         const navCmds = [
@@ -787,26 +826,33 @@ const UI = (() => {
 
         if (filteredCmds.length) {
             html += `<div class="command-group-title">Actions</div>`;
-            html += filteredCmds.map((cmd, i) => `
-                <div class="command-item" data-cmd-idx="${i}">
+            html += filteredCmds.map(cmd => `
+                <div class="command-item">
                     <i class="fa-solid ${cmd.icon}"></i>
                     <span class="command-item-label">${cmd.label}</span>
                     ${cmd.kbd ? `<div class="command-item-kbd">${cmd.kbd.map(k=>`<kbd>${k}</kbd>`).join('')}</div>` : ''}
                 </div>
             `).join('');
+            filteredCmds.forEach(cmd => _cmdActions.push(cmd.action));
         }
 
         // ── Projects ───────────────────────────────────────
         const projects = State.Projects.getAll().filter(p => !q || p.name.toLowerCase().includes(q));
         if (projects.length) {
             html += `<div class="command-group-title">Projects</div>`;
-            html += projects.map((p, i) => `
-                <div class="command-item" data-proj-id="${p.id}">
+            html += projects.map(p => `
+                <div class="command-item">
                     <i class="fa-solid fa-folder" style="width:18px;text-align:center;color:var(--text-tertiary);font-size:14px;"></i>
                     <span class="command-item-label">${escHtml(p.name)}</span>
                     <span class="command-item-sub">Tasks</span>
                 </div>
             `).join('');
+            projects.forEach(p => {
+                _cmdActions.push(() => {
+                    closeCommandPalette();
+                    Router.navigate('backlog', p.id);
+                });
+            });
         }
 
         // ── Tasks search ───────────────────────────────────
@@ -818,12 +864,18 @@ const UI = (() => {
                 html += `<div class="command-group-title">Tasks</div>`;
                 html += tasks.map(t => {
                     const proj = t.projectId ? State.Projects.get(t.projectId) : null;
-                    return `<div class="command-item" data-task-cmd="${t.id}">
+                    return `<div class="command-item">
                         <i class="fa-solid fa-list-check"></i>
                         <span class="command-item-label">${escHtml(t.title)}</span>
                         <span class="command-item-sub">${proj ? escHtml(proj.name) : ''}</span>
                     </div>`;
                 }).join('');
+                tasks.forEach(t => {
+                    _cmdActions.push(() => {
+                        closeCommandPalette();
+                        openTaskPanel(t.id);
+                    });
+                });
             }
         }
 
@@ -832,23 +884,7 @@ const UI = (() => {
         }
 
         container.innerHTML = html;
-
-        // Bind actions
-        container.querySelectorAll('[data-cmd-idx]').forEach((el, i) => {
-            el.addEventListener('click', () => filteredCmds[i]?.action());
-        });
-        container.querySelectorAll('[data-proj-id]').forEach(el => {
-            el.addEventListener('click', () => {
-                closeCommandPalette();
-                Router.navigate('backlog', parseInt(el.dataset.projId, 10));
-            });
-        });
-        container.querySelectorAll('[data-task-cmd]').forEach(el => {
-            el.addEventListener('click', () => {
-                closeCommandPalette();
-                openTaskPanel(parseInt(el.dataset.taskCmd, 10));
-            });
-        });
+        bindCmdItems(container);
     }
 
     // ══════════════════════════════════════════════════════
@@ -905,8 +941,8 @@ const UI = (() => {
                     closeTaskPanel();
                 }
             }
-            // Cmd/Ctrl + K → command palette
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+            // Cmd/Ctrl + P → command palette
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') {
                 e.preventDefault();
                 openCommandPalette();
             }
@@ -944,6 +980,7 @@ const UI = (() => {
         document.getElementById('cmdPaletteInput')?.addEventListener('input', (e) => {
             renderCmdResults(e.target.value);
         });
+        document.getElementById('cmdPaletteInput')?.addEventListener('keydown', handleCmdPaletteKeydown);
 
         // ── Confirm dialog ─────────────────────────────────
         document.getElementById('confirmOk')?.addEventListener('click', () => {
