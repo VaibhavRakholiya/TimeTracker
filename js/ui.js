@@ -749,6 +749,7 @@ const UI = (() => {
     // COMMAND PALETTE
     // ══════════════════════════════════════════════════════
     let _cmdSelectedIdx = 0;
+    let _cmdActions = [];
 
     function openCommandPalette() {
         const scrim = document.getElementById('command-palette-scrim');
@@ -764,6 +765,23 @@ const UI = (() => {
 
     function closeCommandPalette() {
         document.getElementById('command-palette-scrim')?.classList.remove('open');
+        _cmdSelectedIdx = 0;
+        _cmdActions = [];
+    }
+
+    function updateCmdSelection(scroll = true) {
+        const container = document.getElementById('cmdPaletteResults');
+        if (!container) return;
+        container.querySelectorAll('.command-item').forEach(el => {
+            el.classList.toggle('selected', parseInt(el.dataset.cmdItemIdx, 10) === _cmdSelectedIdx);
+        });
+        if (scroll) {
+            container.querySelector('.command-item.selected')?.scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    function activateCmdSelection() {
+        _cmdActions[_cmdSelectedIdx]?.();
     }
 
     function renderCmdResults(query) {
@@ -772,6 +790,8 @@ const UI = (() => {
 
         const q = query.toLowerCase().trim();
         let html = '';
+        _cmdActions = [];
+        let itemIdx = 0;
 
         // ── Navigation commands ────────────────────────────
         const navCmds = [
@@ -787,26 +807,35 @@ const UI = (() => {
 
         if (filteredCmds.length) {
             html += `<div class="command-group-title">Actions</div>`;
-            html += filteredCmds.map((cmd, i) => `
-                <div class="command-item" data-cmd-idx="${i}">
+            html += filteredCmds.map(cmd => {
+                const idx = itemIdx++;
+                _cmdActions.push(cmd.action);
+                return `
+                <div class="command-item" data-cmd-item-idx="${idx}">
                     <i class="fa-solid ${cmd.icon}"></i>
                     <span class="command-item-label">${cmd.label}</span>
                     ${cmd.kbd ? `<div class="command-item-kbd">${cmd.kbd.map(k=>`<kbd>${k}</kbd>`).join('')}</div>` : ''}
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
 
         // ── Projects ───────────────────────────────────────
         const projects = State.Projects.getAll().filter(p => !q || p.name.toLowerCase().includes(q));
         if (projects.length) {
             html += `<div class="command-group-title">Projects</div>`;
-            html += projects.map((p, i) => `
-                <div class="command-item" data-proj-id="${p.id}">
+            html += projects.map(p => {
+                const idx = itemIdx++;
+                _cmdActions.push(() => {
+                    closeCommandPalette();
+                    Router.navigate('backlog', p.id);
+                });
+                return `
+                <div class="command-item" data-cmd-item-idx="${idx}">
                     <i class="fa-solid fa-folder" style="width:18px;text-align:center;color:var(--text-tertiary);font-size:14px;"></i>
                     <span class="command-item-label">${escHtml(p.name)}</span>
                     <span class="command-item-sub">Tasks</span>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
 
         // ── Tasks search ───────────────────────────────────
@@ -817,8 +846,14 @@ const UI = (() => {
             if (tasks.length) {
                 html += `<div class="command-group-title">Tasks</div>`;
                 html += tasks.map(t => {
+                    const idx = itemIdx++;
+                    _cmdActions.push(() => {
+                        closeCommandPalette();
+                        openTaskPanel(t.id);
+                    });
                     const proj = t.projectId ? State.Projects.get(t.projectId) : null;
-                    return `<div class="command-item" data-task-cmd="${t.id}">
+                    return `
+                    <div class="command-item" data-cmd-item-idx="${idx}">
                         <i class="fa-solid fa-list-check"></i>
                         <span class="command-item-label">${escHtml(t.title)}</span>
                         <span class="command-item-sub">${proj ? escHtml(proj.name) : ''}</span>
@@ -831,24 +866,19 @@ const UI = (() => {
             html = `<div class="command-palette-empty">No results for "${escHtml(query)}"</div>`;
         }
 
+        _cmdSelectedIdx = 0;
         container.innerHTML = html;
 
-        // Bind actions
-        container.querySelectorAll('[data-cmd-idx]').forEach((el, i) => {
-            el.addEventListener('click', () => filteredCmds[i]?.action());
-        });
-        container.querySelectorAll('[data-proj-id]').forEach(el => {
-            el.addEventListener('click', () => {
-                closeCommandPalette();
-                Router.navigate('backlog', parseInt(el.dataset.projId, 10));
+        container.querySelectorAll('[data-cmd-item-idx]').forEach(el => {
+            const idx = parseInt(el.dataset.cmdItemIdx, 10);
+            el.addEventListener('click', () => _cmdActions[idx]?.());
+            el.addEventListener('mouseenter', () => {
+                _cmdSelectedIdx = idx;
+                updateCmdSelection(false);
             });
         });
-        container.querySelectorAll('[data-task-cmd]').forEach(el => {
-            el.addEventListener('click', () => {
-                closeCommandPalette();
-                openTaskPanel(parseInt(el.dataset.taskCmd, 10));
-            });
-        });
+
+        updateCmdSelection(false);
     }
 
     // ══════════════════════════════════════════════════════
@@ -943,6 +973,21 @@ const UI = (() => {
         });
         document.getElementById('cmdPaletteInput')?.addEventListener('input', (e) => {
             renderCmdResults(e.target.value);
+        });
+        document.getElementById('cmdPaletteInput')?.addEventListener('keydown', (e) => {
+            if (!_cmdActions.length) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                _cmdSelectedIdx = (_cmdSelectedIdx + 1) % _cmdActions.length;
+                updateCmdSelection();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                _cmdSelectedIdx = (_cmdSelectedIdx - 1 + _cmdActions.length) % _cmdActions.length;
+                updateCmdSelection();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                activateCmdSelection();
+            }
         });
 
         // ── Confirm dialog ─────────────────────────────────
