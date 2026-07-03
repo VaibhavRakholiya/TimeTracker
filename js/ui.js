@@ -827,7 +827,7 @@ const UI = (() => {
                 const idx = itemIdx++;
                 _cmdActions.push(() => {
                     closeCommandPalette();
-                    Router.navigate('backlog', p.id);
+                    Router.navigate('board', p.id);
                 });
                 return `
                 <div class="command-item" data-cmd-item-idx="${idx}">
