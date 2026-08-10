@@ -27,7 +27,7 @@ const Projects = (() => {
 
         if (!projects.length) {
             container.innerHTML = `
-                <div style="padding:8px 16px;font-size:14px;color:var(--text-tertiary);">
+                <div class="sidebar-empty-note">
                     No projects yet
                 </div>`;
             return;

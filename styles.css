@@ -9,22 +9,35 @@
     --font-display: "Inter Tight", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Fira Code", Menlo, Consolas, monospace;
 
-    /* Typography scale */
+    /* ── Type scale ────────────────────────────────────────
+       Each rung has one job. Sizes below 14px are for supporting
+       text only — never for anything the user has to read at length.
+
+         2xs  11  uppercase eyebrows, kbd caps, badge counts
+         xs   12  captions, timestamps, table column headers
+         sm   13  dense tabular content, chips, inline metadata
+         base 14  DEFAULT — body, buttons, nav, labels, row titles
+         lg   16  text inputs, panel titles, emphasised body
+         xl   20  view titles
+         2xl  24  page hero, dashboard stat values
+         3xl  30  timer numerals
+         display 38  login hero
+    */
     --text-2xs: 11px;
     --text-xs: 12px;
     --text-sm: 13px;
     --text-base: 14px;
-    --text-md: 15px;
-    --text-lg: 17px;
+    --text-lg: 16px;
     --text-xl: 20px;
     --text-2xl: 24px;
-    --text-3xl: 32px;
-    --text-display: 44px;
+    --text-3xl: 30px;
+    --text-display: 38px;
 
-    /* Line heights */
-    --lh-tight: 1.25;
-    --lh-snug: 1.4;
-    --lh-normal: 1.6;
+    /* Line heights, paired to the rungs above */
+    --lh-tight: 1.2;    /* display + numerals */
+    --lh-heading: 1.3;  /* xl / 2xl headings */
+    --lh-snug: 1.45;    /* UI text, single-line controls */
+    --lh-normal: 1.6;   /* prose: descriptions, comments, body copy */
 
     /* Font weights */
     --fw-normal: 400;
@@ -256,9 +269,10 @@ html {
 
 body {
     font-family: var(--font-sans);
+    font-size: var(--text-base);
     background: var(--bg);
     color: var(--text);
-    line-height: var(--lh-normal);
+    line-height: var(--lh-snug);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
@@ -399,7 +413,7 @@ img, svg { display: block; max-width: 100%; }
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     color: var(--text-on-brand);
 }
 
@@ -450,7 +464,7 @@ img, svg { display: block; max-width: 100%; }
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast);
     color: var(--text-secondary);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     font-weight: var(--fw-medium);
     user-select: none;
 }
@@ -507,7 +521,7 @@ img, svg { display: block; max-width: 100%; }
     cursor: pointer;
     transition: background var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast);
     color: var(--text-secondary);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
 }
 
 .project-item:hover { background: var(--sidebar-item-hover); color: var(--text); }
@@ -617,7 +631,7 @@ img, svg { display: block; max-width: 100%; }
     overflow: hidden;
 }
 
-.user-name { font-size: var(--text-md); font-weight: var(--fw-semibold); line-height: 1.3; }
+.user-name { font-size: var(--text-base); font-weight: var(--fw-semibold); line-height: var(--lh-heading); }
 .user-role { font-size: var(--text-sm); color: var(--text-tertiary); }
 
 /* ── MAIN AREA ───────────────────────────────────────────── */
@@ -664,7 +678,7 @@ img, svg { display: block; max-width: 100%; }
     display: flex;
     align-items: center;
     gap: var(--sp-2);
-    font-size: var(--text-lg);
+    font-size: var(--text-base);
     color: var(--text-secondary);
     white-space: nowrap;
     flex-shrink: 0;
@@ -696,8 +710,8 @@ img, svg { display: block; max-width: 100%; }
     background: var(--input-bg-focus);
 }
 
-.header-search i { color: var(--text-tertiary); font-size: var(--text-md); }
-.header-search-text { color: var(--text-tertiary); font-size: var(--text-md); flex: 1; text-align: left; }
+.header-search i { color: var(--text-tertiary); font-size: var(--text-base); }
+.header-search-text { color: var(--text-tertiary); font-size: var(--text-base); flex: 1; text-align: left; }
 .header-search-kbd {
     display: flex;
     gap: 2px;
@@ -799,15 +813,16 @@ img, svg { display: block; max-width: 100%; }
     font-family: var(--font-display);
     font-size: var(--text-xl);
     font-weight: var(--fw-semibold);
-    line-height: var(--lh-tight);
-    letter-spacing: -0.3px;
+    line-height: var(--lh-heading);
+    letter-spacing: -0.2px;
     color: var(--text);
     margin: 0;
 }
 
 .view-subtitle {
-    font-size: var(--text-md);
+    font-size: var(--text-sm);
     color: var(--text-tertiary);
+    line-height: var(--lh-snug);
     margin-top: 2px;
 }
 
@@ -884,14 +899,15 @@ img, svg { display: block; max-width: 100%; }
     gap: var(--sp-2);
     padding: 7px 14px;
     border-radius: var(--radius-md);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     font-weight: var(--fw-medium);
+    line-height: var(--lh-snug);
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast),
                 border-color var(--transition-fast), box-shadow var(--transition-fast),
                 opacity var(--transition-fast);
     border: 1px solid transparent;
-    line-height: 1.4;
+    line-height: var(--lh-snug);
     white-space: nowrap;
     user-select: none;
 }
@@ -933,7 +949,7 @@ img, svg { display: block; max-width: 100%; }
 }
 .btn-success:hover { background: color-mix(in srgb, var(--status-done) 24%, transparent); }
 
-.btn-sm { padding: 4px 10px; font-size: var(--text-base); }
+.btn-sm { padding: 5px 10px; font-size: var(--text-sm); }
 .btn-lg { padding: 10px 20px; font-size: var(--text-lg); font-weight: var(--fw-semibold); }
 .btn-icon {
     width: 32px;
@@ -946,8 +962,8 @@ img, svg { display: block; max-width: 100%; }
 .btn-icon.btn-sm { width: 26px; height: 26px; border-radius: var(--radius-sm); }
 .btn-icon.btn-lg { width: 40px; height: 40px; }
 
-.btn i { font-size: var(--text-md); }
-.btn-sm i { font-size: var(--text-sm); }
+.btn i { font-size: var(--text-sm); }
+.btn-sm i { font-size: var(--text-xs); }
 
 /* ── 5. FORM ELEMENTS ────────────────────────────────────── */
 .form-group {
@@ -957,10 +973,10 @@ img, svg { display: block; max-width: 100%; }
 }
 
 .form-label {
-    font-size: var(--text-base);
-    font-weight: var(--fw-semibold);
+    font-size: var(--text-sm);
+    font-weight: var(--fw-medium);
     color: var(--text-secondary);
-    letter-spacing: 0.02em;
+    line-height: var(--lh-snug);
 }
 
 .form-control {
@@ -972,7 +988,7 @@ img, svg { display: block; max-width: 100%; }
     font-size: var(--text-lg);
     color: var(--text);
     transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
-    line-height: 1.5;
+    line-height: var(--lh-snug);
 }
 
 .form-control::placeholder { color: var(--input-placeholder); }
@@ -1067,7 +1083,7 @@ select.form-control {
     font-size: var(--text-sm);
     font-weight: var(--fw-semibold);
     white-space: nowrap;
-    line-height: 1.4;
+    line-height: var(--lh-snug);
 }
 
 .badge-priority-critical { background: var(--priority-critical-bg); color: var(--priority-critical); }
@@ -1185,7 +1201,7 @@ select.form-control {
 .board-list-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: var(--text-md);
+    font-size: var(--text-base);
 }
 
 .board-list-table th {
@@ -1300,7 +1316,7 @@ select.form-control {
 }
 
 .column-name {
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     font-weight: var(--fw-bold);
     letter-spacing: 0.02em;
     text-transform: uppercase;
@@ -1356,7 +1372,7 @@ select.form-control {
     padding: var(--sp-2) var(--sp-3);
     border-radius: var(--radius-md);
     color: var(--text-tertiary);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     transition: background var(--transition-fast), color var(--transition-fast);
     border: 1px dashed transparent;
 }
@@ -1404,10 +1420,10 @@ select.form-control {
 }
 
 .task-card-title {
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     font-weight: var(--fw-medium);
     color: var(--text);
-    line-height: 1.4;
+    line-height: var(--lh-snug);
     flex: 1;
     word-break: break-word;
 }
@@ -1620,7 +1636,7 @@ select.form-control {
 
 .backlog-task-title {
     flex: 1;
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     font-weight: var(--fw-medium);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1650,7 +1666,7 @@ select.form-control {
 }
 
 .empty-backlog i { font-size: var(--text-display); opacity: 0.4; }
-.empty-backlog p { font-size: var(--text-md); }
+.empty-backlog p { font-size: var(--text-base); }
 
 /* ── 11. TIMELINE VIEW ───────────────────────────────────── */
 #view-timeline {
@@ -1729,7 +1745,7 @@ select.form-control {
     min-width: 220px;
     flex-shrink: 0;
     padding: var(--sp-2) var(--sp-4);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     font-weight: var(--fw-medium);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1862,7 +1878,7 @@ select.form-control {
 .time-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: var(--text-md);
+    font-size: var(--text-base);
 }
 
 .time-table th {
@@ -2008,7 +2024,7 @@ body.task-panel-fullscreen #content-area {
 
 .task-detail-panel .panel-expand-btn i,
 .task-detail-panel .panel-close i {
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     pointer-events: none;
 }
 
@@ -2037,7 +2053,7 @@ body.task-panel-fullscreen #content-area {
     font-size: var(--text-2xl);
     font-weight: var(--fw-bold);
     color: var(--text);
-    line-height: 1.35;
+    line-height: var(--lh-heading);
     margin-bottom: var(--sp-2);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
@@ -2171,7 +2187,7 @@ body.task-panel-fullscreen #content-area {
 
 .panel-description {
     font-size: var(--text-lg);
-    line-height: 1.6;
+    line-height: var(--lh-normal);
     color: var(--text);
     white-space: pre-wrap;
     word-break: break-word;
@@ -2296,7 +2312,7 @@ body.task-panel-fullscreen #content-area {
 
 .subtask-text {
     flex: 1;
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     color: var(--text);
     cursor: text;
     outline: none;
@@ -2339,7 +2355,7 @@ body.task-panel-fullscreen #content-area {
     border-radius: var(--radius-sm);
     cursor: pointer;
     color: var(--text-tertiary);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     transition: background var(--transition-fast), color var(--transition-fast);
 }
 
@@ -2396,7 +2412,7 @@ body.task-panel-fullscreen #content-area {
 .comment-header { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: 3px; }
 .comment-author { font-size: var(--text-base); font-weight: var(--fw-bold); }
 .comment-time { font-size: var(--text-sm); color: var(--text-tertiary); }
-.comment-text { font-size: var(--text-md); color: var(--text-secondary); line-height: 1.5; word-break: break-word; }
+.comment-text { font-size: var(--text-base); color: var(--text-secondary); line-height: var(--lh-normal); word-break: break-word; }
 
 .comment-input-row {
     display: flex;
@@ -2410,11 +2426,11 @@ body.task-panel-fullscreen #content-area {
     border: 1px solid var(--input-border);
     border-radius: var(--radius-md);
     padding: 7px 12px;
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     color: var(--text);
     resize: none;
     transition: border-color var(--transition-fast);
-    line-height: 1.5;
+    line-height: var(--lh-snug);
     min-height: 38px;
 }
 
@@ -2607,9 +2623,9 @@ body.task-panel-fullscreen #content-area {
     background: var(--surface-hover);
 }
 
-.command-item i { width: 18px; text-align: center; color: var(--text-tertiary); font-size: var(--text-md); }
+.command-item i { width: 18px; text-align: center; color: var(--text-tertiary); font-size: var(--text-base); }
 
-.command-item-label { font-size: var(--text-lg); flex: 1; }
+.command-item-label { font-size: var(--text-base); flex: 1; }
 .command-item-sub { font-size: var(--text-sm); color: var(--text-tertiary); }
 
 .command-item-kbd {
@@ -2630,7 +2646,7 @@ body.task-panel-fullscreen #content-area {
     padding: var(--sp-8) var(--sp-4);
     text-align: center;
     color: var(--text-tertiary);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
 }
 
 /* ── 16. TOAST NOTIFICATIONS ─────────────────────────────── */
@@ -2688,7 +2704,7 @@ body.task-panel-fullscreen #content-area {
 .toast-info    .toast-icon { background: rgba(99,102,241,0.15); color: var(--primary); }
 
 .toast-content { flex: 1; min-width: 0; }
-.toast-title { font-size: var(--text-md); font-weight: var(--fw-semibold); }
+.toast-title { font-size: var(--text-sm); font-weight: var(--fw-semibold); }
 .toast-message { font-size: var(--text-base); color: var(--text-secondary); margin-top: 1px; }
 
 .toast-close {
@@ -2763,7 +2779,7 @@ body.task-panel-fullscreen #content-area {
     background: none;
     border: none;
     outline: none;
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     color: var(--text);
 }
 
@@ -2795,7 +2811,7 @@ body.task-panel-fullscreen #content-area {
     margin: 0;
 }
 
-.empty-state-desc { font-size: var(--text-md); max-width: 340px; line-height: var(--lh-snug); margin: 0; }
+.empty-state-desc { font-size: var(--text-sm); max-width: 340px; line-height: var(--lh-normal); margin: 0; }
 
 /* ── 19. PROJECT SETTINGS PANEL ──────────────────────────── */
 .settings-section {
@@ -2804,7 +2820,7 @@ body.task-panel-fullscreen #content-area {
 
 .settings-section-title {
     font-family: var(--font-display);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     font-weight: var(--fw-bold);
     color: var(--text);
     margin: 0 0 var(--sp-3);
@@ -2871,7 +2887,7 @@ body.task-panel-fullscreen #content-area {
     align-items: center;
     gap: var(--sp-2);
     padding: var(--sp-2) var(--sp-4);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     color: var(--text-secondary);
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast);
@@ -2908,7 +2924,7 @@ body.task-panel-fullscreen #content-area {
     border: 1px solid var(--input-border);
     border-radius: var(--radius-md);
     padding: 6px 10px;
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     color: var(--text);
 }
 
@@ -2931,12 +2947,16 @@ body.task-panel-fullscreen #content-area {
 .font-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 /* Layout helpers replacing former inline styles */
+.sidebar-empty-note { padding: var(--sp-2) var(--sp-4); font-size: var(--text-sm); color: var(--text-tertiary); }
+.task-card-assignee--xs { width: 20px; height: 20px; font-size: var(--text-2xs); }
+.checkbox-tick { font-size: var(--text-2xs); color: var(--text-on-brand); }
+.panel-meta-input { padding: 4px 8px; font-size: var(--text-base); }
 .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
 .view-actions--wrap { flex-wrap: wrap; gap: var(--sp-2); }
 .form-control--inline { width: auto; font-size: var(--text-base); padding: 5px 28px 5px 10px; }
 input.form-control--inline { padding: 5px 10px; }
 .form-required { color: var(--priority-critical); }
-.confirm-message { font-size: var(--text-lg); color: var(--text-secondary); line-height: var(--lh-normal); }
+.confirm-message { font-size: var(--text-base); color: var(--text-secondary); line-height: var(--lh-normal); }
 .user-avatar--lg { width: 40px; height: 40px; font-size: var(--text-lg); }
 #content-area:focus { outline: none; }
 
@@ -3109,7 +3129,7 @@ input.form-control--inline { padding: 5px 10px; }
     align-items: center;
     gap: var(--sp-3);
     color: var(--text-secondary);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
 }
 
 .login-feature-icon {
@@ -3162,7 +3182,7 @@ input.form-control--inline { padding: 5px 10px; }
 }
 
 .login-form-subtitle {
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     color: var(--text-tertiary);
     margin: 0 0 var(--sp-6);
 }
@@ -3192,7 +3212,7 @@ input.form-control--inline { padding: 5px 10px; }
 }
 
 .login-form-group { display: flex; flex-direction: column; gap: var(--sp-1); }
-.login-form-label { font-size: var(--text-md); font-weight: var(--fw-semibold); color: var(--text-secondary); }
+.login-form-label { font-size: var(--text-sm); font-weight: var(--fw-medium); color: var(--text-secondary); }
 
 .login-form-input {
         width: 100%;
@@ -3605,7 +3625,7 @@ input.form-control--inline { padding: 5px 10px; }
 .modal--sm { width: 420px; }
 
 .panel-meta-value--row { gap: 6px; }
-.panel-meta-text { font-size: var(--text-md); }
+.panel-meta-text { font-size: var(--text-base); }
 .panel-meta-select { padding: 4px 28px 4px 8px; font-size: var(--text-base); }
 
 /* ── 36. DASHBOARD ───────────────────────────────────────── */
@@ -3643,9 +3663,9 @@ input.form-control--inline { padding: 5px 10px; }
 
 .dash-stat-value {
     font-family: var(--font-display);
-    font-size: var(--text-xl);
-    font-weight: var(--fw-bold);
-    letter-spacing: -0.5px;
+    font-size: var(--text-2xl);
+    font-weight: var(--fw-semibold);
+    letter-spacing: -0.4px;
     font-variant-numeric: tabular-nums;
     color: var(--text);
     line-height: var(--lh-tight);
@@ -3688,7 +3708,7 @@ input.form-control--inline { padding: 5px 10px; }
 .dash-card-total {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     font-weight: var(--fw-semibold);
     color: var(--text);
 }
@@ -3718,7 +3738,7 @@ input.form-control--inline { padding: 5px 10px; }
 }
 
 .dash-now-empty {
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     font-weight: var(--fw-medium);
     color: var(--text-tertiary);
     margin: 0;
@@ -3728,7 +3748,7 @@ input.form-control--inline { padding: 5px 10px; }
     display: flex;
     align-items: center;
     gap: var(--sp-2);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     font-weight: var(--fw-medium);
     color: var(--text);
     text-align: left;

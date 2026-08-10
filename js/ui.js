@@ -471,7 +471,7 @@ const UI = (() => {
                 <div class="panel-meta-item">
                     <div class="panel-meta-label">Status</div>
                     <div class="panel-meta-value">
-                        <select class="form-control" id="panelStatusSel-${tid}" style="padding:4px 28px 4px 8px;font-size:14px;">
+                        <select class="form-control panel-meta-select" id="panelStatusSel-${tid}">
                             ${columns.map(c => `<option value="${c.id}"${c.id === task.columnId ? ' selected' : ''}
                                 style="color:${c.color};">${escHtml(c.name)}</option>`).join('')}
                         </select>
@@ -482,7 +482,7 @@ const UI = (() => {
                     <div class="panel-meta-value">
                         <input type="date" class="form-control" id="panelDueDate-${tid}"
                                value="${task.dueDate || ''}"
-                               style="padding:4px 8px;font-size:14px;" />
+                               class="panel-meta-input" />
                     </div>
                 </div>
                 <div class="panel-meta-item">
@@ -541,8 +541,8 @@ const UI = (() => {
                     ${task.timeEstimate ? `
                     <div class="time-progress-wrap">
                         <div class="time-progress-labels">
-                            <span>0</span>
-                            <span>${Tasks.formatHours(task.timeEstimate)} est.</span>
+                            <span>${Tasks.formatHours(task.timeSpent)} of ${Tasks.formatHours(task.timeEstimate)}</span>
+                            <span>${task.timeSpent > task.timeEstimate ? 'over estimate' : 'estimated'}</span>
                         </div>
                         <div class="progress-bar">
                             <div class="progress-fill${task.timeSpent >= task.timeEstimate ? ' danger' : ''}"
@@ -1093,7 +1093,7 @@ const UI = (() => {
                 });
                 return `
                 <div class="command-item" data-cmd-item-idx="${idx}">
-                    <i class="fa-solid fa-folder" style="width:18px;text-align:center;color:var(--text-tertiary);font-size:14px;"></i>
+                    <i class="fa-solid fa-folder" aria-hidden="true"></i>
                     <span class="command-item-label">${escHtml(p.name)}</span>
                     <span class="command-item-sub">Tasks</span>
                 </div>`;
