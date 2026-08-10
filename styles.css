@@ -601,8 +601,9 @@ img, svg { display: block; max-width: 100%; }
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background: var(--primary);
-    color: var(--text-on-brand);
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -796,10 +797,10 @@ img, svg { display: block; max-width: 100%; }
 
 .view-title {
     font-family: var(--font-display);
-    font-size: var(--text-2xl);
-    font-weight: var(--fw-bold);
+    font-size: var(--text-xl);
+    font-weight: var(--fw-semibold);
     line-height: var(--lh-tight);
-    letter-spacing: -0.5px;
+    letter-spacing: -0.3px;
     color: var(--text);
     margin: 0;
 }
@@ -1455,10 +1456,11 @@ select.form-control {
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    background: var(--primary);
-    color: var(--text-on-brand);
+    background: var(--surface-overlay);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
     font-size: var(--text-2xs);
-    font-weight: var(--fw-bold);
+    font-weight: var(--fw-semibold);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3626,12 +3628,9 @@ input.form-control--inline { padding: 5px 10px; }
     flex-direction: column;
     gap: 2px;
     padding: var(--sp-4);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     background: var(--card-bg);
     border: 1px solid var(--card-border);
-    box-shadow: var(--card-shadow);
-    position: relative;
-    overflow: hidden;
 }
 
 .dash-stat--danger .dash-stat-value { color: var(--priority-critical); }
@@ -3644,7 +3643,7 @@ input.form-control--inline { padding: 5px 10px; }
 
 .dash-stat-value {
     font-family: var(--font-display);
-    font-size: var(--text-2xl);
+    font-size: var(--text-xl);
     font-weight: var(--fw-bold);
     letter-spacing: -0.5px;
     font-variant-numeric: tabular-nums;
@@ -3667,11 +3666,10 @@ input.form-control--inline { padding: 5px 10px; }
 }
 
 .dash-card {
-    padding: var(--sp-5);
-    border-radius: var(--radius-lg);
+    padding: var(--sp-4) var(--sp-5) var(--sp-5);
+    border-radius: var(--radius-md);
     background: var(--card-bg);
     border: 1px solid var(--card-border);
-    box-shadow: var(--card-shadow);
     min-width: 0;
 }
 
@@ -3707,10 +3705,11 @@ input.form-control--inline { padding: 5px 10px; }
 
 /* The running-timer card is the hero — give it the brand treatment */
 .dash-card--now { border-color: var(--border-strong); }
+.dash-card--now.is-idle { border-color: var(--card-border); }
 
 .dash-now-timer {
     font-family: var(--font-mono);
-    font-size: var(--text-3xl);
+    font-size: var(--text-2xl);
     font-weight: var(--fw-bold);
     font-variant-numeric: tabular-nums;
     letter-spacing: -1px;
@@ -3719,9 +3718,8 @@ input.form-control--inline { padding: 5px 10px; }
 }
 
 .dash-now-empty {
-    font-family: var(--font-display);
-    font-size: var(--text-xl);
-    font-weight: var(--fw-semibold);
+    font-size: var(--text-md);
+    font-weight: var(--fw-medium);
     color: var(--text-tertiary);
     margin: 0;
 }
