@@ -166,9 +166,8 @@ const Timeline = (() => {
         return d;
     }
 
-    function escHtml(str) {
-        return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
+    // Delegates to the shared helper in ui.js (loaded last, so resolve at call time).
+    function escHtml(str) { return UI.escHtml(str); }
 
     function init() {
         // Zoom toggles

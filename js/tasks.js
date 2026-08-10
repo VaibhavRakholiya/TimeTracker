@@ -58,8 +58,33 @@ const Tasks = (() => {
         return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
     }
 
-    function escHtml(str) {
-        return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    // Delegates to the shared helper in ui.js (loaded last, so resolve at call time).
+    function escHtml(str) { return UI.escHtml(str); }
+
+    // ── Priority ──────────────────────────────────────────
+    const PRIORITIES = [
+        { id: 'critical', label: 'Critical' },
+        { id: 'high',     label: 'High'     },
+        { id: 'medium',   label: 'Medium'   },
+        { id: 'low',      label: 'Low'      },
+    ];
+
+    function priorityLabel(p) {
+        return (PRIORITIES.find(x => x.id === p) || PRIORITIES[2]).label;
+    }
+
+    /** Small colour dot carrying the priority, with an accessible label. */
+    function priorityDot(priority) {
+        const p = PRIORITIES.some(x => x.id === priority) ? priority : 'medium';
+        return `<span class="priority-dot priority-${p}" title="${priorityLabel(p)} priority">
+                    <span class="sr-only">${priorityLabel(p)} priority</span>
+                </span>`;
+    }
+
+    function priorityOptions(selected) {
+        const cur = PRIORITIES.some(x => x.id === selected) ? selected : 'medium';
+        return PRIORITIES.map(p =>
+            `<option value="${p.id}"${p.id === cur ? ' selected' : ''}>${p.label}</option>`).join('');
     }
 
     const DESC_ALLOWED_TAGS = new Set([
@@ -486,6 +511,7 @@ const Tasks = (() => {
             document.getElementById('taskModalDueDate').value     = task.dueDate   || '';
             document.getElementById('taskModalStartDate').value   = task.startDate || '';
             document.getElementById('taskModalEstimate').value    = task.timeEstimate || '';
+            document.getElementById('taskModalPriority').value    = task.priority || 'medium';
             if (task.projectId) {
                 projSel.value = task.projectId;
                 Projects.populateColumnSelect(colSel, task.projectId);
@@ -502,6 +528,7 @@ const Tasks = (() => {
             document.getElementById('taskModalDueDate').value     = '';
             document.getElementById('taskModalStartDate').value   = '';
             document.getElementById('taskModalEstimate').value    = '';
+            document.getElementById('taskModalPriority').value    = defaults?.priority || 'medium';
 
             const defaultProjId = defaults?.projectId || Router.getCurrentProjectId();
             if (defaultProjId) {
@@ -578,6 +605,7 @@ const Tasks = (() => {
         const colId    = document.getElementById('taskModalColumn').value || null;
         const sprintId = parseInt(document.getElementById('taskModalSprint').value, 10) || null;
         const estimate = parseFloat(document.getElementById('taskModalEstimate').value) || null;
+        const priority = document.getElementById('taskModalPriority').value || 'medium';
 
         if (!projId || !State.Projects.get(projId)) {
             UI.toast('A project is required', 'error');
@@ -591,6 +619,7 @@ const Tasks = (() => {
             dueDate:       document.getElementById('taskModalDueDate').value   || null,
             startDate:     document.getElementById('taskModalStartDate').value || null,
             timeEstimate:  estimate,
+            priority,
             projectId:     projId,
             columnId:      colId || (projId ? State.getFirstColumn(projId)?.id : null),
             sprintId,
@@ -744,6 +773,7 @@ const Tasks = (() => {
         buildTaskCard, buildTaskRow,
         renderMyTasks, formatDueDate, formatTime, formatHours, formatElapsed,
         escHtml, hexToRgba, isDoneColumn, subtaskProgress,
+        PRIORITIES, priorityDot, priorityLabel, priorityOptions,
         normalizeDescription, setDescriptionElement, getDescriptionFromElement,
         bindDescriptionTabKey, sanitizeDescriptionHtml,
     };

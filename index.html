@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FlowBoard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&family=JetBrains+Mono:wght@500;600&display=swap">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#6366f1">
+    <meta name="theme-color" content="#8b5cf6">
     <script>
         (function() {
             if (localStorage.getItem('isLoggedIn') !== 'true') {
@@ -20,6 +23,8 @@
     </script>
 </head>
 <body>
+    <a class="skip-link" href="#content-area">Skip to content</a>
+
     <!-- Mobile sidebar overlay -->
     <div class="mobile-sidebar-overlay" id="mobileSidebarOverlay"></div>
 
@@ -37,41 +42,57 @@
             <!-- Body -->
             <div class="sidebar-body">
                 <!-- Main navigation -->
-                <div class="sidebar-section-title">Navigation</div>
+                <h2 class="sidebar-section-title" id="navSectionLabel">Navigation</h2>
 
-                <div class="nav-item" data-route="mytasks" id="nav-mytasks">
-                    <i class="fa-solid fa-check-circle"></i>
-                    <span class="nav-label">My Tasks</span>
-                    <span class="nav-badge" id="myTasksBadge" style="display:none;">0</span>
+                <div class="nav-group" role="group" aria-labelledby="navSectionLabel">
+                    <button type="button" class="nav-item" data-route="dashboard" id="nav-dashboard">
+                        <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
+                        <span class="nav-label">Dashboard</span>
+                    </button>
+                    <button type="button" class="nav-item" data-route="mytasks" id="nav-mytasks">
+                        <i class="fa-solid fa-check-circle" aria-hidden="true"></i>
+                        <span class="nav-label">My Tasks</span>
+                        <span class="nav-badge" id="myTasksBadge" style="display:none;">0</span>
+                    </button>
+                    <button type="button" class="nav-item" data-route="backlog" id="nav-backlog">
+                        <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+                        <span class="nav-label">Backlog</span>
+                    </button>
+                    <button type="button" class="nav-item" data-route="timeline" id="nav-timeline">
+                        <i class="fa-solid fa-chart-gantt" aria-hidden="true"></i>
+                        <span class="nav-label">Timeline</span>
+                    </button>
                 </div>
 
                 <div class="sidebar-separator"></div>
 
                 <!-- Projects -->
-                <div style="display:flex;align-items:center;padding:12px 16px 4px;">
-                    <span class="sidebar-section-title" style="padding:0;flex:1;">Projects</span>
-                    <button class="btn btn-ghost btn-icon btn-sm" id="addProjectBtn" title="New project" style="flex-shrink:0;">
-                        <i class="fa-solid fa-plus"></i>
+                <div class="sidebar-section-head">
+                    <h2 class="sidebar-section-title" id="projectsSectionLabel">Projects</h2>
+                    <button class="btn btn-ghost btn-icon btn-sm" id="addProjectBtn" title="New project" aria-label="New project">
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i>
                     </button>
                 </div>
 
-                <div class="sidebar-projects" id="sidebarProjects">
+                <div class="sidebar-projects" id="sidebarProjects" role="group" aria-labelledby="projectsSectionLabel">
                     <!-- Populated by projects.js -->
                 </div>
 
                 <div class="sidebar-separator"></div>
 
                 <!-- Secondary nav -->
-                <div class="nav-item" data-route="reports" id="nav-reports">
-                    <i class="fa-solid fa-chart-bar"></i>
-                    <span class="nav-label">Reports</span>
-                </div>
+                <div class="nav-group" role="group" aria-label="Workspace">
+                    <button type="button" class="nav-item" data-route="reports" id="nav-reports">
+                        <i class="fa-solid fa-chart-bar" aria-hidden="true"></i>
+                        <span class="nav-label">Reports</span>
+                    </button>
 
-                <div class="nav-item" id="nav-settings" data-route="settings">
-                    <i class="fa-solid fa-gear"></i>
-                    <span class="nav-label">Settings</span>
-        </div>
-    </div>
+                    <button type="button" class="nav-item" id="nav-settings" data-route="settings">
+                        <i class="fa-solid fa-gear" aria-hidden="true"></i>
+                        <span class="nav-label">Settings</span>
+                    </button>
+                </div>
+            </div>
 
             <!-- Footer / User -->
             <div class="sidebar-footer">
@@ -92,52 +113,79 @@
         <div id="main-area">
             <!-- ─────────────────────────────────── HEADER ── -->
             <header id="app-header">
-                <button class="header-sidebar-toggle" id="sidebarToggle" type="button" title="Toggle sidebar (Ctrl+B or ⌘B)">
-                    <i class="fa-solid fa-bars"></i>
+                <button class="header-sidebar-toggle" id="sidebarToggle" type="button" title="Toggle sidebar (Ctrl+B or ⌘B)" aria-label="Toggle sidebar" aria-expanded="true" aria-controls="sidebar">
+                    <i class="fa-solid fa-bars" aria-hidden="true"></i>
                 </button>
 
                 <!-- Breadcrumb -->
-                <div class="header-breadcrumb" id="headerBreadcrumb">
+                <div class="header-breadcrumb" id="headerBreadcrumb" aria-label="Breadcrumb">
                     <strong>My Tasks</strong>
         </div>
 
                 <div class="header-spacer"></div>
 
                 <!-- Search / Command Palette trigger -->
-                <div class="header-search" id="cmdPaletteTrigger" role="button" tabindex="0">
-                    <i class="fa-solid fa-magnifying-glass"></i>
+                <button type="button" class="header-search" id="cmdPaletteTrigger" aria-label="Search or jump to (Command K)">
+                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                     <span class="header-search-text">Search or jump to…</span>
-                    <div class="header-search-kbd">
+                    <span class="header-search-kbd">
                         <kbd>⌘</kbd><kbd>K</kbd>
-        </div>
-    </div>
+                    </span>
+                </button>
+
+                <!-- Sync status -->
+                <div class="sync-status" id="syncStatus" data-state="idle" role="status" aria-live="polite">
+                    <span class="sync-dot" aria-hidden="true"></span>
+                    <span class="sync-label" id="syncLabel">Saved</span>
+                </div>
 
                 <!-- Timer indicator -->
-                <div class="timer-indicator" id="timerIndicator">
-                    <div class="timer-dot"></div>
-                    <span id="timerDisplay">00:00:00</span>
-                </div>
+                <button type="button" class="timer-indicator" id="timerIndicator" aria-label="Running timer — open task">
+                    <span class="timer-dot" aria-hidden="true"></span>
+                    <span id="timerDisplay" aria-live="off">00:00:00</span>
+                </button>
 
                 <!-- Action buttons -->
                 <div class="header-actions">
-                    <button class="btn btn-primary btn-sm" id="createTaskBtn" style="display:flex;align-items:center;gap:6px;">
-                        <i class="fa-solid fa-plus"></i>
+                    <button class="btn btn-primary btn-sm" id="createTaskBtn">
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i>
                         <span>New Task</span>
                     </button>
-                    <button class="header-btn" id="themeToggleBtn" title="Toggle theme">
-                        <i class="fa-solid fa-moon" id="headerThemeIcon"></i>
+                    <button class="header-btn" id="themeToggleBtn" title="Toggle theme" aria-label="Toggle colour theme">
+                        <i class="fa-solid fa-moon" id="headerThemeIcon" aria-hidden="true"></i>
                     </button>
                 </div>
             </header>
 
             <!-- ──────────────────────────────── CONTENT ──── -->
-            <div id="content-area">
+            <main id="content-area" tabindex="-1">
+
+                <!-- ─────────────────────────────── DASHBOARD ─ -->
+                <div class="view" id="view-dashboard">
+                    <div class="view-header">
+                        <div>
+                            <h1 class="view-title" id="dashGreeting">Dashboard</h1>
+                            <div class="view-subtitle">Your day at a glance</div>
+                        </div>
+                        <div class="view-actions">
+                            <button class="btn btn-secondary btn-sm" id="dashShortcutsBtn">
+                                <i class="fa-solid fa-keyboard" aria-hidden="true"></i> Shortcuts
+                            </button>
+                            <button class="btn btn-primary btn-sm" id="dashAddTaskBtn">
+                                <i class="fa-solid fa-plus" aria-hidden="true"></i> New Task
+                            </button>
+                        </div>
+                    </div>
+                    <div class="dashboard-grid" id="dashboardGrid">
+                        <!-- Rendered by dashboard.js -->
+                    </div>
+                </div>
 
                 <!-- ──────────────────────────────── TASKS ─── -->
                 <div class="view" id="view-board">
                     <div class="view-header">
                         <div>
-                            <div class="view-title" id="boardViewTitle">Tasks</div>
+                            <h1 class="view-title" id="boardViewTitle">Tasks</h1>
                             <div class="view-subtitle" id="boardViewSubtitle">Task list</div>
                         </div>
                         <div class="view-actions">
@@ -157,7 +205,7 @@
                         </div>
                         <div class="view-toolbar-row board-status-filter" id="boardStatusFilterWrap" hidden>
                             <span class="toolbar-filter-label">Status</span>
-                            <div class="filter-group" id="boardStatusFilterGroup"></div>
+                            <div class="filter-group" id="boardStatusFilterGroup" role="group" aria-label="Filter by status"></div>
                         </div>
                     </div>
                     <div class="board-container" id="boardContainer">
@@ -169,7 +217,7 @@
                 <div class="view" id="view-backlog">
                     <div class="view-header">
                         <div>
-                            <div class="view-title" id="backlogViewTitle">Backlog</div>
+                            <h1 class="view-title" id="backlogViewTitle">Backlog</h1>
                             <div class="view-subtitle">Manage your sprint backlog</div>
                         </div>
                         <div class="view-actions">
@@ -190,7 +238,7 @@
                 <div class="view" id="view-timeline">
                     <div class="view-header">
                         <div>
-                            <div class="view-title">Timeline</div>
+                            <h1 class="view-title">Timeline</h1>
                             <div class="view-subtitle">Roadmap &amp; Gantt view</div>
                         </div>
                         <div class="view-actions">
@@ -198,7 +246,7 @@
                                 <button class="view-toggle-btn active" data-zoom="week" id="timelineZoomWeek">Week</button>
                                 <button class="view-toggle-btn" data-zoom="month" id="timelineZoomMonth">Month</button>
                             </div>
-                            <select class="form-control" id="timelineProjectFilter" style="width:auto;padding:5px 28px 5px 10px;font-size:14px;">
+                            <select class="form-control form-control--inline" id="timelineProjectFilter" aria-label="Filter by project">
                                 <option value="all">All Projects</option>
                             </select>
                         </div>
@@ -212,14 +260,17 @@
                 <div class="view" id="view-reports">
                     <div class="view-header">
                         <div>
-                            <div class="view-title">Reports</div>
+                            <h1 class="view-title">Reports</h1>
                             <div class="view-subtitle">Time tracking &amp; project analytics</div>
                         </div>
                         <div class="view-actions">
-                            <input type="date" class="form-control" id="reportStartDate" style="width:auto;font-size:14px;" />
+                            <input type="date" class="form-control form-control--inline" id="reportStartDate" aria-label="Report start date" />
                             <span class="text-muted">to</span>
-                            <input type="date" class="form-control" id="reportEndDate" style="width:auto;font-size:14px;" />
+                            <input type="date" class="form-control form-control--inline" id="reportEndDate" aria-label="Report end date" />
                             <button class="btn btn-secondary btn-sm" id="applyReportRange">Apply</button>
+                            <button class="btn btn-secondary btn-sm" id="exportReportCsv">
+                                <i class="fa-solid fa-file-csv" aria-hidden="true"></i> CSV
+                            </button>
                         </div>
                     </div>
                     <div class="reports-grid" id="reportsGrid">
@@ -231,17 +282,17 @@
                 <div class="view" id="view-mytasks">
                     <div class="view-header">
                         <div>
-                            <div class="view-title">My Tasks</div>
+                            <h1 class="view-title">My Tasks</h1>
                         </div>
-                        <div class="view-actions" style="flex-wrap:wrap;gap:var(--sp-2);">
-                            <div class="filter-group">
-                                <button class="filter-chip active" data-myfilter="all">All</button>
-                                <button class="filter-chip" data-myfilter="active">Active</button>
-                                <button class="filter-chip" data-myfilter="done">Done</button>
+                        <div class="view-actions view-actions--wrap">
+                            <div class="filter-group" role="group" aria-label="Filter tasks">
+                                <button class="filter-chip active" data-myfilter="all" aria-pressed="true">All</button>
+                                <button class="filter-chip" data-myfilter="active" aria-pressed="false">Active</button>
+                                <button class="filter-chip" data-myfilter="done" aria-pressed="false">Done</button>
                             </div>
-                            <div class="filter-group">
-                                <button class="filter-chip active" data-mygroup="dueDate">By due date</button>
-                                <button class="filter-chip" data-mygroup="project">By project</button>
+                            <div class="filter-group" role="group" aria-label="Group tasks">
+                                <button class="filter-chip active" data-mygroup="dueDate" aria-pressed="true">By due date</button>
+                                <button class="filter-chip" data-mygroup="project" aria-pressed="false">By project</button>
                             </div>
                         </div>
                     </div>
@@ -254,53 +305,60 @@
                 <div class="view" id="view-settings">
                     <div class="view-header">
                         <div>
-                            <div class="view-title">Settings</div>
+                            <h1 class="view-title">Settings</h1>
                             <div class="view-subtitle">Manage workspace preferences</div>
                         </div>
                     </div>
-                    <div style="padding:0 var(--sp-6) var(--sp-6);max-width:640px;">
+                    <div class="settings-body">
                         <div class="settings-section">
-                            <div class="settings-section-title">Appearance</div>
+                            <h2 class="settings-section-title">Appearance</h2>
                             <div class="form-group">
-                                <label class="form-label">Theme</label>
-                                <div class="filter-group">
-                                    <button class="filter-chip" id="settingsThemeDark" data-theme-pick="dark">
-                                        <i class="fa-solid fa-moon"></i> Dark
+                                <span class="form-label" id="themePickLabel">Theme</span>
+                                <div class="filter-group" role="group" aria-labelledby="themePickLabel">
+                                    <button class="filter-chip" id="settingsThemeDark" data-theme-pick="dark" aria-pressed="false">
+                                        <i class="fa-solid fa-moon" aria-hidden="true"></i> Dark
                                     </button>
-                                    <button class="filter-chip" id="settingsThemeLight" data-theme-pick="light">
-                                        <i class="fa-solid fa-sun"></i> Light
+                                    <button class="filter-chip" id="settingsThemeLight" data-theme-pick="light" aria-pressed="false">
+                                        <i class="fa-solid fa-sun" aria-hidden="true"></i> Light
                                     </button>
                                 </div>
                             </div>
                         </div>
                         <div class="settings-section">
-                            <div class="settings-section-title">Account</div>
-                            <div style="display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">
-                                <div class="user-avatar" id="settingsAvatar" style="width:40px;height:40px;font-size:18px;">A</div>
+                            <h2 class="settings-section-title">Account</h2>
+                            <div class="settings-account-card">
+                                <div class="user-avatar user-avatar--lg" id="settingsAvatar" aria-hidden="true">A</div>
                                 <div>
-                                    <div style="font-weight:700;" id="settingsUsername">Admin</div>
+                                    <div class="settings-account-name" id="settingsUsername">Admin</div>
                                     <div class="text-muted text-sm">Workspace owner</div>
                                 </div>
                                 <button class="btn btn-danger btn-sm ml-auto" id="settingsLogoutBtn">
-                                    <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+                                    <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign Out
                                 </button>
                             </div>
                         </div>
                         <div class="settings-section">
-                            <div class="settings-section-title">Data</div>
-                            <div style="display:flex;gap:var(--sp-3);">
+                            <h2 class="settings-section-title">Data</h2>
+                            <div class="settings-btn-row">
                                 <button class="btn btn-secondary btn-sm" id="exportDataBtn">
-                                    <i class="fa-solid fa-download"></i> Export Data
+                                    <i class="fa-solid fa-download" aria-hidden="true"></i> Export Data
                                 </button>
+                                <button class="btn btn-secondary btn-sm" id="importDataBtn">
+                                    <i class="fa-solid fa-upload" aria-hidden="true"></i> Import Data
+                                </button>
+                                <input type="file" id="importDataInput" accept="application/json,.json" class="sr-only" />
                                 <button class="btn btn-danger btn-sm" id="clearDataBtn">
-                                    <i class="fa-solid fa-trash"></i> Clear All Data
+                                    <i class="fa-solid fa-trash" aria-hidden="true"></i> Clear All Data
                                 </button>
                             </div>
+                            <p class="settings-hint">
+                                Import replaces everything currently in this workspace. Export first if you want a backup.
+                            </p>
                     </div>
                 </div>
             </div>
 
-            </div><!-- /content-area -->
+            </main><!-- /content-area -->
 
             <!-- Task Detail Panels (up to 2 side-by-side) -->
             <div id="task-detail-panels"></div>
@@ -312,15 +370,15 @@
 
     <!-- Create/Edit Task Modal -->
     <div class="modal-scrim" id="taskModalScrim">
-        <div class="modal" id="taskModal">
+        <div class="modal" id="taskModal" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle">
             <div class="modal-header">
-                <div class="modal-title" id="taskModalTitle">New Task</div>
-                <button class="modal-close" id="taskModalClose"><i class="fa-solid fa-xmark"></i></button>
+                <h2 class="modal-title" id="taskModalTitle">New Task</h2>
+                <button class="modal-close" id="taskModalClose" aria-label="Close dialog"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="taskModalId" />
                 <div class="form-group">
-                    <label class="form-label">Title <span style="color:#ef4444;">*</span></label>
+                    <label class="form-label">Title <span class="form-required" aria-hidden="true">*</span></label>
                     <input class="form-control" type="text" id="taskModalTitleInput" placeholder="What needs to be done?" maxlength="200" />
                 </div>
                 <div class="form-group">
@@ -332,7 +390,7 @@
                     </div>
                     <textarea class="form-control" id="taskModalDesc" placeholder="Add more details…" rows="3"></textarea>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
+                <div class="form-grid-2">
                     <div class="form-group">
                         <label class="form-label">Project</label>
                         <select class="form-control" id="taskModalProject">
@@ -354,8 +412,17 @@
                         <input class="form-control" type="date" id="taskModalStartDate" />
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Estimate (hours)</label>
+                        <label class="form-label" for="taskModalEstimate">Estimate (hours)</label>
                         <input class="form-control" type="number" id="taskModalEstimate" placeholder="e.g. 4" min="0" step="0.5" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="taskModalPriority">Priority</label>
+                        <select class="form-control" id="taskModalPriority">
+                            <option value="critical">Critical</option>
+                            <option value="high">High</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="low">Low</option>
+                        </select>
                     </div>
                 </div>
                 <div class="form-group">
@@ -380,15 +447,15 @@
 
     <!-- Create/Edit Project Modal -->
     <div class="modal-scrim" id="projectModalScrim">
-        <div class="modal" id="projectModal">
+        <div class="modal" id="projectModal" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
             <div class="modal-header">
-                <div class="modal-title" id="projectModalTitle">New Project</div>
-                <button class="modal-close" id="projectModalClose"><i class="fa-solid fa-xmark"></i></button>
+                <h2 class="modal-title" id="projectModalTitle">New Project</h2>
+                <button class="modal-close" id="projectModalClose" aria-label="Close dialog"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="projectModalId" />
                 <div class="form-group">
-                    <label class="form-label">Project Name <span style="color:#ef4444;">*</span></label>
+                    <label class="form-label">Project Name <span class="form-required" aria-hidden="true">*</span></label>
                     <input class="form-control" type="text" id="projectModalName" placeholder="e.g. Website Redesign" maxlength="60" />
                 </div>
                 <div class="form-group">
@@ -406,7 +473,7 @@
                     <div class="column-editor-list" id="projectModalColumns">
                         <!-- populated by projects.js -->
                     </div>
-                    <button class="btn btn-ghost btn-sm" id="addColumnBtn" style="margin-top:var(--sp-2);">
+                    <button class="btn btn-ghost btn-sm mt-2" id="addColumnBtn">
                         <i class="fa-solid fa-plus"></i> Add Column
                     </button>
                 </div>
@@ -420,22 +487,22 @@
 
     <!-- Create/Edit Sprint Modal -->
     <div class="modal-scrim" id="sprintModalScrim">
-        <div class="modal" id="sprintModal">
+        <div class="modal" id="sprintModal" role="dialog" aria-modal="true" aria-labelledby="sprintModalTitle">
             <div class="modal-header">
-                <div class="modal-title" id="sprintModalTitle">New Sprint</div>
-                <button class="modal-close" id="sprintModalClose"><i class="fa-solid fa-xmark"></i></button>
+                <h2 class="modal-title" id="sprintModalTitle">New Sprint</h2>
+                <button class="modal-close" id="sprintModalClose" aria-label="Close dialog"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="sprintModalId" />
                 <div class="form-group">
-                    <label class="form-label">Sprint Name <span style="color:#ef4444;">*</span></label>
+                    <label class="form-label">Sprint Name <span class="form-required" aria-hidden="true">*</span></label>
                     <input class="form-control" type="text" id="sprintModalName" placeholder="e.g. Sprint 1" maxlength="60" />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Goal</label>
                     <textarea class="form-control" id="sprintModalGoal" placeholder="What do you want to achieve in this sprint?" rows="2"></textarea>
                         </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
+                <div class="form-grid-2">
                     <div class="form-group">
                         <label class="form-label">Start Date</label>
                         <input class="form-control" type="date" id="sprintModalStart" />
@@ -461,13 +528,13 @@
 
     <!-- Confirm Dialog -->
     <div class="modal-scrim confirm-modal" id="confirmModalScrim">
-        <div class="modal">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
             <div class="modal-header">
-                <div class="modal-title" id="confirmTitle">Confirm</div>
-                <button class="modal-close" id="confirmModalClose"><i class="fa-solid fa-xmark"></i></button>
+                <h2 class="modal-title" id="confirmTitle">Confirm</h2>
+                <button class="modal-close" id="confirmModalClose" aria-label="Close dialog"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="modal-body">
-                <p id="confirmMessage" style="font-size:16px;color:var(--text-secondary);line-height:1.6;"></p>
+                <p id="confirmMessage" class="confirm-message"></p>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
@@ -478,19 +545,19 @@
 
     <!-- ═══════════════════════ COMMAND PALETTE ════════════ -->
     <div id="command-palette-scrim">
-        <div class="command-palette">
+        <div class="command-palette" role="dialog" aria-modal="true" aria-label="Command palette">
             <div class="command-palette-input-wrap">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" class="command-palette-input" id="cmdPaletteInput" placeholder="Search tasks, projects, or type a command…" autocomplete="off" />
+                <input type="text" class="command-palette-input" id="cmdPaletteInput" placeholder="Search tasks, projects, or type a command…" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="cmdPaletteResults" aria-autocomplete="list" />
             </div>
-            <div class="command-palette-results" id="cmdPaletteResults">
+            <div class="command-palette-results" id="cmdPaletteResults" role="listbox" aria-label="Results">
                 <!-- Populated dynamically -->
             </div>
         </div>
     </div>
 
     <!-- ══════════════════════ TOAST CONTAINER ════════════ -->
-    <div id="toast-container"></div>
+    <div id="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
 
     <!-- ══════════════════════════════ SCRIPTS ════════════ -->
     <script src="firebase-rest-integration.js"></script>
@@ -503,6 +570,7 @@
     <script src="js/board.js"></script>
     <script src="js/backlog.js"></script>
     <script src="js/reports.js"></script>
+    <script src="js/dashboard.js"></script>
     <script src="js/timeline.js"></script>
     <script src="js/ui.js"></script>
 

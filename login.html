@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FlowBoard — Sign In</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&family=JetBrains+Mono:wght@500;600&display=swap">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#6366f1">
+    <meta name="theme-color" content="#8b5cf6">
     <script>
         (function() {
             const theme = localStorage.getItem('flowboard-theme') ||
@@ -17,44 +20,45 @@
     </script>
 </head>
 <body>
-    <div class="login-page">
+    <main class="login-page">
         <!-- Branding panel -->
-        <div class="login-branding">
-            <div class="login-brand-logo">
-                <i class="fa-solid fa-diagram-project" style="color:#fff;"></i>
+        <section class="login-branding" aria-label="About FlowBoard">
+            <div class="login-brand-logo" aria-hidden="true">
+                <i class="fa-solid fa-diagram-project"></i>
             </div>
-            <div class="login-brand-name">FlowBoard</div>
-            <div class="login-brand-tagline">The modern workspace for teams who ship great things.</div>
+            <p class="login-brand-name">FlowBoard</p>
+            <p class="login-brand-tagline">Plan the work. Track the hours. Ship the thing.</p>
 
-            <div class="login-features">
-                <div class="login-feature-item">
-                    <div class="login-feature-icon"><i class="fa-solid fa-list-check"></i></div>
+            <ul class="login-features">
+                <li class="login-feature-item">
+                    <span class="login-feature-icon" aria-hidden="true"><i class="fa-solid fa-list-check"></i></span>
                     <span>Task lists with custom workflows</span>
-                </div>
-                <div class="login-feature-item">
-                    <div class="login-feature-icon"><i class="fa-solid fa-bolt"></i></div>
+                </li>
+                <li class="login-feature-item">
+                    <span class="login-feature-icon" aria-hidden="true"><i class="fa-solid fa-bolt"></i></span>
                     <span>Sprint planning &amp; backlog management</span>
-                </div>
-                <div class="login-feature-item">
-                    <div class="login-feature-icon"><i class="fa-solid fa-chart-gantt"></i></div>
+                </li>
+                <li class="login-feature-item">
+                    <span class="login-feature-icon" aria-hidden="true"><i class="fa-solid fa-chart-gantt"></i></span>
                     <span>Timeline &amp; roadmap visualization</span>
-                </div>
-                <div class="login-feature-item">
-                    <div class="login-feature-icon"><i class="fa-solid fa-clock"></i></div>
+                </li>
+                <li class="login-feature-item">
+                    <span class="login-feature-icon" aria-hidden="true"><i class="fa-solid fa-clock"></i></span>
                     <span>Built-in time tracking &amp; reports</span>
-                </div>
-            </div>
-        </div>
+                </li>
+            </ul>
+        </section>
 
         <!-- Form panel -->
-        <div class="login-form-panel">
+        <section class="login-form-panel" aria-labelledby="loginHeading">
             <!-- Theme toggle -->
-            <button class="login-theme-toggle" id="themeToggle" title="Toggle theme">
-                <i class="fa-solid fa-moon" id="themeIcon"></i>
+            <button class="login-theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle colour theme">
+                <i class="fa-solid fa-moon" id="themeIcon" aria-hidden="true"></i>
             </button>
 
-            <div class="login-form-title">Welcome back</div>
-            <div class="login-form-subtitle">Sign in to your FlowBoard workspace.</div>
+            <div class="login-form-card">
+            <h1 class="login-form-title" id="loginHeading">Welcome back</h1>
+            <p class="login-form-subtitle">Sign in to your FlowBoard workspace.</p>
 
             <form class="login-form" id="loginForm" autocomplete="off">
                 <div class="login-form-group">
@@ -72,42 +76,44 @@
 
                 <div class="login-form-group">
                     <label class="login-form-label" for="password">Password</label>
-                    <div style="position:relative;">
+                    <div class="login-input-wrap">
                         <input
-                            class="login-form-input"
+                            class="login-form-input login-form-input--password"
                             type="password"
                             id="password"
                             name="password"
                             placeholder="Enter your password"
                             autocomplete="current-password"
                             required
-                            style="padding-right:44px;"
                         />
                         <button
                             type="button"
                             id="togglePassword"
-                            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-tertiary);cursor:pointer;padding:4px;font-size:16px;"
-                            title="Toggle password visibility"
+                            class="login-password-toggle"
+                            title="Show password"
+                            aria-label="Show password"
+                            aria-pressed="false"
                         >
-                            <i class="fa-solid fa-eye" id="eyeIcon"></i>
+                            <i class="fa-solid fa-eye" id="eyeIcon" aria-hidden="true"></i>
                         </button>
                     </div>
                 </div>
 
-                <div class="login-error" id="loginError">
-                    <i class="fa-solid fa-circle-exclamation"></i>
+                <div class="login-error" id="loginError" role="alert">
+                    <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
                     <span id="loginErrorText">Invalid username or password. Please try again.</span>
                 </div>
 
                 <button type="submit" class="login-submit" id="loginBtn">
                     <span id="loginBtnText">Sign In</span>
-                    <span id="loginSpinner" style="display:none;">
-                        <span class="spinner" style="width:16px;height:16px;border-width:2px;"></span>
+                    <span id="loginSpinner" class="is-hidden">
+                        <span class="spinner spinner--sm"></span>
                     </span>
                 </button>
             </form>
-        </div>
-    </div>
+            </div>
+        </section>
+    </main>
 
     <script>
         // ── Theme toggle ──────────────────────────────────────
@@ -135,9 +141,13 @@
         const eyeIcon        = document.getElementById('eyeIcon');
 
         togglePassword.addEventListener('click', () => {
-            const isHidden = passwordInput.type === 'password';
-            passwordInput.type = isHidden ? 'text' : 'password';
-            eyeIcon.className  = isHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+            const willShow = passwordInput.type === 'password';
+            passwordInput.type = willShow ? 'text' : 'password';
+            eyeIcon.className  = willShow ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+            togglePassword.setAttribute('aria-pressed', String(willShow));
+            const label = willShow ? 'Hide password' : 'Show password';
+            togglePassword.setAttribute('aria-label', label);
+            togglePassword.title = label;
         });
 
         // ── Login form ────────────────────────────────────────
@@ -165,7 +175,7 @@
 
             // Show spinner
             loginBtnText.style.display = 'none';
-            loginSpinner.style.display = 'inline-flex';
+            loginSpinner.classList.remove('is-hidden');
             loginBtn.disabled = true;
 
             // Simulate auth delay
@@ -178,7 +188,7 @@
                 window.location.href = 'index.html';
             } else {
                 loginBtnText.style.display = 'inline';
-                loginSpinner.style.display = 'none';
+                loginSpinner.classList.add('is-hidden');
                 loginBtn.disabled = false;
                 errorText.textContent = 'Invalid username or password. Please try again.';
                 loginError.classList.add('visible');

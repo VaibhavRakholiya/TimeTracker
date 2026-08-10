@@ -106,21 +106,53 @@ const State = (() => {
         return _data.projects.some(p => p.id == task.projectId);
     }
 
-    /** Drop tasks with no project or a missing project; returns count removed. */
+    /**
+     * Tasks whose project no longer exists used to be deleted outright. Losing
+     * work to a cleanup pass is never acceptable, so park them in a recovery
+     * project instead and tell the user.
+     */
+    const ORPHAN_PROJECT_NAME = 'Unassigned';
+
+    function ensureOrphanProject() {
+        let proj = _data.projects.find(p => p.name === ORPHAN_PROJECT_NAME);
+        if (proj) return proj;
+
+        proj = {
+            id: Date.now(),
+            name: ORPHAN_PROJECT_NAME,
+            description: 'Tasks recovered from a project that no longer exists.',
+            emoji: '',
+            color: '#94a3b8',
+            position: (Math.max(0, ..._data.projects.map(p => p.position || 0)) + 1000),
+            columns: defaultColumns.map(c => ({ ...c })),
+            labels: [],
+            createdAt: new Date().toISOString(),
+        };
+        _data.projects.push(proj);
+        return proj;
+    }
+
+    /** Rehome tasks with no valid project; returns the count rescued. */
     function removeOrphanedTasks() {
         const orphans = (_data.tasks || []).filter(t => !taskHasValidProject(t));
         if (!orphans.length) return 0;
+
+        const proj = ensureOrphanProject();
+        const firstCol = [...proj.columns].sort((a, b) => a.position - b.position)[0];
 
         orphans.forEach(t => {
             if (t.isTimerRunning) {
                 t.isTimerRunning = false;
                 t.timerStart = null;
             }
+            t.projectId = proj.id;
+            t.columnId  = firstCol?.id ?? null;
+            t.sprintId  = null;
         });
 
-        const orphanIds = new Set(orphans.map(t => t.id));
-        _data.tasks = _data.tasks.filter(t => !orphanIds.has(t.id));
-        console.log(`State: removed ${orphans.length} task(s) without a valid project`);
+        // This runs during load(), before the UI subscribes — defer so the
+        // notification actually reaches someone.
+        setTimeout(() => emit('tasks:rescued', { count: orphans.length, projectName: proj.name }), 0);
         return orphans.length;
     }
 
@@ -181,17 +213,23 @@ const State = (() => {
 
     function scheduleSyncToFirebase() {
         if (_syncDebounce) clearTimeout(_syncDebounce);
+        emit('sync:pending');
         _syncDebounce = setTimeout(syncToFirebase, 2000);
     }
 
     async function syncToFirebase() {
-        if (!window.firebaseRESTIntegration) return;
+        if (!window.firebaseRESTIntegration) { emit('sync:offline'); return; }
+        emit('sync:start');
         try {
             await window.firebaseRESTIntegration.saveData('flowboard_projects', _data.projects);
             await window.firebaseRESTIntegration.saveData('flowboard_tasks',    _data.tasks);
             await window.firebaseRESTIntegration.saveData('flowboard_sprints',  _data.sprints);
+            emit('sync:ok');
         } catch (e) {
             console.warn('State: Firebase sync failed', e);
+            // Sync failures used to be invisible; surface them so a user can
+            // export before losing anything.
+            emit('sync:error', e);
         }
     }
 
@@ -458,10 +496,9 @@ const State = (() => {
             if (idx === -1) return null;
             const oldTask = { ..._data.tasks[idx] };
             const merged = { ..._data.tasks[idx], ...fields };
-            if (!taskHasValidProject(merged)) {
-                this.delete(id);
-                return null;
-            }
+            // An edit that would orphan the task must not delete it — reject the
+            // change and let the caller surface the problem.
+            if (!taskHasValidProject(merged)) return null;
             Object.assign(_data.tasks[idx], fields);
             save();
             if (fields.columnId && fields.columnId !== oldTask.columnId) {
@@ -687,9 +724,18 @@ const State = (() => {
     };
 
     // ── Timer ─────────────────────────────────────────────
+    /**
+     * A timer left running past this is almost certainly a forgotten tab, not
+     * real work. Past it we refuse to log silently and ask the user instead.
+     */
+    const STALE_TIMER_MS = 8 * 60 * 60 * 1000;   // 8 hours
+    const IDLE_PROMPT_MS = 15 * 60 * 1000;       // 15 minutes with no input
+
     const Timer = {
         _interval: null,
         _activetaskId: null,
+        _lastActivity: Date.now(),
+        _idleNotified: false,
 
         start(taskId) {
             // Stop any running timer first
@@ -698,24 +744,48 @@ const State = (() => {
 
             Tasks.update(taskId, { isTimerRunning: true, timerStart: Date.now() });
             this._activetaskId = taskId;
+            this._lastActivity = Date.now();
+            this._idleNotified = false;
             this._tick();
             emit('timer:started', taskId);
         },
 
-        stop(taskId) {
+        /**
+         * Stop and log. `overrideSeconds` lets a recovery prompt log a
+         * corrected duration instead of the raw wall-clock elapsed.
+         */
+        stop(taskId, overrideSeconds = null) {
             const task = Tasks.get(taskId);
             if (!task || !task.isTimerRunning) return;
-            if (!Array.isArray(task.timeEntries)) task.timeEntries = [];
+
             const start = task.timerStart != null ? Number(task.timerStart) : null;
-            const elapsedMs = start != null && Number.isFinite(start)
-                ? Math.max(0, Date.now() - start)
-                : 0;
-            const seconds = Math.max(0, Math.round(elapsedMs / 1000));
-            task.timeEntries.push({
-                date:     new Date().toISOString(),
-                duration: seconds,
-            });
-            task.timeSpent = (task.timeSpent || 0) + seconds / 3600;
+            const hasStart = start != null && Number.isFinite(start);
+            const elapsedMs = hasStart ? Math.max(0, Date.now() - start) : 0;
+            const seconds = overrideSeconds != null
+                ? Math.max(0, Math.round(overrideSeconds))
+                : Math.max(0, Math.round(elapsedMs / 1000));
+
+            task.isTimerRunning = false;
+            task.timerStart = null;
+
+            if (seconds > 0) {
+                Entries.add(task, seconds, {
+                    startedAt: hasStart ? new Date(start).toISOString() : null,
+                    source: overrideSeconds != null ? 'recovered' : 'timer',
+                });
+            }
+
+            save();
+            if (this._interval) { clearInterval(this._interval); this._interval = null; }
+            this._activetaskId = null;
+            emit('timer:stopped', taskId);
+            emit('tasks:changed', { type: 'update', task });
+        },
+
+        /** Abandon a running timer without logging anything. */
+        discard(taskId) {
+            const task = Tasks.get(taskId);
+            if (!task) return;
             task.isTimerRunning = false;
             task.timerStart = null;
             save();
@@ -723,6 +793,11 @@ const State = (() => {
             this._activetaskId = null;
             emit('timer:stopped', taskId);
             emit('tasks:changed', { type: 'update', task });
+        },
+
+        noteActivity() {
+            this._lastActivity = Date.now();
+            this._idleNotified = false;
         },
 
         toggle(taskId) {
@@ -740,6 +815,14 @@ const State = (() => {
                     return;
                 }
                 emit('timer:tick', { taskId: this._activetaskId, elapsed: Date.now() - task.timerStart });
+
+                if (!this._idleNotified && Date.now() - this._lastActivity > IDLE_PROMPT_MS) {
+                    this._idleNotified = true;
+                    emit('timer:idle', {
+                        taskId: this._activetaskId,
+                        idleMs: Date.now() - this._lastActivity,
+                    });
+                }
             }, 1000);
         },
 
@@ -752,7 +835,97 @@ const State = (() => {
         getRunning() {
             return _data.tasks.find(t => t.isTimerRunning) || null;
         },
+
+        STALE_TIMER_MS,
     };
+
+    // ── Time entries ──────────────────────────────────────
+    /**
+     * `duration` is seconds; `task.timeSpent` is hours. Every mutation goes
+     * through here so the two never drift apart.
+     */
+    const Entries = {
+        add(task, seconds, { startedAt = null, note = '', source = 'manual' } = {}) {
+            if (!Array.isArray(task.timeEntries)) task.timeEntries = [];
+            const endedAt = new Date();
+            const entry = {
+                id: Date.now() + Math.floor(Math.random() * 1000),
+                date: endedAt.toISOString(),
+                startedAt: startedAt || new Date(endedAt.getTime() - seconds * 1000).toISOString(),
+                duration: Math.max(0, Math.round(seconds)),
+                note,
+                source,
+            };
+            task.timeEntries.push(entry);
+            this._recompute(task);
+            return entry;
+        },
+
+        /** Manual log against a task id, with an explicit date. */
+        logManual(taskId, { seconds, date, note = '' }) {
+            const task = Tasks.get(taskId);
+            if (!task || !(seconds > 0)) return null;
+            if (!Array.isArray(task.timeEntries)) task.timeEntries = [];
+
+            const endedAt = date ? new Date(`${date}T12:00:00`) : new Date();
+            const entry = {
+                id: Date.now() + Math.floor(Math.random() * 1000),
+                date: endedAt.toISOString(),
+                startedAt: new Date(endedAt.getTime() - seconds * 1000).toISOString(),
+                duration: Math.max(0, Math.round(seconds)),
+                note,
+                source: 'manual',
+            };
+            task.timeEntries.push(entry);
+            this._recompute(task);
+            save();
+            addActivity('logged time on', task.title, formatDuration(seconds));
+            emit('tasks:changed', { type: 'update', task });
+            return entry;
+        },
+
+        update(taskId, entryId, { seconds, note }) {
+            const task = Tasks.get(taskId);
+            const entry = task?.timeEntries?.find(e => e.id === entryId);
+            if (!entry) return null;
+            if (seconds != null) entry.duration = Math.max(0, Math.round(seconds));
+            if (note != null)    entry.note = note;
+            this._recompute(task);
+            save();
+            emit('tasks:changed', { type: 'update', task });
+            return entry;
+        },
+
+        remove(taskId, entryId) {
+            const task = Tasks.get(taskId);
+            if (!task?.timeEntries) return false;
+            const before = task.timeEntries.length;
+            task.timeEntries = task.timeEntries.filter(e => e.id !== entryId);
+            if (task.timeEntries.length === before) return false;
+            this._recompute(task);
+            save();
+            addActivity('removed a time entry on', task.title);
+            emit('tasks:changed', { type: 'update', task });
+            return true;
+        },
+
+        getAll(taskId) {
+            const task = Tasks.get(taskId);
+            return (task?.timeEntries || []).slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+        },
+
+        /** timeSpent (hours) is always derived from the entries, never added to. */
+        _recompute(task) {
+            const totalSeconds = (task.timeEntries || []).reduce((s, e) => s + (Number(e.duration) || 0), 0);
+            task.timeSpent = totalSeconds / 3600;
+        },
+    };
+
+    function formatDuration(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.round((seconds % 3600) / 60);
+        return h ? `${h}h ${m}m` : `${m}m`;
+    }
 
     // ── Labels ────────────────────────────────────────────
     const Labels = {
@@ -790,6 +963,55 @@ const State = (() => {
         URL.revokeObjectURL(url);
     }
 
+    /**
+     * Validate an exported payload without applying it, so the UI can show the
+     * user exactly what an import would bring in before anything is replaced.
+     */
+    function inspectImport(json) {
+        let parsed;
+        try { parsed = typeof json === 'string' ? JSON.parse(json) : json; }
+        catch { return { ok: false, error: 'That file is not valid JSON.' }; }
+
+        if (!parsed || typeof parsed !== 'object') return { ok: false, error: 'That file is not a FlowBoard export.' };
+        if (!Array.isArray(parsed.projects) || !Array.isArray(parsed.tasks)) {
+            return { ok: false, error: 'That file is missing a projects or tasks list.' };
+        }
+
+        return {
+            ok: true,
+            data: parsed,
+            summary: {
+                projects: parsed.projects.length,
+                tasks:    parsed.tasks.length,
+                sprints:  Array.isArray(parsed.sprints) ? parsed.sprints.length : 0,
+            },
+        };
+    }
+
+    /** Replace all data with a validated import payload. */
+    function importData(json) {
+        const check = inspectImport(json);
+        if (!check.ok) return check;
+
+        _data = Object.assign(getDefaults(), check.data);
+        if (!_data.labels?.length) _data.labels = defaultLabels;
+        if (!Array.isArray(_data.sprints))  _data.sprints  = [];
+        if (!Array.isArray(_data.activity)) _data.activity = [];
+
+        normalizeAllTasks();
+        removeOrphanedTasks();
+        migrateTimeEntries();
+
+        _taskCounter = _data.tasks.reduce((max, t) => {
+            const n = parseInt(String(t.taskKey || '').replace(/\D/g, ''), 10);
+            return Number.isNaN(n) ? max : Math.max(max, n);
+        }, 0);
+
+        save();
+        emit('state:reset');
+        return check;
+    }
+
     function clearAll() {
         _data = getDefaults();
         _taskCounter = 0;
@@ -798,21 +1020,63 @@ const State = (() => {
     }
 
     // ── Init ──────────────────────────────────────────────
+    /**
+     * Older entries stored only a stop timestamp and no id. Backfill both so
+     * entries can be edited and so a day view has a real start time to use.
+     */
+    function migrateTimeEntries() {
+        let changed = false;
+        _data.tasks.forEach(task => {
+            if (!Array.isArray(task.timeEntries) || !task.timeEntries.length) return;
+            task.timeEntries.forEach((e, i) => {
+                if (e.id == null) { e.id = Date.parse(e.date) + i; changed = true; }
+                if (!e.startedAt && e.date && e.duration != null) {
+                    e.startedAt = new Date(Date.parse(e.date) - e.duration * 1000).toISOString();
+                    changed = true;
+                }
+                if (e.source == null) { e.source = 'timer'; changed = true; }
+            });
+            // Reconcile any historical drift between entries and the total.
+            const derived = task.timeEntries.reduce((s, e) => s + (Number(e.duration) || 0), 0) / 3600;
+            if (Math.abs((task.timeSpent || 0) - derived) > 0.01) {
+                task.timeSpent = derived;
+                changed = true;
+            }
+        });
+        if (changed) save();
+    }
+
     function init() {
         load();
-        // Resume timer if app was closed while timer was running
+        migrateTimeEntries();
+
+        // A timer still flagged running means the tab was closed mid-session.
+        // Never log that span silently — hand it to the UI to resolve.
         const running = _data.tasks.find(t => t.isTimerRunning);
         if (running) {
-            Timer._activetaskId = running.id;
-            Timer._tick();
+            const elapsed = running.timerStart ? Date.now() - Number(running.timerStart) : 0;
+            if (elapsed > STALE_TIMER_MS) {
+                // State.init() runs before the UI subscribes, so defer the emit
+                // to the next tick — otherwise nobody is listening yet.
+                setTimeout(() => emit('timer:stale', { taskId: running.id, elapsedMs: elapsed }), 0);
+            } else {
+                Timer._activetaskId = running.id;
+                Timer.noteActivity();
+                Timer._tick();
+            }
         }
+
+        // Feed the idle detector.
+        ['mousemove', 'keydown', 'click', 'scroll'].forEach(evt => {
+            window.addEventListener(evt, () => Timer.noteActivity(), { passive: true });
+        });
     }
 
     return {
         on, off, emit,
-        Projects, Tasks, Sprints, Labels, Activity, Timer,
-        getColumnById, getFirstColumn,
-        load, save, init, exportData, clearAll, loadFromFirebase,
+        Projects, Tasks, Sprints, Labels, Activity, Timer, Entries,
+        getColumnById, getFirstColumn, formatDuration,
+        load, save, init, exportData, importData, inspectImport, clearAll, loadFromFirebase,
         get data() { return _data; },
     };
 })();

@@ -21,9 +21,8 @@ const Board = (() => {
         return getFirstColumnId(columns);
     }
 
-    function escHtml(str) {
-        return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
+    // Delegates to the shared helper in ui.js (loaded last, so resolve at call time).
+    function escHtml(str) { return UI.escHtml(str); }
 
     function applyTaskFilters(tasks, columns) {
         if (_filterDue) {
@@ -81,14 +80,15 @@ const Board = (() => {
 
         if (!projectId || !proj) {
             syncStatusFilterUI(null);
-            container.innerHTML = `<div class="empty-state" style="flex:1;">
-                <div class="empty-state-icon"><i class="fa-solid fa-list"></i></div>
-                <div class="empty-state-title">No project selected</div>
-                <div class="empty-state-desc">Choose a project from the sidebar to view its tasks.</div>
-                <button class="btn btn-primary" onclick="Projects.openModal()">
-                    <i class="fa-solid fa-plus"></i> New Project
-                </button>
-            </div>`;
+            container.innerHTML = UI.emptyState({
+                icon: 'fa-folder-open',
+                title: 'No project selected',
+                body: 'Choose a project from the sidebar to view its tasks.',
+                action: { id: 'emptyNewProject', label: 'New Project', icon: 'fa-plus' },
+                grow: true,
+            });
+            container.querySelector('#emptyNewProject')
+                ?.addEventListener('click', () => Projects.openModal());
             return;
         }
 
@@ -110,14 +110,15 @@ const Board = (() => {
         Object.values(tasksByCol).forEach(arr => arr.sort((a, b) => a.position - b.position));
 
         if (!tasks.length) {
-            container.innerHTML = `<div class="empty-state" style="flex:1;">
-                <div class="empty-state-icon"><i class="fa-solid fa-list"></i></div>
-                <div class="empty-state-title">No tasks</div>
-                <div class="empty-state-desc">No tasks match the current filters, or the project is empty.</div>
-                <button class="btn btn-primary" onclick="Tasks.openModal(null, { projectId: ${projectId} })">
-                    <i class="fa-solid fa-plus"></i> Add task
-                </button>
-            </div>`;
+            container.innerHTML = UI.emptyState({
+                icon: 'fa-list-check',
+                title: 'No tasks',
+                body: 'No tasks match the current filters, or the project is empty.',
+                action: { id: 'emptyAddTask', label: 'Add task', icon: 'fa-plus' },
+                grow: true,
+            });
+            container.querySelector('#emptyAddTask')
+                ?.addEventListener('click', () => Tasks.openModal(null, { projectId }));
             return;
         }
 
@@ -127,10 +128,10 @@ const Board = (() => {
             if (!colTasks.length) return;
 
             body += `<tr class="board-list-group"><td colspan="7">
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="width:8px;height:8px;border-radius:50%;background:${escHtml(col.color)};flex-shrink:0;"></span>
-                    <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);">${escHtml(col.name)}</span>
-                    <span style="font-size:13px;color:var(--text-disabled);">${colTasks.length}</span>
+                <div class="board-group-head">
+                    <span class="board-group-dot" style="background:${escHtml(col.color)};"></span>
+                    <span class="board-group-name">${escHtml(col.name)}</span>
+                    <span class="board-group-count">${colTasks.length}</span>
                 </div>
             </td></tr>`;
 
@@ -139,37 +140,38 @@ const Board = (() => {
                 const done = Tasks.isDoneColumn(t);
                 const running = t.isTimerRunning;
                 const labelHtml = (t.labels || []).length
-                    ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${(t.labels || []).map(lid => {
+                    ? `<div class="row-label-wrap">${(t.labels || []).map(lid => {
                         const lbl = State.Labels.getAll().find(l => l.id === lid)
                             || (proj.labels || []).find(l => l.id === lid);
-                        return lbl ? `<span class="label-chip" style="background:${lbl.bg || 'rgba(99,102,241,0.1)'};color:${lbl.color};">${escHtml(lbl.name)}</span>` : '';
-                    }).join('')}`
+                        return lbl ? `<span class="label-chip" style="background:${lbl.bg || 'var(--primary-subtle)'};color:${lbl.color};">${escHtml(lbl.name)}</span>` : '';
+                    }).join('')}</div>`
                     : '';
 
-                body += `<tr class="list-task-row" data-task-id="${t.id}" data-column-id="${escHtml(col.id)}" draggable="true">
+                body += `<tr class="list-task-row" data-task-id="${t.id}" data-column-id="${escHtml(col.id)}" draggable="true" tabindex="0" role="button" aria-label="${escHtml(t.title)}">
                     <td class="list-drag-cell">
-                        <span class="list-task-drag-handle" title="Drag to reorder">
+                        <span class="list-task-drag-handle" title="Drag to reorder" aria-hidden="true">
                             <i class="fa-solid fa-grip-vertical"></i>
                         </span>
                     </td>
                     <td>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <span style="font-weight:500;${done ? 'text-decoration:line-through;color:var(--text-tertiary);' : ''}">${escHtml(t.title)}</span>
+                        <div class="row-title-wrap">
+                            ${Tasks.priorityDot(t.priority)}
+                            <span class="row-title${done ? ' is-done' : ''}">${escHtml(t.title)}</span>
                         </div>
                         ${labelHtml}
                     </td>
                     <td>
                         <select class="form-control list-col-select" data-task-id="${t.id}"
-                            style="min-width:140px;padding:4px 28px 4px 8px;font-size:14px;"
+                            aria-label="Status for ${escHtml(t.title)}"
                             onclick="event.stopPropagation()">
                             ${columns.map(c =>
                                 `<option value="${escHtml(c.id)}"${c.id === t.columnId ? ' selected' : ''}>${escHtml(c.name)}</option>`
                             ).join('')}
                         </select>
                     </td>
-                    <td>${t.assignee ? `<div style="display:flex;align-items:center;gap:6px;"><div class="task-card-assignee" style="width:22px;height:22px;font-size:12px;">${(t.assignee || '?')[0].toUpperCase()}</div><span style="font-size:14px;color:var(--text-secondary);">${escHtml(t.assignee)}</span></div>` : '<span class="text-muted">—</span>'}</td>
+                    <td>${t.assignee ? `<div class="row-assignee"><span class="task-card-assignee task-card-assignee--sm">${(t.assignee || '?')[0].toUpperCase()}</span><span class="row-assignee-name">${escHtml(t.assignee)}</span></div>` : '<span class="text-muted">—</span>'}</td>
                     <td>${due ? `<span class="due-date-chip ${due.cls}">${due.text}</span>` : '<span class="text-muted">—</span>'}</td>
-                    <td style="font-size:14px;color:var(--text-secondary);">${t.timeSpent > 0 ? Tasks.formatHours(t.timeSpent) : '—'}</td>
+                    <td class="row-time">${t.timeSpent > 0 ? Tasks.formatHours(t.timeSpent) : '—'}</td>
                     <td>
                         <button type="button" class="task-card-timer${running ? ' running' : ''}" data-timer-task="${t.id}"
                             title="${running ? 'Stop timer' : 'Start timer'}"

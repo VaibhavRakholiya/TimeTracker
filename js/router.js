@@ -10,9 +10,10 @@
  */
 
 const Router = (() => {
-    const DEFAULT_VIEW = 'mytasks';
+    const DEFAULT_VIEW = 'dashboard';
 
     const VIEWS = {
+        dashboard: 'view-dashboard',
         board:     'view-board',
         backlog:   'view-backlog',
         timeline:  'view-timeline',
@@ -28,7 +29,6 @@ const Router = (() => {
         const raw = (hash || window.location.hash).replace(/^#/, '').replace(/\/$/, '');
         const parts = raw.split('/').filter(p => p !== '');
         let view = parts[0] || DEFAULT_VIEW;
-        if (view === 'dashboard') view = DEFAULT_VIEW;
         let projectId = null;
         if (parts.length > 1) {
             const n = parseInt(parts[1], 10);
@@ -42,7 +42,6 @@ const Router = (() => {
      * Other sections use a single-segment hash so a project id never "sticks" to them.
      */
     function navigate(view, projectId) {
-        if (view === 'dashboard') view = DEFAULT_VIEW;
         const v = VIEWS[view] ? view : DEFAULT_VIEW;
 
         if (v !== 'board' && v !== 'backlog') {
@@ -66,7 +65,6 @@ const Router = (() => {
     }
 
     function activate({ view, projectId }) {
-        if (view === 'dashboard') view = DEFAULT_VIEW;
 
         // Never show board without a concrete project (invalid or bookmarked #board)
         if (view === 'board' && (projectId == null || !Number.isFinite(Number(projectId)))) {
@@ -89,15 +87,19 @@ const Router = (() => {
 
         // Highlight sidebar nav
         document.querySelectorAll('.nav-item[data-route]').forEach(el => {
-            el.classList.toggle('active', el.dataset.route === viewName);
+            const on = el.dataset.route === viewName;
+            el.classList.toggle('active', on);
+            if (on) el.setAttribute('aria-current', 'page');
+            else    el.removeAttribute('aria-current');
         });
 
         // Highlight project items
         document.querySelectorAll('.project-item[data-project-id]').forEach(el => {
             const pid = parseInt(el.dataset.projectId, 10);
-            el.classList.toggle('active',
-                (viewName === 'board' || viewName === 'backlog') && pid === projectId
-            );
+            const on = (viewName === 'board' || viewName === 'backlog') && pid === projectId;
+            el.classList.toggle('active', on);
+            if (on) el.setAttribute('aria-current', 'page');
+            else    el.removeAttribute('aria-current');
         });
 
         // Update breadcrumb
@@ -109,6 +111,9 @@ const Router = (() => {
 
     function renderView(view, projectId) {
         switch (view) {
+            case 'dashboard':
+                window.Dashboard && Dashboard.render();
+                break;
             case 'board':
                 window.Board      && Board.render(projectId);
                 break;
@@ -135,6 +140,7 @@ const Router = (() => {
         if (!bc) return;
 
         const labels = {
+            dashboard: 'Dashboard',
             board:     'Tasks',
             backlog:   'Backlog',
             timeline:  'Timeline',
@@ -143,18 +149,21 @@ const Router = (() => {
             settings:  'Settings',
         };
 
+        const esc = window.UI ? UI.escHtml : (s => String(s ?? ''));
+        const label = esc(labels[view] || view);
+
         let html = '';
         if (projectId) {
             const proj = State.Projects.get(projectId);
             if (proj) {
-                html = `<strong>${proj.name}</strong>
-                        <span style="margin:0 4px;color:var(--text-tertiary);">/</span>
-                        <span>${labels[view] || view}</span>`;
+                html = `<strong>${esc(proj.name)}</strong>
+                        <span class="breadcrumb-sep" aria-hidden="true">/</span>
+                        <span>${label}</span>`;
             } else {
-                html = `<strong>${labels[view] || view}</strong>`;
+                html = `<strong>${label}</strong>`;
             }
         } else {
-            html = `<strong>${labels[view] || view}</strong>`;
+            html = `<strong>${label}</strong>`;
         }
         bc.innerHTML = html;
     }

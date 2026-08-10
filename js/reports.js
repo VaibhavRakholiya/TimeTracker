@@ -110,15 +110,70 @@ const Reports = (() => {
         });
     }
 
-    function escHtml(str) {
-        return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    // Delegates to the shared helper in ui.js (loaded last, so resolve at call time).
+    function escHtml(str) { return UI.escHtml(str); }
+
+    // ── CSV export ────────────────────────────────────────
+    function csvCell(value) {
+        const s = String(value ?? '');
+        // Quote anything containing a delimiter, quote or newline; double inner quotes.
+        return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }
+
+    /** One row per time entry in the selected range — the useful shape for invoicing. */
+    function exportCsv() {
+        const startEl = document.getElementById('reportStartDate');
+        const endEl   = document.getElementById('reportEndDate');
+        const start = startEl?.value ? new Date(startEl.value + 'T00:00:00') : null;
+        const end   = endEl?.value   ? new Date(endEl.value   + 'T23:59:59') : null;
+
+        const rows = [['Date', 'Project', 'Task Key', 'Task', 'Priority', 'Assignee', 'Hours', 'Note', 'Source']];
+
+        State.Tasks.getAll().forEach(task => {
+            const projName = task.projectId
+                ? (State.Projects.get(task.projectId)?.name || 'Unknown')
+                : 'No Project';
+
+            (task.timeEntries || []).forEach(e => {
+                const at = new Date(e.startedAt || e.date);
+                if (start && at < start) return;
+                if (end   && at > end)   return;
+                rows.push([
+                    at.toISOString().slice(0, 10),
+                    projName,
+                    task.taskKey || '',
+                    task.title,
+                    task.priority || 'medium',
+                    task.assignee || '',
+                    ((e.duration || 0) / 3600).toFixed(2),
+                    e.note || '',
+                    e.source || 'timer',
+                ]);
+            });
+        });
+
+        if (rows.length === 1) {
+            UI.toast('No time entries in the selected range', 'info');
+            return;
+        }
+
+        const csv = rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `flowboard-time-${startEl?.value || 'all'}-to-${endEl?.value || 'now'}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        UI.toast(`Exported ${rows.length - 1} time entries`, 'success');
     }
 
     function init() {
         document.getElementById('applyReportRange')?.addEventListener('click', render);
+        document.getElementById('exportReportCsv')?.addEventListener('click', exportCsv);
     }
 
-    return { init, render };
+    return { init, render, exportCsv };
 })();
 
 window.Reports = Reports;

@@ -15,6 +15,77 @@ const UI = (() => {
     let _subtaskDragAllowed = false;
 
     // ══════════════════════════════════════════════════════
+    // FOCUS MANAGEMENT
+    // ══════════════════════════════════════════════════════
+    const FOCUSABLE = [
+        'a[href]', 'button:not([disabled])', 'input:not([disabled]):not([type="hidden"])',
+        'select:not([disabled])', 'textarea:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])', '[contenteditable="true"]'
+    ].join(',');
+
+    function focusableWithin(container) {
+        return Array.from(container.querySelectorAll(FOCUSABLE))
+            .filter(el => el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    }
+
+    /**
+     * Confine Tab focus to `container` until the returned release() is called.
+     * Restores focus to whatever was focused beforehand.
+     */
+    function trapFocus(container, onEscape) {
+        if (!container) return () => {};
+        const previous = document.activeElement;
+
+        const first = focusableWithin(container)[0];
+        // Prefer a text input if the dialog leads with one.
+        const preferred = container.querySelector('input:not([type="hidden"]), textarea') || first;
+        preferred?.focus();
+
+        function onKeydown(e) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                onEscape?.();
+                return;
+            }
+            if (e.key !== 'Tab') return;
+
+            const items = focusableWithin(container);
+            if (!items.length) { e.preventDefault(); return; }
+            const firstEl = items[0];
+            const lastEl  = items[items.length - 1];
+
+            if (e.shiftKey && document.activeElement === firstEl) {
+                e.preventDefault(); lastEl.focus();
+            } else if (!e.shiftKey && document.activeElement === lastEl) {
+                e.preventDefault(); firstEl.focus();
+            } else if (!container.contains(document.activeElement)) {
+                e.preventDefault(); firstEl.focus();
+            }
+        }
+
+        container.addEventListener('keydown', onKeydown, true);
+
+        return function release() {
+            container.removeEventListener('keydown', onKeydown, true);
+            if (previous && document.contains(previous)) previous.focus();
+        };
+    }
+
+    // Active traps, keyed by the element they guard, so open/close stays symmetric.
+    const _traps = new Map();
+
+    function beginTrap(key, container, onEscape) {
+        endTrap(key);
+        if (container) _traps.set(key, trapFocus(container, onEscape));
+    }
+
+    function endTrap(key) {
+        const release = _traps.get(key);
+        if (release) { release(); _traps.delete(key); }
+    }
+
+    // ══════════════════════════════════════════════════════
     // TOAST NOTIFICATIONS
     // ══════════════════════════════════════════════════════
     function toast(message, type = 'info', title) {
@@ -53,20 +124,71 @@ const UI = (() => {
     // ══════════════════════════════════════════════════════
     // CONFIRM DIALOG
     // ══════════════════════════════════════════════════════
-    function confirm(message, callback, okLabel = 'Delete', okClass = 'btn-danger') {
-        _confirmCb = callback;
+    /**
+     * Confirm dialog. Callback form is kept for existing callers; it also
+     * returns a Promise<boolean> so new code can `await UI.confirm(...)`.
+     */
+    function confirm(message, callback, okLabel = 'Delete', okClass = 'btn-danger', opts = {}) {
+        const scrim = document.getElementById('confirmModalScrim');
         document.getElementById('confirmMessage').textContent = message;
+        document.getElementById('confirmTitle').textContent = opts.title || 'Confirm';
+
         const okBtn = document.getElementById('confirmOk');
         if (okBtn) {
             okBtn.textContent = okLabel;
             okBtn.className   = `btn ${okClass}`;
         }
-        document.getElementById('confirmModalScrim').classList.add('open');
+        scrim.classList.add('open');
+
+        return new Promise(resolve => {
+            _confirmCb = (ok) => {
+                if (ok && callback) callback();
+                resolve(ok);
+            };
+            // Focus the cancel button by default — destructive dialogs should
+            // never confirm on a stray Enter. (The trap itself is installed by
+            // the scrim observer in installDialogObserver.)
+            setTimeout(() => document.getElementById('confirmCancel')?.focus(), 0);
+        });
     }
 
-    function closeConfirm() {
-        document.getElementById('confirmModalScrim').classList.remove('open');
+    function closeConfirm(ok = false) {
+        const cb = _confirmCb;
         _confirmCb = null;
+        document.getElementById('confirmModalScrim').classList.remove('open');
+        if (cb) cb(ok);
+    }
+
+    // ══════════════════════════════════════════════════════
+    // DIALOG OBSERVER
+    // ══════════════════════════════════════════════════════
+    /**
+     * Every dialog in the app is a scrim that gets an `open` class. Rather than
+     * ask each module to manage focus, watch the class and install/release the
+     * trap centrally — so any future dialog is accessible for free.
+     */
+    function installDialogObserver() {
+        const scrims = document.querySelectorAll('.modal-scrim, #command-palette-scrim');
+
+        scrims.forEach(scrim => {
+            const key = scrim.id || `scrim-${Math.random()}`;
+
+            new MutationObserver(() => {
+                const isOpen = scrim.classList.contains('open');
+                const dialog = scrim.querySelector('.modal, .command-palette');
+                if (isOpen) {
+                    beginTrap(key, dialog, () => {
+                        // Defer to the dialog's own close button so each module
+                        // keeps ownership of its teardown.
+                        const closeBtn = scrim.querySelector('.modal-close');
+                        if (closeBtn) closeBtn.click();
+                        else scrim.classList.remove('open');
+                    });
+                } else {
+                    endTrap(key);
+                }
+            }).observe(scrim, { attributes: true, attributeFilter: ['class'] });
+        });
     }
 
     // ══════════════════════════════════════════════════════
@@ -217,6 +339,8 @@ const UI = (() => {
         const task = State.Tasks.get(taskId);
         if (!task) return;
 
+        noteRecentTask(taskId);
+
         const limit = maxTaskPanels();
         const existingIdx = _openTaskIds.indexOf(taskId);
         const wasAlreadyOpen = existingIdx !== -1;
@@ -363,9 +487,17 @@ const UI = (() => {
                 </div>
                 <div class="panel-meta-item">
                     <div class="panel-meta-label">Assignee</div>
-                    <div class="panel-meta-value" style="gap:6px;">
-                        <div class="task-card-assignee" style="width:22px;height:22px;font-size:12px;flex-shrink:0;">${(task.assignee||'?')[0].toUpperCase()}</div>
-                        <span style="font-size:15px;">${escHtml(task.assignee || '—')}</span>
+                    <div class="panel-meta-value panel-meta-value--row">
+                        <span class="task-card-assignee task-card-assignee--sm">${(task.assignee||'?')[0].toUpperCase()}</span>
+                        <span class="panel-meta-text">${escHtml(task.assignee || '—')}</span>
+                    </div>
+                </div>
+                <div class="panel-meta-item">
+                    <label class="panel-meta-label" for="panelPriority-${tid}">Priority</label>
+                    <div class="panel-meta-value">
+                        <select class="form-control panel-meta-select" id="panelPriority-${tid}">
+                            ${Tasks.priorityOptions(task.priority)}
+                        </select>
                     </div>
                 </div>
             </div>
@@ -388,14 +520,15 @@ const UI = (() => {
             <!-- Time Tracking -->
             <div class="panel-section">
                 <div class="panel-section-title">Time Tracking</div>
-                <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-3);">
-                    <button type="button" class="btn btn-primary btn-sm" id="panelBodyStartTimer-${tid}"
-                        style="display:${running ? 'none' : 'inline-flex'};align-items:center;gap:6px;">
-                        <i class="fa-solid fa-play"></i> Start timer
+                <div class="time-actions">
+                    <button type="button" class="btn btn-primary btn-sm${running ? ' is-hidden' : ''}" id="panelBodyStartTimer-${tid}">
+                        <i class="fa-solid fa-play" aria-hidden="true"></i> Start timer
                     </button>
-                    <button type="button" class="btn btn-secondary btn-sm" id="panelBodyStopTimer-${tid}"
-                        style="display:${running ? 'inline-flex' : 'none'};align-items:center;gap:6px;border-color:rgba(34,197,94,0.35);color:#22c55e;">
-                        <i class="fa-solid fa-stop"></i> Stop timer
+                    <button type="button" class="btn btn-success btn-sm${running ? '' : ' is-hidden'}" id="panelBodyStopTimer-${tid}">
+                        <i class="fa-solid fa-stop" aria-hidden="true"></i> Stop timer
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="panelLogTime-${tid}">
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i> Log time
                     </button>
                 </div>
                 <div class="time-tracking-row">
@@ -418,9 +551,19 @@ const UI = (() => {
                         </div>
                     </div>` : ''}
                 </div>
-                ${running ? `<div id="panelLiveTimer-${tid}" style="font-size:23px;font-weight:700;font-family:var(--font-mono);color:#22c55e;letter-spacing:-0.5px;">
+                ${running ? `<div class="panel-live-timer" id="panelLiveTimer-${tid}">
                     ${Tasks.formatElapsed(elapsed)}
                 </div>` : ''}
+
+                <div class="time-entry-list" id="panelTimeEntries-${tid}">
+                    ${buildTimeEntries(task)}
+                </div>
+            </div>
+
+            <!-- Activity -->
+            <div class="panel-section">
+                <div class="panel-section-title">Activity</div>
+                <div class="activity-feed">${buildActivityFeed(task)}</div>
             </div>
 
         `;
@@ -504,11 +647,12 @@ const UI = (() => {
             if (addChildBtn) {
                 e.stopPropagation();
                 const parentId = parseInt(addChildBtn.dataset.parentSub, 10);
-                const text = prompt('Subtask text:');
-                if (text?.trim()) {
-                    State.Tasks.addSubtask(task.id, text.trim(), parentId);
+                const row = addChildBtn.closest('.subtask-item') || addChildBtn;
+                inlinePrompt(row, { placeholder: 'Subtask…' }).then(text => {
+                    if (!text) return;
+                    State.Tasks.addSubtask(task.id, text, parentId);
                     openTaskPanel(task.id);
-                }
+                });
                 return;
             }
             const checkbox = e.target.closest('.subtask-checkbox');
@@ -534,12 +678,12 @@ const UI = (() => {
             });
         });
 
-        q('addSubtaskRow')?.addEventListener('click', () => {
-            const text = prompt('Subtask text:');
-            if (text?.trim()) {
-                State.Tasks.addSubtask(task.id, text.trim());
+        q('addSubtaskRow')?.addEventListener('click', (e) => {
+            inlinePrompt(e.currentTarget, { placeholder: 'Subtask…' }).then(text => {
+                if (!text) return;
+                State.Tasks.addSubtask(task.id, text);
                 openTaskPanel(task.id);
-            }
+            });
         });
 
         attachSubtaskDragEvents(task.id, panelEl);
@@ -553,6 +697,56 @@ const UI = (() => {
 
         q('panelBodyStartTimer')?.addEventListener('click', onPanelTimerToggle);
         q('panelBodyStopTimer')?.addEventListener('click', onPanelTimerToggle);
+
+        // Priority
+        q('panelPriority')?.addEventListener('change', (e) => {
+            State.Tasks.update(task.id, { priority: e.target.value });
+            const { view, projectId } = Router.getCurrent();
+            Router.renderView(view, projectId);
+        });
+
+        // Log time manually
+        q('panelLogTime')?.addEventListener('click', async () => {
+            const result = await promptTimeEntry({ title: 'Log time' });
+            if (!result) return;
+            State.Entries.logManual(task.id, result);
+            toast(`Logged ${State.formatDuration(result.seconds)}`, 'success');
+            openTaskPanel(task.id);
+        });
+
+        // Edit / delete individual entries
+        q('panelTimeEntries')?.addEventListener('click', async (e) => {
+            const editBtn = e.target.closest('[data-entry-edit]');
+            const delBtn  = e.target.closest('[data-entry-del]');
+
+            if (editBtn) {
+                const id = Number(editBtn.dataset.entryEdit);
+                const entry = State.Entries.getAll(task.id).find(x => x.id === id);
+                if (!entry) return;
+                const result = await promptTimeEntry({
+                    title: 'Edit time entry',
+                    duration: State.formatDuration(entry.duration),
+                    date: (entry.startedAt || entry.date).slice(0, 10),
+                    note: entry.note || '',
+                });
+                if (!result) return;
+                State.Entries.update(task.id, id, { seconds: result.seconds, note: result.note });
+                toast('Time entry updated', 'success');
+                openTaskPanel(task.id);
+                return;
+            }
+
+            if (delBtn) {
+                const id = Number(delBtn.dataset.entryDel);
+                const entry = State.Entries.getAll(task.id).find(x => x.id === id);
+                if (!entry) return;
+                confirm(`Delete this ${State.formatDuration(entry.duration)} entry?`, () => {
+                    State.Entries.remove(task.id, id);
+                    toast('Time entry deleted', 'success');
+                    openTaskPanel(task.id);
+                });
+            }
+        });
 
         // Live timer
         if (running) startPanelTimer(task.id);
@@ -784,6 +978,72 @@ const UI = (() => {
         _cmdActions[_cmdSelectedIdx]?.();
     }
 
+    // ── Task search ────────────────────────────────────────
+    const RECENT_KEY = 'flowboard_recent_tasks';
+
+    function noteRecentTask(taskId) {
+        try {
+            const prev = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+            const next = [taskId, ...prev.filter(id => id !== taskId)].slice(0, 8);
+            localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+        } catch { /* storage full or blocked — recents are a nicety */ }
+    }
+
+    function recentTasks(limit) {
+        try {
+            const ids = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+            return ids.map(id => State.Tasks.get(id)).filter(Boolean).slice(0, limit);
+        } catch { return []; }
+    }
+
+    /**
+     * Subsequence match — "fob" matches "Fix onboarding". Returns a score where
+     * lower is better, or null when there's no match at all.
+     */
+    function fuzzyScore(haystack, needle) {
+        const h = haystack.toLowerCase();
+        const exact = h.indexOf(needle);
+        if (exact !== -1) return exact;               // substring beats fuzzy
+
+        let hi = 0, gaps = 0, lastHit = -1;
+        for (const ch of needle) {
+            const found = h.indexOf(ch, hi);
+            if (found === -1) return null;
+            if (lastHit !== -1) gaps += found - lastHit - 1;
+            lastHit = found;
+            hi = found + 1;
+        }
+        return 1000 + gaps;                            // always ranks below substring hits
+    }
+
+    function searchTasks(q, limit) {
+        const labelName = id => State.Labels.getAll().find(l => l.id === id)?.name || '';
+
+        return State.Tasks.getAll()
+            .map(t => {
+                // Weighted so a title hit always outranks a description hit.
+                const fields = [
+                    [t.title, 0],
+                    [t.taskKey || '', 5],
+                    [t.assignee || '', 40],
+                    [(t.labels || []).map(labelName).join(' '), 60],
+                    [String(t.description || '').replace(/<[^>]*>/g, ' '), 80],
+                ];
+
+                let best = null;
+                for (const [text, weight] of fields) {
+                    if (!text) continue;
+                    const s = fuzzyScore(text, q);
+                    if (s != null) best = best == null ? s + weight : Math.min(best, s + weight);
+                }
+                return best == null ? null : { task: t, score: best };
+            })
+            .filter(Boolean)
+            .sort((a, b) => a.score - b.score)
+            .slice(0, limit)
+            .map(x => x.task);
+    }
+
     function renderCmdResults(query) {
         const container = document.getElementById('cmdPaletteResults');
         if (!container) return;
@@ -795,7 +1055,9 @@ const UI = (() => {
 
         // ── Navigation commands ────────────────────────────
         const navCmds = [
+            { icon: 'fa-gauge-high',     label: 'Dashboard',        action: () => { closeCommandPalette(); Router.navigate('dashboard'); } },
             { icon: 'fa-check-circle',   label: 'My Tasks',         action: () => { closeCommandPalette(); Router.navigate('mytasks'); } },
+            { icon: 'fa-layer-group',    label: 'Backlog',          action: () => { closeCommandPalette(); Router.navigate('backlog'); } },
             { icon: 'fa-chart-gantt',    label: 'Timeline',         action: () => { closeCommandPalette(); Router.navigate('timeline'); } },
             { icon: 'fa-chart-bar',      label: 'Reports',          action: () => { closeCommandPalette(); Router.navigate('reports'); } },
             { icon: 'fa-plus',           label: 'New Task',         action: () => { closeCommandPalette(); Tasks.openModal(); }, kbd: ['N'] },
@@ -838,28 +1100,27 @@ const UI = (() => {
             }).join('');
         }
 
-        // ── Tasks search ───────────────────────────────────
-        if (q && q.length > 1) {
-            const tasks = State.Tasks.getAll()
-                .filter(t => t.title.toLowerCase().includes(q))
-                .slice(0, 8);
-            if (tasks.length) {
-                html += `<div class="command-group-title">Tasks</div>`;
-                html += tasks.map(t => {
-                    const idx = itemIdx++;
-                    _cmdActions.push(() => {
-                        closeCommandPalette();
-                        openTaskPanel(t.id);
-                    });
-                    const proj = t.projectId ? State.Projects.get(t.projectId) : null;
-                    return `
-                    <div class="command-item" data-cmd-item-idx="${idx}">
-                        <i class="fa-solid fa-list-check"></i>
-                        <span class="command-item-label">${escHtml(t.title)}</span>
-                        <span class="command-item-sub">${proj ? escHtml(proj.name) : ''}</span>
-                    </div>`;
-                }).join('');
-            }
+        // ── Tasks ──────────────────────────────────────────
+        // With no query, show what was opened recently; otherwise rank matches
+        // across title, key, description, assignee and labels.
+        const tasks = q ? searchTasks(q, 12) : recentTasks(5);
+        if (tasks.length) {
+            html += `<div class="command-group-title">${q ? 'Tasks' : 'Recent'}</div>`;
+            html += tasks.map(t => {
+                const idx = itemIdx++;
+                _cmdActions.push(() => {
+                    closeCommandPalette();
+                    openTaskPanel(t.id);
+                });
+                const proj = t.projectId ? State.Projects.get(t.projectId) : null;
+                return `
+                <div class="command-item" data-cmd-item-idx="${idx}">
+                    <i class="fa-solid fa-list-check" aria-hidden="true"></i>
+                    <span class="command-item-key">${escHtml(t.taskKey || '')}</span>
+                    <span class="command-item-label">${escHtml(t.title)}</span>
+                    <span class="command-item-sub">${proj ? escHtml(proj.name) : ''}</span>
+                </div>`;
+            }).join('');
         }
 
         if (!html) {
@@ -892,8 +1153,13 @@ const UI = (() => {
 
         // Sync settings chips
         document.querySelectorAll('[data-theme-pick]').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.themePick === theme);
+            const on = btn.dataset.themePick === theme;
+            btn.classList.toggle('active', on);
+            btn.setAttribute('aria-pressed', String(on));
         });
+
+        document.querySelector('meta[name="theme-color"]')
+            ?.setAttribute('content', theme === 'dark' ? '#0b0a12' : '#faf9ff');
     }
 
     function toggleTheme() {
@@ -912,40 +1178,465 @@ const UI = (() => {
     function toggleAppSidebar() {
         const sidebar = document.getElementById('sidebar');
         if (!sidebar) return;
+        let expanded;
         if (window.innerWidth <= 680) {
-            sidebar.classList.toggle('mobile-open');
+            expanded = sidebar.classList.toggle('mobile-open');
             document.getElementById('mobileSidebarOverlay')?.classList.toggle('visible');
         } else {
-            sidebar.classList.toggle('collapsed');
+            expanded = !sidebar.classList.toggle('collapsed');
         }
+        document.getElementById('sidebarToggle')?.setAttribute('aria-expanded', String(expanded));
+    }
+
+    // ══════════════════════════════════════════════════════
+    // SYNC STATUS
+    // ══════════════════════════════════════════════════════
+    /**
+     * Cloud sync is last-write-wins with no conflict handling, so the least we
+     * can do is make its state visible rather than silent.
+     */
+    function installSyncStatus() {
+        const el    = document.getElementById('syncStatus');
+        const label = document.getElementById('syncLabel');
+        if (!el || !label) return;
+
+        let settleTimer = null;
+        function set(state, text) {
+            clearTimeout(settleTimer);
+            el.dataset.state = state;
+            label.textContent = text;
+            el.title = text;
+            if (state === 'ok') {
+                settleTimer = setTimeout(() => {
+                    el.dataset.state = 'idle';
+                    label.textContent = 'Saved';
+                }, 2000);
+            }
+        }
+
+        State.on('sync:pending', () => set('pending', 'Unsaved changes'));
+        State.on('sync:start',   () => set('syncing', 'Syncing…'));
+        State.on('sync:ok',      () => set('ok', 'Synced'));
+        State.on('sync:offline', () => set('offline', 'Offline — saved locally'));
+        State.on('sync:error',   () => set('error', 'Sync failed — saved locally'));
+
+        window.addEventListener('offline', () => set('offline', 'Offline — saved locally'));
+        window.addEventListener('online',  () => set('idle', 'Saved'));
+    }
+
+    // ══════════════════════════════════════════════════════
+    // TIME ENTRIES
+    // ══════════════════════════════════════════════════════
+    function fmtEntryDate(iso) {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return '';
+        const today = new Date();
+        const sameDay = d.toDateString() === today.toDateString();
+        const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+        return sameDay ? `Today, ${time}` : `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${time}`;
+    }
+
+    function buildTimeEntries(task) {
+        const entries = State.Entries.getAll(task.id);
+        if (!entries.length) {
+            return `<p class="time-entry-empty">No time logged yet.</p>`;
+        }
+        return entries.map(e => `
+            <div class="time-entry" data-entry-id="${e.id}">
+                <div class="time-entry-main">
+                    <span class="time-entry-duration">${State.formatDuration(e.duration)}</span>
+                    <span class="time-entry-date">${escHtml(fmtEntryDate(e.startedAt || e.date))}</span>
+                    ${e.source === 'manual' ? '<span class="time-entry-tag">manual</span>' : ''}
+                    ${e.source === 'recovered' ? '<span class="time-entry-tag">recovered</span>' : ''}
+                </div>
+                ${e.note ? `<div class="time-entry-note">${escHtml(e.note)}</div>` : ''}
+                <div class="time-entry-actions">
+                    <button type="button" class="btn btn-ghost btn-icon btn-sm" data-entry-edit="${e.id}"
+                            aria-label="Edit this time entry" title="Edit">
+                        <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-icon btn-sm" data-entry-del="${e.id}"
+                            aria-label="Delete this time entry" title="Delete">
+                        <i class="fa-solid fa-trash" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>`).join('');
+    }
+
+    /** Parse "1h 30m", "90m", "1.5h", "1:30" into seconds. */
+    function parseDuration(input) {
+        const s = String(input || '').trim().toLowerCase();
+        if (!s) return null;
+
+        const clock = s.match(/^(\d+):([0-5]?\d)$/);
+        if (clock) return (+clock[1]) * 3600 + (+clock[2]) * 60;
+
+        let total = 0, matched = false;
+        const h = s.match(/([\d.]+)\s*h/);
+        const m = s.match(/([\d.]+)\s*m/);
+        if (h) { total += parseFloat(h[1]) * 3600; matched = true; }
+        if (m) { total += parseFloat(m[1]) * 60;   matched = true; }
+        if (matched) return Math.round(total);
+
+        const bare = parseFloat(s);
+        if (Number.isNaN(bare)) return null;
+        return Math.round(bare * 3600);   // a bare number means hours
+    }
+
+    /** Dialog for adding or editing one entry. Resolves null on cancel. */
+    function promptTimeEntry({ title, duration = '', date = '', note = '' }) {
+        return new Promise(resolve => {
+            const scrim = document.createElement('div');
+            scrim.className = 'modal-scrim open';
+            scrim.innerHTML = `
+                <div class="modal modal--sm" role="dialog" aria-modal="true" aria-labelledby="logTimeTitle">
+                    <div class="modal-header">
+                        <h2 class="modal-title" id="logTimeTitle">${escHtml(title)}</h2>
+                        <button class="modal-close" data-close aria-label="Close dialog">
+                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <form class="modal-body" id="logTimeForm">
+                        <div class="form-group">
+                            <label class="form-label" for="logTimeDuration">Duration</label>
+                            <input class="form-control" id="logTimeDuration" value="${escHtml(duration)}"
+                                   placeholder="1h 30m" autocomplete="off" required />
+                            <span class="form-hint">Accepts <code>1h 30m</code>, <code>90m</code>, <code>1.5</code> or <code>1:30</code>.</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="logTimeDate">Date</label>
+                            <input class="form-control" type="date" id="logTimeDate"
+                                   value="${escHtml(date || new Date().toISOString().slice(0, 10))}" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="logTimeNote">Note <span class="text-muted">(optional)</span></label>
+                            <input class="form-control" id="logTimeNote" value="${escHtml(note)}" placeholder="What did you work on?" />
+                        </div>
+                        <p class="form-error is-hidden" id="logTimeError"></p>
+                    </form>
+                    <div class="modal-footer">
+                        <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+                        <button class="btn btn-primary" type="submit" form="logTimeForm">Save</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(scrim);
+
+            const release = trapFocus(scrim.querySelector('.modal'), () => finish(null));
+            function finish(result) {
+                release();
+                scrim.remove();
+                resolve(result);
+            }
+
+            scrim.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => finish(null)));
+            scrim.addEventListener('click', e => { if (e.target === scrim) finish(null); });
+
+            scrim.querySelector('#logTimeForm').addEventListener('submit', e => {
+                e.preventDefault();
+                const seconds = parseDuration(scrim.querySelector('#logTimeDuration').value);
+                const err = scrim.querySelector('#logTimeError');
+                if (!seconds || seconds <= 0) {
+                    err.textContent = 'Enter a duration like 1h 30m, 90m, or 1.5.';
+                    err.classList.remove('is-hidden');
+                    return;
+                }
+                finish({
+                    seconds,
+                    date: scrim.querySelector('#logTimeDate').value,
+                    note: scrim.querySelector('#logTimeNote').value.trim(),
+                });
+            });
+        });
+    }
+
+    // ══════════════════════════════════════════════════════
+    // ACTIVITY FEED
+    // ══════════════════════════════════════════════════════
+    const ACTIVITY_LABELS = {
+        task_created: 'created this task',
+        task_moved:   'moved this task',
+        task_deleted: 'deleted a task',
+        task_updated: 'updated this task',
+        project_created: 'created the project',
+    };
+
+    function buildActivityFeed(task) {
+        const all = State.Activity.getAll() || [];
+        const mine = all
+            .filter(a => !task || a.taskTitle === task.title)
+            .slice(-12)
+            .reverse();
+
+        if (!mine.length) return `<p class="activity-empty">No activity recorded yet.</p>`;
+
+        return mine.map(a => `
+            <div class="activity-item">
+                <span class="activity-avatar" aria-hidden="true">${escHtml((a.user || 'U')[0].toUpperCase())}</span>
+                <div class="activity-body">
+                    <span class="activity-text">
+                        <strong>${escHtml(a.user || 'Someone')}</strong>
+                        ${escHtml(ACTIVITY_LABELS[a.action] || a.action || 'made a change')}
+                        ${a.extra ? `<span class="activity-extra">${escHtml(a.extra)}</span>` : ''}
+                    </span>
+                    <time class="activity-time">${escHtml(timeAgo(a.at))}</time>
+                </div>
+            </div>`).join('');
+    }
+
+    // ══════════════════════════════════════════════════════
+    // KEYBOARD SHORTCUTS
+    // ══════════════════════════════════════════════════════
+    /**
+     * Rows are [keys, description, handler]. `keys` is what the help sheet
+     * shows; matching is done by the handler's own guard below.
+     */
+    const SHORTCUTS = [
+        { group: 'General', keys: ['⌘', 'K'], desc: 'Search / command palette' },
+        { group: 'General', keys: ['N'],      desc: 'New task' },
+        { group: 'General', keys: ['⌘', 'B'], desc: 'Toggle sidebar' },
+        { group: 'General', keys: ['?'],      desc: 'This help sheet' },
+        { group: 'General', keys: ['Esc'],    desc: 'Close panel or dialog' },
+        { group: 'Navigation', keys: ['G', 'D'], desc: 'Go to Dashboard' },
+        { group: 'Navigation', keys: ['G', 'M'], desc: 'Go to My Tasks' },
+        { group: 'Navigation', keys: ['G', 'B'], desc: 'Go to Backlog' },
+        { group: 'Navigation', keys: ['G', 'T'], desc: 'Go to Timeline' },
+        { group: 'Navigation', keys: ['G', 'R'], desc: 'Go to Reports' },
+        { group: 'Navigation', keys: ['G', 'S'], desc: 'Go to Settings' },
+        { group: 'Task list', keys: ['J'], desc: 'Focus next task' },
+        { group: 'Task list', keys: ['K'], desc: 'Focus previous task' },
+        { group: 'Task list', keys: ['Enter'], desc: 'Open focused task' },
+        { group: 'Task list', keys: ['E'], desc: 'Edit focused task' },
+        { group: 'Task list', keys: ['T'], desc: 'Start / stop timer on focused task' },
+        { group: 'Dialogs', keys: ['⌘', 'Enter'], desc: 'Save and close' },
+    ];
+
+    const GOTO_ROUTES = { d: 'dashboard', m: 'mytasks', b: 'backlog', t: 'timeline', r: 'reports', s: 'settings' };
+    let _gotoArmed = false;
+    let _gotoTimer = null;
+
+    function anyOverlayOpen() {
+        return !!document.querySelector('.modal-scrim.open, #command-palette-scrim.open, #shortcutsScrim.open');
+    }
+
+    /** Rows in the current view that J/K can walk. */
+    function focusableRows() {
+        const view = document.querySelector('.view.active');
+        if (!view) return [];
+        return Array.from(view.querySelectorAll('[data-task-id]'))
+            .filter(el => el.offsetParent !== null);
+    }
+
+    function moveRowFocus(delta) {
+        const rows = focusableRows();
+        if (!rows.length) return;
+        const current = rows.indexOf(document.activeElement.closest('[data-task-id]'));
+        const next = current === -1
+            ? (delta > 0 ? 0 : rows.length - 1)
+            : Math.min(rows.length - 1, Math.max(0, current + delta));
+        rows[next].focus();
+        rows[next].scrollIntoView({ block: 'nearest' });
+    }
+
+    function focusedTaskId() {
+        const el = document.activeElement?.closest('[data-task-id]');
+        if (!el) return null;
+        const id = parseInt(el.dataset.taskId, 10);
+        return Number.isNaN(id) ? null : id;
+    }
+
+    function installShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // ── Modifier shortcuts work even while typing ──
+            const mod = e.metaKey || e.ctrlKey;
+
+            if (mod && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                openCommandPalette();
+                return;
+            }
+
+            if (e.key === 'Escape') {
+                if (document.getElementById('command-palette-scrim')?.classList.contains('open')) {
+                    closeCommandPalette();
+                } else if (document.getElementById('shortcutsScrim')?.classList.contains('open')) {
+                    closeShortcutsSheet();
+                } else if (_fullscreenTaskId != null) {
+                    closeTaskPanel(_fullscreenTaskId);
+                } else if (document.getElementById('task-detail-panels')?.classList.contains('open')) {
+                    closeTaskPanel();
+                }
+                return;
+            }
+
+            // ── Everything below is inert while typing ──
+            if (isTypingShortcutTarget(e.target)) return;
+
+            if (mod && e.key.toLowerCase() === 'b') {
+                e.preventDefault();
+                toggleAppSidebar();
+                return;
+            }
+
+            if (mod) return;            // leave other browser shortcuts alone
+            if (anyOverlayOpen()) return;
+
+            const key = e.key.toLowerCase();
+
+            // G-then-key navigation
+            if (_gotoArmed) {
+                disarmGoto();
+                const route = GOTO_ROUTES[key];
+                if (route) { e.preventDefault(); Router.navigate(route); }
+                return;
+            }
+            if (key === 'g') {
+                _gotoArmed = true;
+                clearTimeout(_gotoTimer);
+                _gotoTimer = setTimeout(disarmGoto, 1500);
+                return;
+            }
+
+            switch (key) {
+                case 'n':
+                    e.preventDefault();
+                    Tasks.openModal();
+                    break;
+                case '?':
+                case '/':
+                    if (e.key === '?' || e.shiftKey) { e.preventDefault(); openShortcutsSheet(); }
+                    break;
+                case 'j':
+                    e.preventDefault(); moveRowFocus(1);
+                    break;
+                case 'k':
+                    e.preventDefault(); moveRowFocus(-1);
+                    break;
+                case 'enter': {
+                    const id = focusedTaskId();
+                    if (id != null) { e.preventDefault(); openTaskPanel(id); }
+                    break;
+                }
+                case 'e': {
+                    const id = focusedTaskId();
+                    if (id != null) { e.preventDefault(); Tasks.openModal(id); }
+                    break;
+                }
+                case 't': {
+                    const id = focusedTaskId();
+                    if (id == null) break;
+                    e.preventDefault();
+                    const task = State.Tasks.get(id);
+                    if (!task) break;
+                    task.isTimerRunning ? State.Timer.stop(id) : State.Timer.start(id);
+                    break;
+                }
+            }
+        });
+    }
+
+    function disarmGoto() {
+        _gotoArmed = false;
+        clearTimeout(_gotoTimer);
+    }
+
+    // ── Shortcuts help sheet (built on demand) ─────────────
+    function openShortcutsSheet() {
+        let scrim = document.getElementById('shortcutsScrim');
+        if (!scrim) {
+            scrim = document.createElement('div');
+            scrim.className = 'modal-scrim';
+            scrim.id = 'shortcutsScrim';
+
+            const groups = [...new Set(SHORTCUTS.map(s => s.group))];
+            scrim.innerHTML = `
+                <div class="modal shortcuts-modal" role="dialog" aria-modal="true" aria-labelledby="shortcutsTitle">
+                    <div class="modal-header">
+                        <h2 class="modal-title" id="shortcutsTitle">Keyboard shortcuts</h2>
+                        <button class="modal-close" id="shortcutsClose" aria-label="Close dialog">
+                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        ${groups.map(g => `
+                            <div class="shortcuts-group">
+                                <h3 class="shortcuts-group-title">${escHtml(g)}</h3>
+                                ${SHORTCUTS.filter(s => s.group === g).map(s => `
+                                    <div class="shortcuts-row">
+                                        <span class="shortcuts-desc">${escHtml(s.desc)}</span>
+                                        <span class="shortcuts-keys">
+                                            ${s.keys.map(k => `<kbd>${escHtml(k)}</kbd>`).join('')}
+                                        </span>
+                                    </div>`).join('')}
+                            </div>`).join('')}
+                    </div>
+                </div>`;
+            document.body.appendChild(scrim);
+
+            scrim.querySelector('#shortcutsClose').addEventListener('click', closeShortcutsSheet);
+            scrim.addEventListener('click', e => { if (e.target === scrim) closeShortcutsSheet(); });
+        }
+        scrim.classList.add('open');
+        beginTrap('shortcuts', scrim.querySelector('.modal'), closeShortcutsSheet);
+    }
+
+    function closeShortcutsSheet() {
+        endTrap('shortcuts');
+        document.getElementById('shortcutsScrim')?.classList.remove('open');
     }
 
     // ══════════════════════════════════════════════════════
     // INIT
     // ══════════════════════════════════════════════════════
     function init() {
-        // Escape key — close most recent task panel
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                if (document.getElementById('command-palette-scrim').classList.contains('open')) {
-                    closeCommandPalette();
-                } else if (_fullscreenTaskId != null) {
-                    closeTaskPanel(_fullscreenTaskId);
-                } else if (document.getElementById('task-detail-panels')?.classList.contains('open')) {
-                    closeTaskPanel();
+        installShortcuts();
+        installDialogObserver();
+
+        // ── Timer safety ───────────────────────────────────
+        // A timer that survived a tab close must never log its full wall-clock
+        // span silently — 14 hours of "work" is how time data gets ruined.
+        State.on('timer:stale', ({ taskId, elapsedMs }) => {
+            const task = State.Tasks.get(taskId);
+            if (!task) return;
+            const hours = (elapsedMs / 3600000).toFixed(1);
+
+            confirm(
+                `The timer for "${task.title}" has been running for ${hours} hours — probably since the app was last closed. ` +
+                `Discard it, or log a corrected amount?`,
+                async () => {
+                    const result = await promptTimeEntry({ title: 'Log corrected time' });
+                    if (!result) { State.Timer.discard(taskId); toast('Timer discarded', 'info'); return; }
+                    State.Timer.stop(taskId, result.seconds);
+                    toast(`Logged ${State.formatDuration(result.seconds)}`, 'success');
+                    const { view, projectId } = Router.getCurrent();
+                    Router.renderView(view, projectId);
+                },
+                'Log corrected time',
+                'btn-primary',
+                { title: 'Timer left running' }
+            ).then(ok => {
+                if (!ok) {
+                    State.Timer.discard(taskId);
+                    toast('Timer discarded — no time logged', 'info');
                 }
-            }
-            // Cmd/Ctrl + K → command palette
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-                e.preventDefault();
-                openCommandPalette();
-            }
-            // Cmd/Ctrl + B → toggle left sidebar
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
-                if (isTypingShortcutTarget(e.target)) return;
-                e.preventDefault();
-                toggleAppSidebar();
-            }
+            });
+        });
+
+        State.on('timer:idle', ({ taskId, idleMs }) => {
+            const task = State.Tasks.get(taskId);
+            if (!task) return;
+            toast(
+                `No activity for ${Math.round(idleMs / 60000)} minutes — the timer for "${task.title}" is still running.`,
+                'warning',
+                'Still working?'
+            );
+        });
+
+        State.on('tasks:rescued', ({ count, projectName }) => {
+            toast(
+                `${count} task${count === 1 ? '' : 's'} had no valid project and ${count === 1 ? 'was' : 'were'} moved to "${projectName}".`,
+                'warning',
+                'Tasks recovered'
+            );
         });
 
         // Keep panels in sync when timer is started from board / list / elsewhere
@@ -991,15 +1682,16 @@ const UI = (() => {
         });
 
         // ── Confirm dialog ─────────────────────────────────
-        document.getElementById('confirmOk')?.addEventListener('click', () => {
-            if (_confirmCb) _confirmCb();
-            closeConfirm();
-        });
-        document.getElementById('confirmCancel')?.addEventListener('click', closeConfirm);
-        document.getElementById('confirmModalClose')?.addEventListener('click', closeConfirm);
+        document.getElementById('confirmOk')?.addEventListener('click', () => closeConfirm(true));
+        document.getElementById('confirmCancel')?.addEventListener('click', () => closeConfirm(false));
+        document.getElementById('confirmModalClose')?.addEventListener('click', () => closeConfirm(false));
         document.getElementById('confirmModalScrim')?.addEventListener('click', e => {
-            if (e.target === document.getElementById('confirmModalScrim')) closeConfirm();
+            if (e.target === document.getElementById('confirmModalScrim')) closeConfirm(false);
         });
+
+        // ── Dashboard header buttons ───────────────────────
+        document.getElementById('dashAddTaskBtn')?.addEventListener('click', () => Tasks.openModal());
+        document.getElementById('dashShortcutsBtn')?.addEventListener('click', openShortcutsSheet);
 
         // ── Theme toggle ───────────────────────────────────
         document.getElementById('themeToggleBtn')?.addEventListener('click', toggleTheme);
@@ -1029,10 +1721,44 @@ const UI = (() => {
             Router.navigate('settings');
         });
 
-        // ── Export / Clear Data ────────────────────────────
+        // ── Sync status indicator ──────────────────────────
+        installSyncStatus();
+
+        // ── Export / Import / Clear Data ───────────────────
         document.getElementById('exportDataBtn')?.addEventListener('click', () => {
             State.exportData();
             toast('Data exported', 'success');
+        });
+
+        const importInput = document.getElementById('importDataInput');
+        document.getElementById('importDataBtn')?.addEventListener('click', () => importInput?.click());
+
+        importInput?.addEventListener('change', async () => {
+            const file = importInput.files?.[0];
+            importInput.value = '';           // allow re-picking the same file
+            if (!file) return;
+
+            const text = await file.text();
+            const check = State.inspectImport(text);
+            if (!check.ok) {
+                toast(check.error, 'error', 'Import failed');
+                return;
+            }
+
+            const { projects, tasks, sprints } = check.summary;
+            confirm(
+                `This file has ${projects} project${projects === 1 ? '' : 's'}, ${tasks} task${tasks === 1 ? '' : 's'} ` +
+                `and ${sprints} sprint${sprints === 1 ? '' : 's'}. Importing replaces everything currently in this workspace.`,
+                () => {
+                    State.importData(check.data);
+                    Projects.renderSidebar();
+                    Router.navigate('mytasks');
+                    toast(`Imported ${tasks} tasks across ${projects} projects`, 'success');
+                },
+                'Replace and import',
+                'btn-primary',
+                { title: 'Import data' }
+            );
         });
 
         document.getElementById('clearDataBtn')?.addEventListener('click', () => {
@@ -1064,15 +1790,135 @@ const UI = (() => {
 
     // ── Helpers ────────────────────────────────────────────
     function escHtml(str) {
-        return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
     function timeAgo(date) {
-        const diff = (Date.now() - date.getTime()) / 1000;
+        const d = date instanceof Date ? date : new Date(date);
+        if (Number.isNaN(d.getTime())) return '';
+        const diff = (Date.now() - d.getTime()) / 1000;
         if (diff < 60)    return 'just now';
         if (diff < 3600)  return `${Math.floor(diff/60)}m ago`;
         if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
-        return `${Math.floor(diff/86400)}d ago`;
+        if (diff < 604800) return `${Math.floor(diff/86400)}d ago`;
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+
+    /**
+     * Shared empty state. `action` is { label, icon, onClick } — the caller
+     * binds it by id after inserting the markup, or passes `actionId` and wires
+     * it up itself.
+     */
+    function emptyState({ icon = 'fa-inbox', title, body = '', action = null, grow = false } = {}) {
+        return `
+            <div class="empty-state${grow ? ' empty-state--grow' : ''}">
+                <div class="empty-state-icon"><i class="fa-solid ${escHtml(icon)}" aria-hidden="true"></i></div>
+                <p class="empty-state-title">${escHtml(title)}</p>
+                ${body ? `<p class="empty-state-desc">${escHtml(body)}</p>` : ''}
+                ${action ? `<button class="btn btn-primary btn-sm mt-2" id="${escHtml(action.id)}">
+                    ${action.icon ? `<i class="fa-solid ${escHtml(action.icon)}" aria-hidden="true"></i>` : ''}
+                    ${escHtml(action.label)}
+                </button>` : ''}
+            </div>`;
+    }
+
+    /** Loading placeholder. `kind` is 'rows' | 'cards'. */
+    function skeleton(kind = 'rows', count = 5) {
+        const one = kind === 'cards'
+            ? '<div class="skeleton skeleton-card"></div>'
+            : '<div class="skeleton skeleton-row"></div>';
+        return `<div class="skeleton-wrap" aria-hidden="true">${one.repeat(count)}</div>`;
+    }
+
+    /**
+     * Floating menu anchored to an element. `items` is a list of
+     * { icon, label, onClick, danger } — or the string 'separator'.
+     */
+    function menu(anchorEl, items) {
+        document.querySelectorAll('.dropdown-menu.floating').forEach(m => m.remove());
+
+        const el = document.createElement('div');
+        el.className = 'dropdown-menu floating open';
+        el.setAttribute('role', 'menu');
+        el.innerHTML = items.map((it, i) => it === 'separator'
+            ? '<div class="dropdown-separator" role="separator"></div>'
+            : `<button type="button" role="menuitem" class="dropdown-item${it.danger ? ' danger' : ''}" data-menu-idx="${i}">
+                   ${it.icon ? `<i class="fa-solid ${escHtml(it.icon)}" aria-hidden="true"></i>` : ''}
+                   <span>${escHtml(it.label)}</span>
+               </button>`).join('');
+
+        document.body.appendChild(el);
+
+        const r = anchorEl.getBoundingClientRect();
+        el.style.position = 'fixed';
+        el.style.top  = `${Math.min(r.bottom + 4, window.innerHeight - el.offsetHeight - 8)}px`;
+        el.style.left = `${Math.min(r.left, window.innerWidth - el.offsetWidth - 8)}px`;
+
+        function close() {
+            el.remove();
+            document.removeEventListener('click', onDocClick, true);
+            document.removeEventListener('keydown', onKey, true);
+        }
+        function onDocClick(e) { if (!el.contains(e.target)) close(); }
+        function onKey(e) { if (e.key === 'Escape') { close(); anchorEl.focus(); } }
+
+        el.querySelectorAll('[data-menu-idx]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const it = items[parseInt(btn.dataset.menuIdx, 10)];
+                close();
+                it.onClick?.();
+            });
+        });
+
+        setTimeout(() => {
+            document.addEventListener('click', onDocClick, true);
+            document.addEventListener('keydown', onKey, true);
+            el.querySelector('[data-menu-idx]')?.focus();
+        }, 0);
+
+        return close;
+    }
+
+    /**
+     * Inline single-field prompt rendered next to `anchorEl` — replaces
+     * window.prompt(), which blocks the page and cannot be styled.
+     * Resolves with the trimmed string, or null if cancelled.
+     */
+    function inlinePrompt(anchorEl, { placeholder = '', value = '', submitLabel = 'Add' } = {}) {
+        return new Promise(resolve => {
+            document.querySelectorAll('.inline-prompt').forEach(el => el.remove());
+
+            const form = document.createElement('form');
+            form.className = 'inline-prompt';
+            form.innerHTML = `
+                <input type="text" class="form-control" placeholder="${escHtml(placeholder)}"
+                       value="${escHtml(value)}" aria-label="${escHtml(placeholder || submitLabel)}" />
+                <button type="submit" class="btn btn-primary btn-sm">${escHtml(submitLabel)}</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-cancel>Cancel</button>`;
+
+            anchorEl.insertAdjacentElement('afterend', form);
+            const input = form.querySelector('input');
+            input.focus();
+
+            let settled = false;
+            function finish(result) {
+                if (settled) return;
+                settled = true;
+                form.remove();
+                resolve(result);
+            }
+
+            form.addEventListener('submit', e => {
+                e.preventDefault();
+                const v = input.value.trim();
+                finish(v || null);
+            });
+            form.querySelector('[data-cancel]').addEventListener('click', () => finish(null));
+            input.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); finish(null); } });
+            input.addEventListener('blur', () => setTimeout(() => {
+                if (!form.contains(document.activeElement)) finish(null);
+            }, 120));
+        });
     }
 
     return {
@@ -1080,7 +1926,10 @@ const UI = (() => {
         openTaskPanel, closeTaskPanel, getOpenTaskId, isTaskPanelOpen,
         toggleTaskPanelFullscreen, exitTaskPanelFullscreen,
         openCommandPalette, closeCommandPalette,
+        openShortcutsSheet, closeShortcutsSheet,
         applyTheme, toggleTheme,
+        // Shared component layer
+        escHtml, timeAgo, emptyState, skeleton, menu, inlinePrompt, trapFocus,
     };
 })();
 
@@ -1101,6 +1950,7 @@ const App = (() => {
         Sprints.init();
         Reports.init();
         Timeline.init();
+        Dashboard.init();
         Router.init();
 
         // Try to sync from Firebase in background
