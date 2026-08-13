@@ -551,8 +551,16 @@ const UI = (() => {
                         </div>
                     </div>` : ''}
                 </div>
-                ${running ? `<div class="panel-live-timer" id="panelLiveTimer-${tid}">
+                ${running ? `
+                <div class="panel-live-timer" id="panelLiveTimer-${tid}">
                     ${Tasks.formatElapsed(elapsed)}
+                </div>
+                <div class="timer-note-field">
+                    <label class="form-label" for="panelTimerNote-${tid}">Note for this session</label>
+                    <textarea class="form-control timer-note-input" id="panelTimerNote-${tid}"
+                              placeholder="What are you working on right now?" rows="2"
+                              maxlength="2000">${escHtml(task.timerNote || '')}</textarea>
+                    <span class="timer-note-status" id="panelTimerNoteStatus-${tid}" aria-live="polite"></span>
                 </div>` : ''}
 
                 <div class="time-entry-list" id="panelTimeEntries-${tid}">
@@ -697,6 +705,30 @@ const UI = (() => {
 
         q('panelBodyStartTimer')?.addEventListener('click', onPanelTimerToggle);
         q('panelBodyStopTimer')?.addEventListener('click', onPanelTimerToggle);
+
+        // Note on the running timer — debounced so every keystroke doesn't
+        // hit localStorage, but nothing is lost if the tab closes mid-sentence.
+        const noteEl = q('panelTimerNote');
+        if (noteEl) {
+            const statusEl = q('panelTimerNoteStatus');
+            let noteDebounce = null;
+            noteEl.addEventListener('input', () => {
+                clearTimeout(noteDebounce);
+                if (statusEl) statusEl.textContent = '';
+                noteDebounce = setTimeout(() => {
+                    State.Timer.setNote(task.id, noteEl.value);
+                    if (statusEl) {
+                        statusEl.textContent = 'Saved';
+                        setTimeout(() => { if (statusEl.textContent === 'Saved') statusEl.textContent = ''; }, 1500);
+                    }
+                }, 500);
+            });
+            // Flush on blur so navigating away right after typing doesn't drop it.
+            noteEl.addEventListener('blur', () => {
+                clearTimeout(noteDebounce);
+                State.Timer.setNote(task.id, noteEl.value);
+            });
+        }
 
         // Priority
         q('panelPriority')?.addEventListener('change', (e) => {
@@ -1603,8 +1635,12 @@ const UI = (() => {
                 `The timer for "${task.title}" has been running for ${hours} hours — probably since the app was last closed. ` +
                 `Discard it, or log a corrected amount?`,
                 async () => {
-                    const result = await promptTimeEntry({ title: 'Log corrected time' });
+                    const result = await promptTimeEntry({
+                        title: 'Log corrected time',
+                        note: State.Timer.getNote(taskId),
+                    });
                     if (!result) { State.Timer.discard(taskId); toast('Timer discarded', 'info'); return; }
+                    State.Timer.setNote(taskId, result.note);
                     State.Timer.stop(taskId, result.seconds);
                     toast(`Logged ${State.formatDuration(result.seconds)}`, 'success');
                     const { view, projectId } = Router.getCurrent();

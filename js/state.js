@@ -50,6 +50,8 @@ const State = (() => {
         if (task.isTimerRunning && task.timerStart == null) {
             task.isTimerRunning = false;
         }
+        if (typeof task.timerNote !== 'string') task.timerNote = '';
+        if (!task.isTimerRunning) task.timerNote = '';
         if (!Array.isArray(task.subtasks)) task.subtasks = [];
         normalizeSubtasksList(task.subtasks);
     }
@@ -429,6 +431,7 @@ const State = (() => {
                     comments:      (t.comments || []).map((c) => ({ ...c, id: nextId() })),
                     isTimerRunning: false,
                     timerStart:    null,
+                    timerNote:     '',
                     createdAt:     new Date().toISOString(),
                 };
                 _data.tasks.push(newTask);
@@ -482,6 +485,7 @@ const State = (() => {
                 comments:      fields.comments    || [],
                 isTimerRunning:false,
                 timerStart:    null,
+                timerNote:     '',
                 createdAt:     new Date().toISOString(),
             };
             _data.tasks.push(task);
@@ -630,6 +634,7 @@ const State = (() => {
                 comments:      (src.comments || []).map((c) => ({ ...c, id: nextId() })),
                 isTimerRunning: false,
                 timerStart:    null,
+                timerNote:     '',
                 createdAt:     new Date().toISOString(),
             };
             _data.tasks.push(newTask);
@@ -742,12 +747,29 @@ const State = (() => {
             const running = _data.tasks.find(t => t.isTimerRunning);
             if (running) this.stop(running.id);
 
-            Tasks.update(taskId, { isTimerRunning: true, timerStart: Date.now() });
+            Tasks.update(taskId, { isTimerRunning: true, timerStart: Date.now(), timerNote: '' });
             this._activetaskId = taskId;
             this._lastActivity = Date.now();
             this._idleNotified = false;
             this._tick();
             emit('timer:started', taskId);
+        },
+
+        /**
+         * Update the note attached to a running timer. Persisted immediately
+         * (debounced by the caller) so it survives a reload or a tab close —
+         * the whole point is capturing context while it's still fresh.
+         */
+        setNote(taskId, note) {
+            const task = Tasks.get(taskId);
+            if (!task || !task.isTimerRunning) return;
+            task.timerNote = String(note ?? '').slice(0, 2000);
+            save();
+            emit('timer:note', { taskId, note: task.timerNote });
+        },
+
+        getNote(taskId) {
+            return Tasks.get(taskId)?.timerNote || '';
         },
 
         /**
@@ -764,14 +786,17 @@ const State = (() => {
             const seconds = overrideSeconds != null
                 ? Math.max(0, Math.round(overrideSeconds))
                 : Math.max(0, Math.round(elapsedMs / 1000));
+            const note = task.timerNote || '';
 
             task.isTimerRunning = false;
             task.timerStart = null;
+            task.timerNote = '';
 
             if (seconds > 0) {
                 Entries.add(task, seconds, {
                     startedAt: hasStart ? new Date(start).toISOString() : null,
                     source: overrideSeconds != null ? 'recovered' : 'timer',
+                    note,
                 });
             }
 
@@ -788,6 +813,7 @@ const State = (() => {
             if (!task) return;
             task.isTimerRunning = false;
             task.timerStart = null;
+            task.timerNote = '';
             save();
             if (this._interval) { clearInterval(this._interval); this._interval = null; }
             this._activetaskId = null;

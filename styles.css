@@ -3570,6 +3570,26 @@ input.form-control--inline { padding: 5px 10px; }
     margin-top: var(--sp-2);
 }
 
+.timer-note-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    margin-top: var(--sp-3);
+}
+
+.timer-note-input {
+    resize: vertical;
+    min-height: 44px;
+    font-size: var(--text-base);
+    line-height: var(--lh-snug);
+}
+
+.timer-note-status {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    min-height: 1em;
+}
+
 .time-entry-list { margin-top: var(--sp-4); display: flex; flex-direction: column; }
 .time-entry-empty { font-size: var(--text-sm); color: var(--text-tertiary); margin: 0; }
 
