@@ -120,6 +120,7 @@ await store.mutate('projects', () => ({
         columns: [
             { id: 'col-todo',   name: 'To Do',     color: '#6b7280', position: 0, wipLimit: null },
             { id: 'col-review', name: 'In Review', color: '#f59e0b', position: 1, wipLimit: null },
+            { id: 'col-done',   name: 'Done',       color: '#22c55e', position: 2, wipLimit: null },
         ],
         createdAt: new Date().toISOString(),
     }],
@@ -132,7 +133,7 @@ await check('list_projects returns the seeded project with columns', async () =>
     const projects = await T.list_projects();
     const p = projects.find(x => x.id === projectId);
     assert.ok(p, 'seeded project not found');
-    assert.equal(p.columns.length, 2);
+    assert.equal(p.columns.length, 3);
     assert.equal(p.columns[0].name, 'To Do');
 });
 
@@ -236,6 +237,93 @@ await check('tasks round-trip through Firebase as a dense array', async () => {
     const raw = await store.read('tasks');
     assert.ok(Array.isArray(raw));
     assert.ok(raw.every(t => t != null));
+});
+
+// ── Queue: start-if-free, queue-if-busy, promote-on-finish ──
+section('agent queue behavior');
+
+let busyAgent, taskA, taskB, taskC;
+
+await check('a task assigned to a free agent starts now', async () => {
+    busyAgent = (await T.create_agent({ name: 'Queue Tester' })).agent;
+    const r = await T.create_task({ projectId, title: 'Queue A', agent: busyAgent.slug });
+    taskA = r.task;
+    assert.equal(r.startNow, true);
+    assert.equal(r.agentStatus, 'active');
+    const agents = await T.list_agents({});
+    const a = agents.find(x => x.id === busyAgent.id);
+    assert.equal(a.status, 'working');
+    assert.equal(a.currentTaskKey, taskA.taskKey);
+    assert.equal(a.queueLength, 0);
+});
+
+await check('a second task queues behind the busy agent instead of starting', async () => {
+    const r = await T.create_task({ projectId, title: 'Queue B', agent: busyAgent.slug });
+    taskB = r.task;
+    assert.equal(r.startNow, false);
+    assert.equal(r.agentStatus, 'queued');
+    assert.equal(r.queuePosition, 1);
+    const agents = await T.list_agents({});
+    assert.equal(agents.find(x => x.id === busyAgent.id).queueLength, 1);
+});
+
+await check('a third task extends the queue in order', async () => {
+    const r = await T.assign_task({ task: (await T.create_task({ projectId, title: 'Queue C' })).task.taskKey, agent: busyAgent.slug });
+    taskC = { taskKey: r.taskKey };
+    assert.equal(r.queuePosition, 2);
+});
+
+await check('list_tasks reports queuePosition per task for this agent', async () => {
+    const mine = await T.list_tasks({ agent: busyAgent.slug });
+    const byKey = Object.fromEntries(mine.map(t => [t.taskKey, t.queuePosition]));
+    assert.equal(byKey[taskA.taskKey], 0);
+    assert.equal(byKey[taskB.taskKey], 1);
+    assert.equal(byKey[taskC.taskKey], 2);
+});
+
+await check('finish_task frees the agent and promotes the oldest queued task (FIFO)', async () => {
+    const r = await T.finish_task({ task: taskA.taskKey });
+    assert.equal(r.freed, true);
+    const next = await T.get_task({ task: r.agentNextTaskId });
+    assert.equal(next.taskKey, taskB.taskKey, 'should promote B before C — B was queued first');
+    assert.equal(next.isActiveForAgent, true);
+});
+
+await check('a finished task does not reappear in its own queue listing', async () => {
+    const mine = await T.list_tasks({ agent: busyAgent.slug });
+    const a = mine.find(t => t.taskKey === taskA.taskKey);
+    assert.equal(a.agentDone, true);
+    assert.equal(a.queuePosition, null);
+});
+
+await check('moving the active task to a column named Done auto-finishes and promotes', async () => {
+    const r = await T.move_task({ task: taskB.taskKey, column: 'Done' });
+    assert.equal(r.agentFreed, true);
+    assert.ok(r.agentNextTaskId, 'should have promoted taskC');
+    const c = await T.get_task({ task: r.agentNextTaskId });
+    assert.equal(c.taskKey, taskC.taskKey);
+    assert.equal(c.isActiveForAgent, true);
+});
+
+await check('finishing the last task leaves the agent idle', async () => {
+    const r = await T.finish_task({ task: taskC.taskKey });
+    assert.equal(r.agentNextTaskId, null);
+    const agents = await T.list_agents({});
+    const a = agents.find(x => x.id === busyAgent.id);
+    assert.equal(a.status, 'idle');
+    assert.equal(a.queueLength, 0);
+});
+
+await check('reassigning an agent\'s active task away promotes its queue', async () => {
+    const t1 = (await T.create_task({ projectId, title: 'Reassign 1', agent: busyAgent.slug })).task;
+    const t2 = (await T.create_task({ projectId, title: 'Reassign 2', agent: busyAgent.slug })).task;
+    const r = await T.assign_task({ task: t1.taskKey, assignee: 'someone' }); // pull it off the agent
+    assert.equal(r.agentId, null);
+    const agents = await T.list_agents({});
+    const a = agents.find(x => x.id === busyAgent.id);
+    assert.equal(a.currentTaskKey, t2.taskKey, 'promoting away from the active task should surface the queued one');
+    // clean up: finish what's left so the agent doesn't leak into other checks
+    await T.finish_task({ task: t2.taskKey });
 });
 
 // ── Cleanup ────────────────────────────────────────────────

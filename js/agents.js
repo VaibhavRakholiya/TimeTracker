@@ -136,8 +136,14 @@ const Agents = (() => {
         }
 
         box.innerHTML = agents.map(a => {
-            const count = State.Agents.taskCount(a.id);
-            const badge = escHtml(a.emoji || a.name.charAt(0).toUpperCase());
+            const count  = State.Agents.taskCount(a.id);
+            const badge  = escHtml(a.emoji || a.name.charAt(0).toUpperCase());
+            const status = State.Agents.statusFor(a.id);
+            const statusHtml = status.working
+                ? `<span class="agent-row-pill agent-row-pill--working" title="${escHtml(status.currentTask?.title || '')}">
+                       Working on ${escHtml(status.currentTask?.taskKey || 'a task')}
+                   </span>${status.queueLength ? `<span class="agent-row-pill">+${status.queueLength} queued</span>` : ''}`
+                : '<span class="agent-row-pill agent-row-pill--idle">Idle</span>';
             return `
             <div class="agent-row" data-agent-id="${a.id}">
                 <div class="task-card-assignee task-card-assignee--agent agent-row-avatar"
@@ -147,6 +153,7 @@ const Agents = (() => {
                     <div class="agent-row-name">
                         ${escHtml(a.name)}
                         ${a.enabled === false ? '<span class="agent-row-pill">Disabled</span>' : ''}
+                        ${statusHtml}
                     </div>
                     <div class="agent-row-meta">
                         <code class="agent-row-slug">${escHtml(a.slug)}</code>

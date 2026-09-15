@@ -30,41 +30,81 @@ Configuration (both optional, both have working defaults):
 
 ## Assigning work to an agent
 
-1. **Define the agent** — FlowBoard → Settings → Agents → New Agent. Give it a
-   name, a role, and a system prompt describing how it should work. The row
-   shows a derived slug such as `bug-triager`; that is the handle Claude uses.
-   (Claude can also create agents itself with `create_agent`.)
+Each agent is either **idle** or **working one task**, plus a **queue** of
+whatever else is assigned to it. Assignment is where "start now or wait your
+turn" actually gets decided:
+
+- Assigning a task to an **idle** agent claims it immediately — the tool
+  response says `startNow: true`, and that is the live Claude Code session's
+  cue to begin work on it in this same turn.
+- Assigning a task to a **busy** agent queues it (`queuePosition`) behind
+  whatever it's already doing. It does not start on its own.
+- Calling `finish_task` on the active task frees the agent and immediately
+  promotes the oldest queued task to active — again as a signal in the tool
+  response (`agentNextTaskId`), not a background action.
+
+Walkthrough:
+
+1. **Define the agent** — FlowBoard → Settings → Agents → New Agent, or ask
+   Claude to `create_agent`. The row shows a derived slug such as
+   `bug-triager`; that is the handle Claude uses. Settings also shows each
+   agent's live status — *Idle*, or *Working on TASK-n* with a queue count.
 
 2. **Ask Claude** — *"Have the bug triager work through the open bugs in the
    Website project."*
 
-3. **Claude works the queue** — it calls `list_agents` to read that agent's
-   `systemPrompt`, `list_tasks` with `agent: "bug-triager"` to get its queue, and
-   `get_task` for detail. It then adopts the profile: either following the system
-   prompt directly, or spawning a subagent seeded with it, so several agents can
-   work different tasks in one session with their own context.
+3. **Claude assigns and, if the agent is free, starts right away** — it calls
+   `list_agents` to read the agent's `systemPrompt` and current status,
+   `assign_task` for each task, and adopts the profile for whichever one comes
+   back `startNow: true` — either following the system prompt directly, or
+   spawning a subagent seeded with it. Anything that queued waits; nothing
+   works on it until the active task calls `finish_task`.
 
 4. **Results land on the board** — `add_comment` (authored as the agent),
    `log_time`, `move_task` to push the card to *In Review*.
 
-5. **You pull it in** — Settings → Data → **Refresh from Cloud**, or reload.
-   The board shows the moved card, the agent's chip on it, and the write-up in
-   the comment thread. Agent work stays out of **My Tasks**, which remains your
-   own queue.
+5. **Claude signals it's done** — `finish_task`, or `move_task` straight into a
+   column named exactly `"Done"` (which finishes it automatically). Either way
+   the response names the task that got promoted next, if any, so the same
+   session can keep going down the queue without you doing anything.
+
+6. **You pull it in** — Settings → Data → **Refresh from Cloud**, or reload.
+   The board shows the moved card, the agent's chip and status, and the
+   write-up in the comment thread. Agent work stays out of **My Tasks**, which
+   remains your own queue.
+
+### The honest limit on "starts automatically"
+
+There is no daemon in this architecture — nothing runs unattended. "Starts
+now" means the **live Claude Code session** reads `startNow: true` (or
+`agentNextTaskId` from `finish_task`) and acts on it in that same turn, because
+that is what it was told to do. If no Claude Code session is attached, a task
+can sit claimed-but-untouched, or queued, indefinitely — assignment changes
+*whose turn it is*, not *whether anyone is working*. Keep the session open (or
+ask Claude to keep working the queue) for a whole agent's backlog to actually
+get done in one sitting.
 
 ## Tools
 
 **Read:** `list_projects`, `list_agents`, `list_sprints`, `list_tasks`, `get_task`
-**Write:** `create_task`, `update_task`, `move_task`, `assign_task`, `add_comment`,
-`log_time`, `create_agent`, `update_agent`
+**Write:** `create_task`, `update_task`, `move_task`, `assign_task`, `finish_task`,
+`add_comment`, `log_time`, `create_agent`, `update_agent`
 
 Tasks are addressed by numeric id or by key (`TASK-12`); agents by id or slug;
 columns by id or name (`"In Progress"`).
 
+`create_task` and `assign_task` both accept an `agent`, and both claim it
+immediately if free or queue it if not — the response always carries
+`startNow`/`queuePosition` so Claude knows which one just happened.
+`finish_task` frees the agent and promotes the next queued task; moving a task
+into a column named exactly `"Done"` does the same automatically. `list_tasks`
+with an `agent` filter reports each task's `queuePosition` (`0` = active,
+`1+` = waiting, `null` = unrelated or already finished — see `agentDone`).
+
 Deleting tasks and agents is deliberately **not** exposed. The database has no
 auth and no undo, so destruction stays a human action in the UI.
 
-## Two limitations, stated plainly
+## Limitations, stated plainly
 
 **1. The board does not update live.** FlowBoard reads from Firebase only at
 startup — `setupRealtimeListener` in `firebase-rest-integration.js` is a
@@ -90,6 +130,24 @@ Closing this properly means making `syncToFirebase()` in `js/state.js` ETag-awar
 and reload-and-merge on 412. That is a follow-up, not something this server can
 do from outside.
 
+**3. Assigning a task and claiming the agent are two separate writes, not one.**
+`assign_task`, `create_task`, `finish_task` and the auto-finish-on-"Done" path
+in `move_task` each write the task record first, then write the agent's
+`currentTaskId` in a second, independent compare-and-set call. If the process
+is killed between the two, the task can end up pointing at an agent that never
+actually claimed it — a task assigned but nobody's queue reflects it. Nothing
+here holds that state in memory across calls; every `assign_task` / `finish_task`
+recomputes the agent's status from what Firebase actually has, so a second call
+self-heals the drift rather than compounding it. If an agent looks stuck
+"idle" with tasks assigned to it, or "working" a task at 0 in its own queue,
+re-run `assign_task` on one of its tasks to force a resync.
+
+**4. "Starts automatically" only holds while a Claude Code session is attached.**
+There is no background worker. `startNow: true` and `agentNextTaskId` are
+signals in a tool response — the live session reading them is what makes an
+agent actually start on something. Close the session and a claimed task just
+sits there, claimed and untouched, however long the agent stays "busy" on it.
+
 ## Security
 
 The Firebase database is **public and unauthenticated** — the URL is hardcoded in
@@ -111,4 +169,6 @@ Calls the tool handlers directly against a scratch namespace
 (`timetracker_smoke`) and deletes it afterwards, so live data is never touched —
 the script refuses to run against the live namespace. It also diffs the task
 shape in `src/domain.js` / `src/tools.js` against `js/state.js` and fails on
-drift, since those invariants are deliberately duplicated (see `.cursorrules`).
+drift, since those invariants are deliberately duplicated (see `.cursorrules`),
+and covers the queue mechanics — claim-if-free, queue-if-busy, FIFO promotion
+on `finish_task`, and the auto-finish-on-move-to-"Done" heuristic.

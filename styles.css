@@ -3956,6 +3956,18 @@ input.form-control--inline { padding: 5px 10px; }
     color: var(--text-secondary);
 }
 
+.agent-row-pill--working {
+    text-transform: none;
+    letter-spacing: normal;
+    background: color-mix(in srgb, var(--status-inprogress) 15%, transparent);
+    border-color: color-mix(in srgb, var(--status-inprogress) 40%, transparent);
+    color: var(--status-inprogress);
+}
+
+.agent-row-pill--idle {
+    color: var(--text-secondary);
+}
+
 .agent-row-count {
     flex-shrink: 0;
     white-space: nowrap;

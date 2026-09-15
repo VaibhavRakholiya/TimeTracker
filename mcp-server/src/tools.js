@@ -14,6 +14,69 @@ import * as D from './domain.js';
 
 const REFRESH_HINT = 'Reload FlowBoard, or use Settings → Data → Refresh from Cloud, to see this on the board.';
 
+/**
+ * Keep one agent's busy/queue state consistent with a task that just finished,
+ * moved away, or needs claiming — the one thing that makes assignment mean
+ * "start now or wait your turn" instead of just a label on a card.
+ *
+ * `justFinishedTaskId`: clear this from the agent's active slot if it's there,
+ * and promote whatever's next in its queue.
+ * `claimTaskId`: take this task if the agent is free after that; otherwise
+ * report where it landed in the queue.
+ *
+ * This is a second, separate compare-and-set write on the 'agents' collection
+ * — not part of the same transaction as whatever wrote 'tasks' just before it.
+ * If the process dies between the two, the task record can end up pointing at
+ * an agent that never claimed it. Nothing here trusts that ever synced
+ * correctly: every call recomputes from what's actually in Firebase right now,
+ * so the next assign_task / finish_task call self-heals rather than compounds
+ * the drift.
+ */
+async function releaseAndClaim(agentId, { justFinishedTaskId, claimTaskId } = {}) {
+    return store.mutate('agents', async (agentsList) => {
+        const idx = agentsList.findIndex(a => a.id == agentId);
+        if (idx === -1) {
+            return { next: undefined, result: { agentStatus: 'unassigned', startNow: false, queuePosition: null, currentTaskId: null } };
+        }
+
+        const agent = D.hydrateAgent(agentsList[idx]);
+        // Freshly read on every attempt (including CAS retries) — cheap, and
+        // it's what lets a promoted task reflect a task write that landed
+        // between our own retries.
+        const tasks = await store.read('tasks');
+
+        let changed = false;
+        if (justFinishedTaskId != null && agent.currentTaskId == justFinishedTaskId) {
+            const next = D.queueForAgent(tasks, agent.id, agent.currentTaskId)[0] || null;
+            agent.currentTaskId = next ? next.id : null;
+            changed = true;
+        }
+
+        let result;
+        if (claimTaskId != null) {
+            if (agent.currentTaskId == null) {
+                agent.currentTaskId = claimTaskId;
+                changed = true;
+                result = { agentStatus: 'active', startNow: true, queuePosition: 0 };
+            } else if (agent.currentTaskId == claimTaskId) {
+                result = { agentStatus: 'active', startNow: false, queuePosition: 0 };
+            } else {
+                const queue = D.queueForAgent(tasks, agent.id, agent.currentTaskId);
+                const pos = queue.findIndex(t => t.id == claimTaskId);
+                result = { agentStatus: 'queued', startNow: false, queuePosition: pos === -1 ? queue.length : pos + 1 };
+            }
+        } else {
+            result = { agentStatus: agent.currentTaskId != null ? 'active' : 'unassigned', startNow: false, queuePosition: null };
+        }
+        result.currentTaskId = agent.currentTaskId;
+
+        if (!changed) return { next: undefined, result };
+        const next = agentsList.slice();
+        next[idx] = agent;
+        return { next, result };
+    });
+}
+
 // ── Read tools ─────────────────────────────────────────────
 
 export async function list_projects() {
@@ -31,16 +94,25 @@ export async function list_projects() {
 }
 
 export async function list_agents({ includeDisabled = false } = {}) {
-    const [agents, tasks] = await Promise.all([store.read('agents'), store.read('tasks')]);
-    return agents.map(D.hydrateAgent)
+    const [rawAgents, rawTasks] = await Promise.all([store.read('agents'), store.read('tasks')]);
+    const tasks = rawTasks.map(D.hydrateTask);
+    return rawAgents.map(D.hydrateAgent)
         .filter(a => includeDisabled || a.enabled)
-        .map(a => ({
-            id: a.id, slug: a.slug, name: a.name, emoji: a.emoji, color: a.color,
-            role: a.role, model: a.model, enabled: a.enabled,
-            // Included so Claude can adopt the profile without a second call.
-            systemPrompt: a.systemPrompt,
-            assignedTaskCount: tasks.filter(t => t.agentId == a.id).length,
-        }));
+        .map(a => {
+            const s = D.agentStatus(a, tasks);
+            return {
+                id: a.id, slug: a.slug, name: a.name, emoji: a.emoji, color: a.color,
+                role: a.role, model: a.model, enabled: a.enabled,
+                // Included so Claude can adopt the profile without a second call.
+                systemPrompt: a.systemPrompt,
+                // 'idle' means assign_task will start work immediately; 'working'
+                // means a new assignment queues behind currentTaskKey.
+                status: s.working ? 'working' : 'idle',
+                currentTaskKey: s.currentTask?.taskKey || null,
+                queueLength: s.queueLength,
+                assignedTaskCount: tasks.filter(t => t.agentId == a.id).length,
+            };
+        });
 }
 
 export async function list_sprints({ projectId } = {}) {
@@ -63,11 +135,11 @@ export async function list_tasks(args = {}) {
     ]);
     const tasks = rawTasks.map(D.hydrateTask);
 
-    let agentId = null;
+    let agentId = null, agentRecord = null;
     if (agent != null && agent !== '') {
-        const a = D.resolveAgent(agents.map(D.hydrateAgent), agent);
-        if (!a) throw new Error(`No agent matches "${agent}". Use list_agents to see available agents.`);
-        agentId = a.id;
+        agentRecord = D.resolveAgent(agents.map(D.hydrateAgent), agent);
+        if (!agentRecord) throw new Error(`No agent matches "${agent}". Use list_agents to see available agents.`);
+        agentId = agentRecord.id;
     }
 
     const out = tasks.filter(t => {
@@ -90,7 +162,23 @@ export async function list_tasks(args = {}) {
         return true;
     });
 
-    return out.slice(0, limit).map(t => summarize(t, projects, agents));
+    return out.slice(0, limit).map(t => {
+        const summary = summarize(t, projects, agents);
+        // 0 = the agent's active task right now; 1+ = position in its queue;
+        // null = unrelated to this agent, or already finished (see agentDone).
+        if (agentId != null) {
+            if (summary.agentDone) {
+                summary.queuePosition = null;
+            } else if (t.id == agentRecord.currentTaskId) {
+                summary.queuePosition = 0;
+            } else {
+                const q = D.queueForAgent(tasks, agentId, agentRecord.currentTaskId);
+                const i = q.findIndex(x => x.id === t.id);
+                summary.queuePosition = i === -1 ? null : i + 1;
+            }
+        }
+        return summary;
+    });
 }
 
 export async function get_task({ task }) {
@@ -112,6 +200,10 @@ export async function get_task({ task }) {
         sprintName:  sprints.find(s => s.id == t.sprintId)?.name || null,
         labelNames:  (proj?.labels || []).filter(l => labelIds.has(l.id)).map(l => l.name),
         agent:       agent ? { id: agent.id, slug: agent.slug, name: agent.name, role: agent.role } : null,
+        // True when this is the agent's current active task (start now); false
+        // when it's queued behind something else, or the agent already
+        // finished it (see agentDoneAt above).
+        isActiveForAgent: agent != null && agent.currentTaskId == t.id,
         subtaskStats: countSubtasks(t.subtasks),
     };
 }
@@ -135,7 +227,7 @@ export async function create_task(args) {
 
     const owner = resolveOwner(agents, args);
 
-    return store.mutate('tasks', (tasks) => {
+    const created = await store.mutate('tasks', (tasks) => {
         const task = {
             id:             D.uniqueId(tasks),
             taskKey:        D.nextTaskKey(tasks),
@@ -148,6 +240,8 @@ export async function create_task(args) {
             labels:         Array.isArray(args.labels) ? args.labels : [],
             assignee:       owner.assignee,
             agentId:        owner.agentId,
+            assignedAt:     owner.agentId != null ? new Date().toISOString() : null,
+            agentDoneAt:    null,
             startDate:      args.startDate || null,
             dueDate:        args.dueDate || null,
             timeEstimate:   args.timeEstimate ?? null,
@@ -161,8 +255,23 @@ export async function create_task(args) {
             timerNote:      '',
             createdAt:      new Date().toISOString(),
         };
-        return { next: [...tasks, task], result: { task, hint: REFRESH_HINT } };
+        return { next: [...tasks, task], result: task };
     });
+
+    // A task created already pointed at an agent joins its queue the same way
+    // assign_task does — claimed immediately if the agent is free.
+    let queue = { agentStatus: 'unassigned', startNow: false, queuePosition: null, currentTaskId: null };
+    if (owner.agentId != null) queue = await releaseAndClaim(owner.agentId, { claimTaskId: created.id });
+
+    return {
+        task: created, agentSlug: owner.agentSlug,
+        agentStatus: queue.agentStatus, startNow: queue.startNow, queuePosition: queue.queuePosition,
+        hint: queue.startNow
+            ? `${owner.agentSlug} is free — begin this task now.`
+            : queue.agentStatus === 'queued'
+                ? `${owner.agentSlug} is already working something else. This is #${queue.queuePosition} in its queue.`
+                : REFRESH_HINT,
+    };
 }
 
 const UPDATABLE = ['title', 'description', 'priority', 'dueDate', 'startDate',
@@ -200,7 +309,7 @@ export async function update_task(args) {
 export async function move_task({ task: ref, column }) {
     const projects = await store.read('projects');
 
-    return store.mutate('tasks', (tasks) => {
+    const moved = await store.mutate('tasks', (tasks) => {
         const found = D.resolveTask(tasks, ref);
         if (!found) throw new Error(`No task matches "${ref}".`);
         const idx = tasks.indexOf(found);
@@ -212,39 +321,126 @@ export async function move_task({ task: ref, column }) {
                 `Available: ${(project?.columns || []).map(c => c.name).join(', ')}.`);
         }
 
-        const updated = { ...D.hydrateTask(found), columnId: col.id };
+        // Moving an agent's own task into a column literally named "Done" is
+        // treated as finishing it — a convenience on top of the explicit
+        // finish_task tool, not a substitute for it (a "Shipped" or "QA"
+        // column still needs an explicit finish_task call).
+        const isDoneColumn = String(col.name).trim().toLowerCase() === 'done';
+        const autoFinish = isDoneColumn && found.agentId != null && found.agentDoneAt == null;
+
+        const updated = {
+            ...D.hydrateTask(found),
+            columnId: col.id,
+            agentDoneAt: autoFinish ? new Date().toISOString() : (found.agentDoneAt ?? null),
+        };
         const next = tasks.slice();
         next[idx] = updated;
-        return {
-            next,
-            result: { taskKey: updated.taskKey, columnId: col.id, columnName: col.name, hint: REFRESH_HINT },
-        };
+        return { next, result: { task: updated, columnName: col.name, autoFinish } };
     });
+
+    let queue = null;
+    if (moved.autoFinish) {
+        queue = await releaseAndClaim(moved.task.agentId, { justFinishedTaskId: moved.task.id });
+    }
+
+    return {
+        taskKey: moved.task.taskKey, columnId: moved.task.columnId, columnName: moved.columnName,
+        agentFreed: moved.autoFinish,
+        agentNextTaskId: queue?.currentTaskId ?? null,
+        hint: moved.autoFinish
+            ? `Moving to "${moved.columnName}" freed the agent.` +
+              (queue?.currentTaskId ? ` It is now on task id ${queue.currentTaskId} — call get_task to see it.` : ' Its queue is empty.') +
+              ` ${REFRESH_HINT}`
+            : REFRESH_HINT,
+    };
 }
 
 export async function assign_task({ task: ref, agent, assignee }) {
     if ((agent == null || agent === '') && (assignee == null || assignee === '')) {
         throw new Error('Pass either `agent` (id or slug) or `assignee` (a person\'s name).');
     }
-    const agents = await store.read('agents');
-    const owner = resolveOwner(agents, { agent, assignee });
+    const agentsList = await store.read('agents');
+    const owner = resolveOwner(agentsList, { agent, assignee });
 
-    return store.mutate('tasks', (tasks) => {
+    // Step 1: update the task record.
+    const { task, oldAgentId } = await store.mutate('tasks', (tasks) => {
         const found = D.resolveTask(tasks, ref);
         if (!found) throw new Error(`No task matches "${ref}".`);
         const idx = tasks.indexOf(found);
+        const previousAgentId = found.agentId ?? null;
 
-        const updated = { ...D.hydrateTask(found), agentId: owner.agentId, assignee: owner.assignee };
+        const updated = {
+            ...D.hydrateTask(found),
+            agentId:     owner.agentId,
+            assignee:    owner.assignee,
+            assignedAt:  owner.agentId != null ? new Date().toISOString() : null,
+            // Reassigning always re-enters the pool — a task can't be both
+            // "done for the old agent" and freshly handed to a new one.
+            agentDoneAt: null,
+        };
         const next = tasks.slice();
         next[idx] = updated;
-        return {
-            next,
-            result: {
-                taskKey: updated.taskKey, assignee: updated.assignee,
-                agentId: updated.agentId, agentSlug: owner.agentSlug, hint: REFRESH_HINT,
-            },
-        };
+        return { next, result: { task: updated, oldAgentId: previousAgentId } };
     });
+
+    // Step 2: keep the agent busy/queue state honest. Two separate CAS writes
+    // (see releaseAndClaim) — not one transaction with step 1.
+    if (oldAgentId != null && oldAgentId != owner.agentId) {
+        await releaseAndClaim(oldAgentId, { justFinishedTaskId: task.id });
+    }
+
+    let queue = { agentStatus: 'unassigned', startNow: false, queuePosition: null, currentTaskId: null };
+    if (owner.agentId != null) queue = await releaseAndClaim(owner.agentId, { claimTaskId: task.id });
+
+    return {
+        taskKey: task.taskKey, assignee: task.assignee,
+        agentId: task.agentId, agentSlug: owner.agentSlug,
+        agentStatus: queue.agentStatus, startNow: queue.startNow, queuePosition: queue.queuePosition,
+        hint: queue.startNow
+            ? `${owner.agentSlug} is free — begin this task now.`
+            : queue.agentStatus === 'queued'
+                ? `${owner.agentSlug} is already working something else. This is #${queue.queuePosition} in its queue — it will not start on its own; call finish_task on the active one to advance the queue.`
+                : REFRESH_HINT,
+    };
+}
+
+/**
+ * Signal that an agent is done with a task. Frees it and, if anything is
+ * queued behind it, immediately hands over the next one — this is the "when
+ * an agent finishes, the next queued task starts" half of the workflow.
+ *
+ * This does not touch comments or the column — call add_comment / move_task
+ * first if you want those recorded, then call this to advance the queue.
+ * (Moving a task into a column literally named "Done" does this step
+ * automatically; call this explicitly for any other completion signal.)
+ */
+export async function finish_task({ task: ref }) {
+    const task = await store.mutate('tasks', (tasks) => {
+        const found = D.resolveTask(tasks, ref);
+        if (!found) throw new Error(`No task matches "${ref}".`);
+        const idx = tasks.indexOf(found);
+        if (found.agentId == null) {
+            return { next: undefined, result: D.hydrateTask(found) };
+        }
+        const updated = { ...D.hydrateTask(found), agentDoneAt: new Date().toISOString() };
+        const next = tasks.slice();
+        next[idx] = updated;
+        return { next, result: updated };
+    });
+
+    if (task.agentId == null) {
+        return { taskKey: task.taskKey, freed: false, hint: 'This task has no agent assigned — nothing to free.' };
+    }
+
+    const queue = await releaseAndClaim(task.agentId, { justFinishedTaskId: task.id });
+    return {
+        taskKey: task.taskKey,
+        freed: true,
+        agentNextTaskId: queue.currentTaskId,
+        hint: queue.currentTaskId
+            ? `The agent is now on task id ${queue.currentTaskId} — call get_task to see it, then begin work now.`
+            : `The agent's queue is empty; it is idle. ${REFRESH_HINT}`,
+    };
 }
 
 export async function add_comment({ task: ref, text, author }) {
@@ -394,6 +590,9 @@ function summarize(t, projects, agents) {
         columnId: t.columnId, columnName: D.resolveColumn(proj, t.columnId)?.name || null,
         priority: t.priority, assignee: t.assignee,
         agentId: t.agentId, agentSlug: agent?.slug || null,
+        // Whether the currently-assigned agent already finished this one —
+        // set by finish_task, not by moving columns (except into "Done").
+        agentDone: t.agentDoneAt != null,
         dueDate: t.dueDate, timeSpent: Number(t.timeSpent.toFixed(3)),
         subtasks: countSubtasks(t.subtasks),
     };

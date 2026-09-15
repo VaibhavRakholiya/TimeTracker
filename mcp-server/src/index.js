@@ -42,7 +42,8 @@ register('list_projects',
     {}, T.list_projects);
 
 register('list_agents',
-    'List agent profiles, including each one\'s systemPrompt. Read this before working an agent\'s tasks so you can adopt its instructions.',
+    'List agent profiles, including each one\'s systemPrompt, whether it is idle or working, and its ' +
+    'queue depth. Read this before working an agent\'s tasks so you can adopt its instructions.',
     { includeDisabled: z.boolean().optional().describe('Include agents marked unavailable.') },
     T.list_agents);
 
@@ -50,7 +51,8 @@ register('list_sprints', 'List sprints, optionally for one project.',
     { projectId: z.number().optional() }, T.list_sprints);
 
 register('list_tasks',
-    'List tasks with optional filters. Use `agent` to get one agent\'s queue.',
+    'List tasks with optional filters. Use `agent` to get one agent\'s queue — results include ' +
+    'queuePosition (0 = active/start now, 1+ = waiting) and agentDone.',
     {
         projectId: z.number().optional(),
         sprintId:  z.number().optional(),
@@ -69,7 +71,9 @@ register('get_task',
 
 // ── Writes ─────────────────────────────────────────────────
 
-register('create_task', 'Create a task. A valid projectId is required.',
+register('create_task',
+    'Create a task. A valid projectId is required. Passing `agent` assigns it on creation, claiming the ' +
+    'agent immediately if it is idle (response: startNow) or queuing it if not (queuePosition).',
     {
         projectId:    z.number(),
         title:        z.string(),
@@ -98,14 +102,29 @@ register('update_task', 'Update a task\'s fields. Does not move columns or chang
         labels:       z.array(z.string()).optional(),
     }, T.update_task);
 
-register('move_task', 'Move a task to another column, e.g. "In Review".',
+register('move_task',
+    'Move a task to another column, e.g. "In Review". Moving an agent\'s task into a column named ' +
+    'exactly "Done" also frees that agent and promotes its next queued task automatically.',
     { task: taskRef, column: z.string().describe('Column id or name.') }, T.move_task);
 
-register('assign_task', 'Assign a task to an agent or a person. Pass exactly one of `agent` or `assignee`.',
+register('finish_task',
+    'Mark an agent done with a task: frees it and immediately hands over the next queued task, if any ' +
+    '(agentNextTaskId in the response — call get_task on it and begin right away). Call this after ' +
+    'add_comment/move_task, once you are actually finished. Moving into a column named "Done" does ' +
+    'this automatically; call it explicitly for any other completion signal.',
+    { task: taskRef }, T.finish_task);
+
+register('assign_task',
+    'Assign a task to an agent or a person. Pass exactly one of `agent` or `assignee`. ' +
+    'If the agent is idle, this claims it and the response says startNow: true — begin work in this ' +
+    'session immediately. If the agent is already working something else, the task queues behind it ' +
+    '(queuePosition in the response) and will not start on its own; call finish_task on the active one ' +
+    'to advance the queue.',
     { task: taskRef, agent: agentRef.optional(), assignee: z.string().optional() }, T.assign_task);
 
 register('add_comment',
-    'Add a comment to a task. This is how an agent reports its results back to the board. Author defaults to the task\'s agent.',
+    'Add a comment to a task. This is how an agent reports its results back to the board. Author defaults ' +
+    'to the task\'s agent. This does not free the agent — call finish_task once you are actually done.',
     { task: taskRef, text: z.string(), author: z.string().optional() }, T.add_comment);
 
 register('log_time', 'Log time against a task. Pass hours or seconds.',

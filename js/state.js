@@ -58,6 +58,11 @@ const State = (() => {
         // Firebase strips null values, so an unassigned task comes back with no
         // agentId key at all. Put it back so every task has the same shape.
         if (task.agentId === undefined || task.agentId === '') task.agentId = null;
+        // assignedAt drives queue order; agentDoneAt marks a task as no longer
+        // pending for the agent that worked it, without losing the historical
+        // agentId. Both are null-stripped by Firebase the same way agentId is.
+        if (task.assignedAt === undefined || task.assignedAt === '') task.assignedAt = null;
+        if (task.agentDoneAt === undefined || task.agentDoneAt === '') task.agentDoneAt = null;
     }
 
     function normalizeSubtasksList(list) {
@@ -136,6 +141,10 @@ const State = (() => {
         agent.systemPrompt = String(agent.systemPrompt || '').slice(0, 8000);
         agent.model        = AGENT_MODELS.includes(agent.model) ? agent.model : 'default';
         agent.createdAt    = agent.createdAt || new Date().toISOString();
+        // The task this agent is actively working, or null when it's free.
+        // Everything else assigned to it and not yet finished sits in its queue.
+        agent.currentTaskId = agent.currentTaskId === undefined || agent.currentTaskId === ''
+            ? null : agent.currentTaskId;
         if (!agent.slug || (taken && taken.has(agent.slug))) agent.slug = slugifyAgent(agent.name, taken);
         if (taken) taken.add(agent.slug);
     }
@@ -148,6 +157,18 @@ const State = (() => {
     function nextAgentId() {
         let id = Date.now();
         while (_data.agents.some(a => a.id === id)) id++;
+        return id;
+    }
+
+    /**
+     * Same collision as nextAgentId, for tasks. This one bit the agent queue
+     * feature directly: two tasks minted in the same millisecond and assigned
+     * to the same agent would compare equal, so the second was silently
+     * excluded from the queue count instead of actually queuing.
+     */
+    function nextTaskId() {
+        let id = Date.now();
+        while (_data.tasks.some(t => t.id === id)) id++;
         return id;
     }
 
@@ -525,8 +546,14 @@ const State = (() => {
                 return null;
             }
 
+            // An agentId always wins the assignee string — mirrors resolveOwner
+            // in the MCP server and keeps every string-based read site (My
+            // Tasks, CSV export, command palette, card avatars) showing the
+            // agent, not a stale default.
+            const owningAgent = fields.agentId != null ? Agents.get(fields.agentId) : null;
+
             const task = {
-                id:            Date.now(),
+                id:            nextTaskId(),
                 taskKey:       nextTaskKey(),
                 projectId:     fields.projectId,
                 sprintId:      fields.sprintId    || null,
@@ -535,8 +562,11 @@ const State = (() => {
                 description:   fields.description || '',
                 priority:      fields.priority    || 'medium',
                 labels:        fields.labels      || [],
-                assignee:      fields.assignee    || (localStorage.getItem('username') || 'admin'),
+                assignee:      owningAgent ? owningAgent.name
+                                   : (fields.assignee || (localStorage.getItem('username') || 'admin')),
                 agentId:       fields.agentId    != null ? fields.agentId : null,
+                assignedAt:    null,
+                agentDoneAt:   null,
                 startDate:     fields.startDate   || null,
                 dueDate:       fields.dueDate     || null,
                 timeEstimate:  fields.timeEstimate|| null,
@@ -551,6 +581,15 @@ const State = (() => {
                 createdAt:     new Date().toISOString(),
             };
             _data.tasks.push(task);
+            // A task created already pointed at an agent joins that agent's
+            // queue the same way assignTask does — claimed if free, queued if not.
+            if (task.agentId != null) {
+                const agent = Agents.get(task.agentId);
+                if (agent) {
+                    task.assignedAt = new Date().toISOString();
+                    if (agent.currentTaskId == null) agent.currentTaskId = task.id;
+                }
+            }
             save();
             addActivity('task_created', task.title);
             emit('tasks:changed', { type: 'create', task });
@@ -565,7 +604,31 @@ const State = (() => {
             // An edit that would orphan the task must not delete it — reject the
             // change and let the caller surface the problem.
             if (!taskHasValidProject(merged)) return null;
+
+            const oldAgentId = oldTask.agentId ?? null;
+            const agentChanging = 'agentId' in fields && (fields.agentId ?? null) != oldAgentId;
+            // Reassignment is handled through Agents.assignTask/releaseTask so
+            // currentTaskId and the queue stay correct — a bare field copy
+            // would leave the old agent stuck "busy" on a task it no longer has.
+            if (agentChanging && oldAgentId != null) Agents.releaseTask(oldAgentId, id);
+
             Object.assign(_data.tasks[idx], fields);
+
+            if (agentChanging) {
+                const newAgentId = fields.agentId ?? null;
+                if (newAgentId != null) {
+                    _data.tasks[idx].assignedAt  = new Date().toISOString();
+                    _data.tasks[idx].agentDoneAt = null;
+                    const agent = Agents.get(newAgentId);
+                    // An agentId always wins the assignee string, unless the
+                    // caller explicitly passed its own — same rule as create().
+                    if (agent && !('assignee' in fields)) _data.tasks[idx].assignee = agent.name;
+                    if (agent && agent.currentTaskId == null) agent.currentTaskId = id;
+                } else {
+                    _data.tasks[idx].assignedAt = null;
+                }
+            }
+
             save();
             if (fields.columnId && fields.columnId !== oldTask.columnId) {
                 addActivity('task_moved', _data.tasks[idx].title, `→ column`);
@@ -579,6 +642,9 @@ const State = (() => {
             if (!task) return;
             // Stop timer if running
             if (task.isTimerRunning) Timer.stop(id);
+            // Deleting an agent's active task must not leave it stuck "busy"
+            // forever — free it and promote whatever's next in its queue.
+            if (task.agentId != null) Agents.releaseTask(task.agentId, task.id);
             _data.tasks = _data.tasks.filter(t => !(t.id == id));
             save();
             addActivity('task_deleted', task.title);
@@ -701,6 +767,15 @@ const State = (() => {
                 createdAt:     new Date().toISOString(),
             };
             _data.tasks.push(newTask);
+            // Same rule as a fresh Tasks.create: a duplicate assigned to an
+            // agent is new work for it, claimed if free, queued if not.
+            if (newTask.agentId != null) {
+                const agent = Agents.get(newTask.agentId);
+                if (agent) {
+                    newTask.assignedAt = new Date().toISOString();
+                    if (agent.currentTaskId == null) agent.currentTaskId = newTask.id;
+                }
+            }
             save();
             addActivity('task_duplicated', newTask.title, src.title);
             emit('tasks:changed', { type: 'duplicate', task: newTask, sourceTask: src });
@@ -724,6 +799,28 @@ const State = (() => {
         },
     };
 
+
+
+    // ── Agent busy / queue tracking ─────────────────────────
+    /**
+     * Tasks assigned to an agent, still pending, in the order they should be
+     * worked — oldest assignment first. Excludes the agent's own current task
+     * (that one is active, not queued) and anything the agent already finished.
+     */
+    function queueForAgent(agentId, excludeTaskId) {
+        return _data.tasks
+            .filter(t => t.agentId == agentId && t.agentDoneAt == null && t.id != excludeTaskId)
+            .sort((a, b) => new Date(a.assignedAt || a.createdAt) - new Date(b.assignedAt || b.createdAt));
+    }
+
+    /** The agent just went idle — hand it the next queued task, if any. */
+    function promoteNextForAgent(agentId) {
+        const agent = _data.agents.find(a => a.id == agentId);
+        if (!agent) return null;
+        const next = queueForAgent(agentId, agent.currentTaskId)[0] || null;
+        agent.currentTaskId = next ? next.id : null;
+        return next;
+    }
 
     // ── Agent accessors ───────────────────────────────────
     /**
@@ -757,6 +854,7 @@ const State = (() => {
                 systemPrompt: fields.systemPrompt || '',
                 model:        AGENT_MODELS.includes(fields.model) ? fields.model : 'default',
                 enabled:      fields.enabled !== false,
+                currentTaskId: null,
                 createdAt:    new Date().toISOString(),
             };
             _data.agents.push(agent);
@@ -803,6 +901,63 @@ const State = (() => {
             addActivity('agent_deleted', agent.name);
             emit('agents:changed');
             emit('tasks:changed', { type: 'update' });
+        },
+
+        /**
+         * Assign a task to an agent, claiming it immediately if the agent is
+         * free, or leaving it queued behind whatever the agent is already
+         * working. Returns whether the agent should start on it right now.
+         */
+        assignTask(agentId, taskId) {
+            const agent = this.get(agentId);
+            const task  = _data.tasks.find(t => t.id == taskId);
+            if (!agent || !task) return null;
+
+            const oldAgentId = task.agentId ?? null;
+            if (oldAgentId != null && oldAgentId != agentId) this.releaseTask(oldAgentId, taskId);
+
+            task.agentId     = agent.id;
+            task.assignee    = agent.name;
+            task.assignedAt  = new Date().toISOString();
+            task.agentDoneAt = null;
+
+            const startNow = agent.currentTaskId == null;
+            if (startNow) agent.currentTaskId = task.id;
+
+            save();
+            emit('agents:changed', agent);
+            emit('tasks:changed', { type: 'update', task });
+            return { agent, task, startNow };
+        },
+
+        /**
+         * The agent is done with this task. Frees it if it was the active one
+         * and immediately promotes the next queued task, if there is one.
+         */
+        releaseTask(agentId, taskId) {
+            const agent = this.get(agentId);
+            if (!agent) return null;
+            const task = _data.tasks.find(t => t.id == taskId);
+            if (task) task.agentDoneAt = new Date().toISOString();
+
+            let next = null;
+            if (agent.currentTaskId == taskId) next = promoteNextForAgent(agentId);
+
+            save();
+            emit('agents:changed', agent);
+            return { freed: agent.currentTaskId !== taskId, next };
+        },
+
+        /** Idle / working, and how deep its queue is — what the Settings row shows. */
+        statusFor(id) {
+            const agent = this.get(id);
+            if (!agent) return null;
+            const current = agent.currentTaskId != null ? _data.tasks.find(t => t.id == agent.currentTaskId) : null;
+            return {
+                working:     agent.currentTaskId != null,
+                currentTask: current || null,
+                queueLength: queueForAgent(id, agent.currentTaskId).length,
+            };
         },
     };
 

@@ -87,7 +87,8 @@ export function hydrateTask(raw) {
     t.timeEntries = asArray(t.timeEntries);
     t.subtasks    = hydrateSubtasks(t.subtasks);
 
-    for (const k of ['sprintId', 'columnId', 'dueDate', 'startDate', 'timeEstimate', 'agentId', 'timerStart']) {
+    for (const k of ['sprintId', 'columnId', 'dueDate', 'startDate', 'timeEstimate', 'agentId',
+                     'timerStart', 'assignedAt', 'agentDoneAt']) {
         if (t[k] === undefined || t[k] === '') t[k] = null;
     }
     t.title          = t.title || 'Untitled Task';
@@ -129,9 +130,30 @@ export function hydrateAgent(raw) {
     a.role         = a.role || '';
     a.systemPrompt = a.systemPrompt || '';
     a.model        = AGENT_MODELS.includes(a.model) ? a.model : 'default';
-    a.enabled      = a.enabled !== false;
-    a.createdAt    = a.createdAt || new Date().toISOString();
+    a.enabled       = a.enabled !== false;
+    a.createdAt     = a.createdAt || new Date().toISOString();
+    a.currentTaskId = a.currentTaskId === undefined || a.currentTaskId === '' ? null : a.currentTaskId;
     return a;
+}
+
+/**
+ * Pending work for an agent, oldest assignment first, excluding whatever it's
+ * actively on and anything already marked done. Mirrors js/state.js queueForAgent.
+ */
+export function queueForAgent(tasks, agentId, excludeTaskId) {
+    return (tasks || [])
+        .filter(t => t.agentId == agentId && t.agentDoneAt == null && t.id != excludeTaskId)
+        .sort((a, b) => new Date(a.assignedAt || a.createdAt) - new Date(b.assignedAt || b.createdAt));
+}
+
+export function agentStatus(agent, tasks) {
+    const working = agent.currentTaskId != null;
+    const current = working ? (tasks || []).find(t => t.id == agent.currentTaskId) || null : null;
+    return {
+        working,
+        currentTask: current,
+        queueLength: queueForAgent(tasks, agent.id, agent.currentTaskId).length,
+    };
 }
 
 /** Accept an id or a slug — Claude naturally says the slug. */
