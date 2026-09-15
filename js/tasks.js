@@ -542,6 +542,13 @@ const Tasks = (() => {
             Agents.populateAssigneeSelect(document.getElementById('taskModalAssignee'), null);
         }
 
+        // Due date / start date / estimate / sprint clutter the quick "add
+        // task" flow — keep them for editing, where they're the only place
+        // (besides the panel's Due Date field) to set them.
+        document.querySelectorAll('.task-modal-schedule-field').forEach(el => {
+            el.hidden = !_editingTaskId;
+        });
+
         // When project changes, update column and sprint selects
         projSel.onchange = () => {
             const pid = parseInt(projSel.value, 10) || null;
