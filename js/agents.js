@@ -218,6 +218,75 @@ const Agents = (() => {
         });
     }
 
+    // ── Agent Activity dashboard ────────────────────────────
+    function renderDashboard() {
+        const box = document.getElementById('agentsDashboardContent');
+        if (!box) return;
+
+        const agents = State.Agents.getAll();
+        if (!agents.length) {
+            box.innerHTML = UI.emptyState({
+                icon:  'fa-robot',
+                title: 'No agents yet',
+                body:  'Create an agent in Settings, then assign it a task and ask Claude to work its queue.',
+                action: { id: 'agentsDashAddAgent', label: 'Add an agent', icon: 'fa-plus' },
+            });
+            box.querySelector('#agentsDashAddAgent')?.addEventListener('click', () => openModal());
+            return;
+        }
+
+        box.innerHTML = agents.map(a => {
+            const status  = State.Agents.statusFor(a.id);
+            const queue   = State.Agents.queue(a.id);
+            const badge   = a.avatar
+                ? `<img src="${a.avatar}" alt="" />`
+                : escHtml(a.emoji || a.name.charAt(0).toUpperCase());
+
+            const currentHtml = status.currentTask
+                ? `<button type="button" class="agent-dash-task" data-open-task="${status.currentTask.id}">
+                       ${escHtml(status.currentTask.taskKey || '')} — ${escHtml(status.currentTask.title)}
+                   </button>`
+                : `<p class="agent-dash-empty">Nothing in progress</p>`;
+
+            const queueHtml = queue.length
+                ? `<ul class="agent-dash-queue">${queue.slice(0, 4).map(t => `
+                       <li><button type="button" class="agent-dash-task" data-open-task="${t.id}">
+                           ${escHtml(t.taskKey || '')} — ${escHtml(t.title)}
+                       </button></li>`).join('')}
+                       ${queue.length > 4 ? `<li class="text-muted text-sm">+${queue.length - 4} more</li>` : ''}
+                   </ul>`
+                : `<p class="agent-dash-empty">Queue is empty</p>`;
+
+            return `
+            <div class="agent-dash-card${a.enabled === false ? ' agent-dash-card--disabled' : ''}">
+                <div class="agent-dash-head">
+                    <div class="task-card-assignee task-card-assignee--agent agent-row-avatar"
+                         style="background:${hexToRgba(a.color, 0.15)};color:${a.color};border-color:${hexToRgba(a.color, 0.4)};"
+                         aria-hidden="true">${badge}</div>
+                    <div class="agent-dash-head-main">
+                        <div class="agent-dash-name">${escHtml(a.name)}</div>
+                        <div class="agent-row-meta">${a.role ? escHtml(a.role) : escHtml(a.slug)}</div>
+                    </div>
+                    ${status.working
+                        ? '<span class="agent-row-pill agent-row-pill--working">Working</span>'
+                        : '<span class="agent-row-pill agent-row-pill--idle">Idle</span>'}
+                </div>
+                <div class="agent-dash-section">
+                    <p class="agent-dash-section-label">Current task</p>
+                    ${currentHtml}
+                </div>
+                <div class="agent-dash-section">
+                    <p class="agent-dash-section-label">Queued${queue.length ? ` (${queue.length})` : ''}</p>
+                    ${queueHtml}
+                </div>
+            </div>`;
+        }).join('');
+
+        box.querySelectorAll('[data-open-task]').forEach(el => {
+            el.addEventListener('click', () => UI.openTaskPanel(parseInt(el.dataset.openTask, 10)));
+        });
+    }
+
     function confirmDelete(id) {
         const agent = State.Agents.get(id);
         if (!agent) return;
@@ -394,11 +463,15 @@ const Agents = (() => {
             if (e.target === document.getElementById('agentModalScrim')) closeModal();
         });
 
-        State.on('agents:changed', () => renderSettingsList());
+        const rerenderDashboard = () => {
+            if (document.getElementById('view-agents')?.classList.contains('active')) renderDashboard();
+        };
+        State.on('agents:changed', () => { renderSettingsList(); rerenderDashboard(); });
+        State.on('tasks:changed', rerenderDashboard);
     }
 
     return {
-        init, openModal, closeModal, renderSettingsList,
+        init, openModal, closeModal, renderSettingsList, renderDashboard,
         assigneeFor, assigneeChip, populateAssigneeSelect, parseAssigneeValue,
         COLORS: AGENT_COLORS,
     };

@@ -990,6 +990,12 @@ const State = (() => {
                 queueLength: queueForAgent(id, agent.currentTaskId).length,
             };
         },
+
+        /** Tasks pending behind this agent's current one, oldest first. */
+        queue(id) {
+            const agent = this.get(id);
+            return agent ? queueForAgent(id, agent.currentTaskId) : [];
+        },
     };
 
     // ── Sprint accessors ──────────────────────────────────

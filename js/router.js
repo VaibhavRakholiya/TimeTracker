@@ -5,6 +5,7 @@
  *   #backlog/:projectId
  *   #timeline
  *   #reports
+ *   #agents
  *   #mytasks
  *   #settings
  */
@@ -18,6 +19,7 @@ const Router = (() => {
         backlog:   'view-backlog',
         timeline:  'view-timeline',
         reports:   'view-reports',
+        agents:    'view-agents',
         mytasks:   'view-mytasks',
         settings:  'view-settings',
     };
@@ -126,6 +128,9 @@ const Router = (() => {
             case 'reports':
                 window.Reports    && Reports.render();
                 break;
+            case 'agents':
+                window.Agents     && Agents.renderDashboard();
+                break;
             case 'mytasks':
                 window.Tasks      && Tasks.renderMyTasks();
                 break;
@@ -145,6 +150,7 @@ const Router = (() => {
             backlog:   'Backlog',
             timeline:  'Timeline',
             reports:   'Reports',
+            agents:    'Agent Activity',
             mytasks:   'My Tasks',
             settings:  'Settings',
         };
