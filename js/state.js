@@ -587,7 +587,10 @@ const State = (() => {
                 const agent = Agents.get(task.agentId);
                 if (agent) {
                     task.assignedAt = new Date().toISOString();
-                    if (agent.currentTaskId == null) agent.currentTaskId = task.id;
+                    if (agent.currentTaskId == null) {
+                        agent.currentTaskId = task.id;
+                        moveToInProgressColumn(task);
+                    }
                 }
             }
             save();
@@ -623,7 +626,10 @@ const State = (() => {
                     // An agentId always wins the assignee string, unless the
                     // caller explicitly passed its own — same rule as create().
                     if (agent && !('assignee' in fields)) _data.tasks[idx].assignee = agent.name;
-                    if (agent && agent.currentTaskId == null) agent.currentTaskId = id;
+                    if (agent && agent.currentTaskId == null) {
+                        agent.currentTaskId = id;
+                        moveToInProgressColumn(_data.tasks[idx]);
+                    }
                 } else {
                     _data.tasks[idx].assignedAt = null;
                 }
@@ -773,7 +779,10 @@ const State = (() => {
                 const agent = Agents.get(newTask.agentId);
                 if (agent) {
                     newTask.assignedAt = new Date().toISOString();
-                    if (agent.currentTaskId == null) agent.currentTaskId = newTask.id;
+                    if (agent.currentTaskId == null) {
+                        agent.currentTaskId = newTask.id;
+                        moveToInProgressColumn(newTask);
+                    }
                 }
             }
             save();
@@ -813,12 +822,28 @@ const State = (() => {
             .sort((a, b) => new Date(a.assignedAt || a.createdAt) - new Date(b.assignedAt || b.createdAt));
     }
 
+    /**
+     * Best-effort: when a task becomes an agent's active work, move the card
+     * into the project's "In Progress" column so the board shows what's
+     * actually being worked without anyone touching it by hand. Silent no-op
+     * if the project has no column with that exact name — several projects in
+     * this workspace only have To Do / Done, and that's fine.
+     */
+    function moveToInProgressColumn(task) {
+        if (!task) return;
+        const proj = _data.projects.find(p => p.id == task.projectId);
+        if (!proj) return;
+        const col = (proj.columns || []).find(c => String(c.name).trim().toLowerCase() === 'in progress');
+        if (col && task.columnId !== col.id) task.columnId = col.id;
+    }
+
     /** The agent just went idle — hand it the next queued task, if any. */
     function promoteNextForAgent(agentId) {
         const agent = _data.agents.find(a => a.id == agentId);
         if (!agent) return null;
         const next = queueForAgent(agentId, agent.currentTaskId)[0] || null;
         agent.currentTaskId = next ? next.id : null;
+        if (next) moveToInProgressColumn(next);
         return next;
     }
 
@@ -922,7 +947,10 @@ const State = (() => {
             task.agentDoneAt = null;
 
             const startNow = agent.currentTaskId == null;
-            if (startNow) agent.currentTaskId = task.id;
+            if (startNow) {
+                agent.currentTaskId = task.id;
+                moveToInProgressColumn(task);
+            }
 
             save();
             emit('agents:changed', agent);

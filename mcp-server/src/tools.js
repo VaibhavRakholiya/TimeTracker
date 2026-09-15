@@ -77,6 +77,34 @@ async function releaseAndClaim(agentId, { justFinishedTaskId, claimTaskId } = {}
     });
 }
 
+/**
+ * Best-effort: once a task is confirmed active (currentTaskId), move it into
+ * the project's "In Progress" column so the board shows what's actually being
+ * worked without a human touching it — mirrors js/state.js moveToInProgressColumn.
+ * Silent no-op if the project has no column with that exact name. This is a
+ * third, independent CAS write in the same non-atomic chain documented for
+ * releaseAndClaim — if it fails or is skipped, the task is still correctly
+ * assigned and active, just visually still in its old column.
+ */
+async function moveToInProgressIfActive(taskId) {
+    if (taskId == null) return { moved: false };
+    const projects = await store.read('projects');
+
+    return store.mutate('tasks', (tasksList) => {
+        const idx = tasksList.findIndex(t => t.id == taskId);
+        if (idx === -1) return { next: undefined, result: { moved: false } };
+
+        const found = D.hydrateTask(tasksList[idx]);
+        const project = projects.find(p => p.id == found.projectId);
+        const col = project ? D.resolveColumn(project, 'In Progress') : null;
+        if (!col || found.columnId === col.id) return { next: undefined, result: { moved: false } };
+
+        const next = tasksList.slice();
+        next[idx] = { ...found, columnId: col.id };
+        return { next, result: { moved: true, columnId: col.id, columnName: col.name } };
+    });
+}
+
 // ── Read tools ─────────────────────────────────────────────
 
 export async function list_projects() {
@@ -262,12 +290,17 @@ export async function create_task(args) {
     // assign_task does — claimed immediately if the agent is free.
     let queue = { agentStatus: 'unassigned', startNow: false, queuePosition: null, currentTaskId: null };
     if (owner.agentId != null) queue = await releaseAndClaim(owner.agentId, { claimTaskId: created.id });
+    const moved = queue.startNow ? await moveToInProgressIfActive(created.id) : { moved: false };
+    // The response should reflect where the card actually ended up, not the
+    // column it was created in a moment before being claimed and moved.
+    if (moved.moved) created.columnId = moved.columnId;
 
     return {
         task: created, agentSlug: owner.agentSlug,
         agentStatus: queue.agentStatus, startNow: queue.startNow, queuePosition: queue.queuePosition,
         hint: queue.startNow
-            ? `${owner.agentSlug} is free — begin this task now.`
+            ? `${owner.agentSlug} is free — begin this task now.` +
+              (moved.moved ? ` The card moved to "${moved.columnName}".` : '')
             : queue.agentStatus === 'queued'
                 ? `${owner.agentSlug} is already working something else. This is #${queue.queuePosition} in its queue.`
                 : REFRESH_HINT,
@@ -309,7 +342,7 @@ export async function update_task(args) {
 export async function move_task({ task: ref, column }) {
     const projects = await store.read('projects');
 
-    const moved = await store.mutate('tasks', (tasks) => {
+    const moveResult = await store.mutate('tasks', (tasks) => {
         const found = D.resolveTask(tasks, ref);
         if (!found) throw new Error(`No task matches "${ref}".`);
         const idx = tasks.indexOf(found);
@@ -339,17 +372,21 @@ export async function move_task({ task: ref, column }) {
     });
 
     let queue = null;
-    if (moved.autoFinish) {
-        queue = await releaseAndClaim(moved.task.agentId, { justFinishedTaskId: moved.task.id });
+    let moved = { moved: false };
+    if (moveResult.autoFinish) {
+        queue = await releaseAndClaim(moveResult.task.agentId, { justFinishedTaskId: moveResult.task.id });
+        if (queue.currentTaskId != null) moved = await moveToInProgressIfActive(queue.currentTaskId);
     }
 
     return {
-        taskKey: moved.task.taskKey, columnId: moved.task.columnId, columnName: moved.columnName,
-        agentFreed: moved.autoFinish,
+        taskKey: moveResult.task.taskKey, columnId: moveResult.task.columnId, columnName: moveResult.columnName,
+        agentFreed: moveResult.autoFinish,
         agentNextTaskId: queue?.currentTaskId ?? null,
-        hint: moved.autoFinish
-            ? `Moving to "${moved.columnName}" freed the agent.` +
-              (queue?.currentTaskId ? ` It is now on task id ${queue.currentTaskId} — call get_task to see it.` : ' Its queue is empty.') +
+        hint: moveResult.autoFinish
+            ? `Moving to "${moveResult.columnName}" freed the agent.` +
+              (queue?.currentTaskId
+                  ? ` It is now on task id ${queue.currentTaskId}` + (moved.moved ? ` (moved to "${moved.columnName}")` : '') + ` — call get_task to see it.`
+                  : ' Its queue is empty.') +
               ` ${REFRESH_HINT}`
             : REFRESH_HINT,
     };
@@ -386,18 +423,24 @@ export async function assign_task({ task: ref, agent, assignee }) {
     // Step 2: keep the agent busy/queue state honest. Two separate CAS writes
     // (see releaseAndClaim) — not one transaction with step 1.
     if (oldAgentId != null && oldAgentId != owner.agentId) {
-        await releaseAndClaim(oldAgentId, { justFinishedTaskId: task.id });
+        const freed = await releaseAndClaim(oldAgentId, { justFinishedTaskId: task.id });
+        // Pulling this task off its old agent may have promoted a different
+        // one there — that one just became active too.
+        if (freed.currentTaskId != null) await moveToInProgressIfActive(freed.currentTaskId);
     }
 
     let queue = { agentStatus: 'unassigned', startNow: false, queuePosition: null, currentTaskId: null };
     if (owner.agentId != null) queue = await releaseAndClaim(owner.agentId, { claimTaskId: task.id });
+    const moved = queue.startNow ? await moveToInProgressIfActive(task.id) : { moved: false };
 
     return {
         taskKey: task.taskKey, assignee: task.assignee,
         agentId: task.agentId, agentSlug: owner.agentSlug,
         agentStatus: queue.agentStatus, startNow: queue.startNow, queuePosition: queue.queuePosition,
+        movedToColumn: moved.moved ? moved.columnName : null,
         hint: queue.startNow
-            ? `${owner.agentSlug} is free — begin this task now.`
+            ? `${owner.agentSlug} is free — begin this task now.` +
+              (moved.moved ? ` The card moved to "${moved.columnName}".` : '')
             : queue.agentStatus === 'queued'
                 ? `${owner.agentSlug} is already working something else. This is #${queue.queuePosition} in its queue — it will not start on its own; call finish_task on the active one to advance the queue.`
                 : REFRESH_HINT,
@@ -433,12 +476,18 @@ export async function finish_task({ task: ref }) {
     }
 
     const queue = await releaseAndClaim(task.agentId, { justFinishedTaskId: task.id });
+    const moved = queue.currentTaskId != null
+        ? await moveToInProgressIfActive(queue.currentTaskId)
+        : { moved: false };
+
     return {
         taskKey: task.taskKey,
         freed: true,
         agentNextTaskId: queue.currentTaskId,
         hint: queue.currentTaskId
-            ? `The agent is now on task id ${queue.currentTaskId} — call get_task to see it, then begin work now.`
+            ? `The agent is now on task id ${queue.currentTaskId}` +
+              (moved.moved ? ` (moved to "${moved.columnName}")` : '') +
+              ` — call get_task to see it, then begin work now.`
             : `The agent's queue is empty; it is idle. ${REFRESH_HINT}`,
     };
 }

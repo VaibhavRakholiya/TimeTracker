@@ -111,16 +111,36 @@ await check('task fields match Tasks.create in js/state.js', () => {
 // ── Network round trip ─────────────────────────────────────
 section('tool round trip');
 
-// Seed a project — there is deliberately no create_project tool.
+// Seed a project — there is deliberately no create_project tool. Columns
+// mirror the real workspace's "Big Fonts" project (To Do / In Progress /
+// In Review / Done) so the auto-move-on-claim and auto-finish-on-Done
+// behaviors both have a real column to land in.
 const projectId = Date.now();
 await store.mutate('projects', () => ({
     next: [{
         id: projectId, name: 'Smoke Project', description: '', emoji: '', color: '#6366f1',
         position: 1000, labels: [],
         columns: [
-            { id: 'col-todo',   name: 'To Do',     color: '#6b7280', position: 0, wipLimit: null },
-            { id: 'col-review', name: 'In Review', color: '#f59e0b', position: 1, wipLimit: null },
-            { id: 'col-done',   name: 'Done',       color: '#22c55e', position: 2, wipLimit: null },
+            { id: 'col-todo',   name: 'To Do',       color: '#6b7280', position: 0, wipLimit: null },
+            { id: 'col-ip',     name: 'In Progress', color: '#3b82f6', position: 1, wipLimit: null },
+            { id: 'col-review', name: 'In Review',   color: '#f59e0b', position: 2, wipLimit: null },
+            { id: 'col-done',   name: 'Done',        color: '#22c55e', position: 3, wipLimit: null },
+        ],
+        createdAt: new Date().toISOString(),
+    }],
+    result: null,
+}));
+
+// A second project mirroring most of the real workspace: no "In Progress"
+// column at all — claiming a task here must be a silent no-op, not a throw.
+const bareProjectId = Date.now() + 1;
+await store.mutate('projects', (projects) => ({
+    next: [...projects, {
+        id: bareProjectId, name: 'Bare Project', description: '', emoji: '', color: '#94a3b8',
+        position: 2000, labels: [],
+        columns: [
+            { id: 'bare-todo', name: 'To Do', color: '#6b7280', position: 0, wipLimit: null },
+            { id: 'bare-done', name: 'Done',  color: '#22c55e', position: 1, wipLimit: null },
         ],
         createdAt: new Date().toISOString(),
     }],
@@ -133,7 +153,7 @@ await check('list_projects returns the seeded project with columns', async () =>
     const projects = await T.list_projects();
     const p = projects.find(x => x.id === projectId);
     assert.ok(p, 'seeded project not found');
-    assert.equal(p.columns.length, 3);
+    assert.equal(p.columns.length, 4);
     assert.equal(p.columns[0].name, 'To Do');
 });
 
@@ -168,7 +188,7 @@ await check('create_task refuses an invalid project', async () => {
 await check('create_task refuses an unknown column, naming the valid ones', async () => {
     await assert.rejects(
         () => T.create_task({ projectId, title: 'x', column: 'Nowhere' }),
-        /Available: To Do, In Review/);
+        /Available: To Do, In Progress, In Review, Done/);
 });
 
 await check('assign_task by slug sets agentId and mirrors the name', async () => {
@@ -186,9 +206,13 @@ await check('list_tasks filters by agent', async () => {
 });
 
 await check('list_tasks resolves a column by name', async () => {
-    const todo = await T.list_tasks({ projectId, column: 'To Do' });
-    assert.ok(todo.some(t => t.taskKey === task.taskKey));
-    assert.equal((await T.list_tasks({ projectId, column: 'In Review' })).length, 0);
+    // The prior check assigned `task` to a free agent, which — per the
+    // claim-moves-to-In-Progress behavior — already relocated it there.
+    const inProgress = await T.list_tasks({ projectId, column: 'In Progress' });
+    assert.ok(inProgress.some(t => t.taskKey === task.taskKey));
+    assert.equal(
+        (await T.list_tasks({ projectId, column: 'To Do' })).some(t => t.taskKey === task.taskKey),
+        false, 'it should no longer be listed under To Do after being claimed');
 });
 
 await check('add_comment attributes to the owning agent by default', async () => {
@@ -244,12 +268,13 @@ section('agent queue behavior');
 
 let busyAgent, taskA, taskB, taskC;
 
-await check('a task assigned to a free agent starts now', async () => {
+await check('a task assigned to a free agent starts now and moves to In Progress', async () => {
     busyAgent = (await T.create_agent({ name: 'Queue Tester' })).agent;
     const r = await T.create_task({ projectId, title: 'Queue A', agent: busyAgent.slug });
     taskA = r.task;
     assert.equal(r.startNow, true);
     assert.equal(r.agentStatus, 'active');
+    assert.equal(taskA.columnId, 'col-ip', 'a freshly claimed task should land in In Progress');
     const agents = await T.list_agents({});
     const a = agents.find(x => x.id === busyAgent.id);
     assert.equal(a.status, 'working');
@@ -257,12 +282,13 @@ await check('a task assigned to a free agent starts now', async () => {
     assert.equal(a.queueLength, 0);
 });
 
-await check('a second task queues behind the busy agent instead of starting', async () => {
+await check('a second task queues behind the busy agent, staying in To Do', async () => {
     const r = await T.create_task({ projectId, title: 'Queue B', agent: busyAgent.slug });
     taskB = r.task;
     assert.equal(r.startNow, false);
     assert.equal(r.agentStatus, 'queued');
     assert.equal(r.queuePosition, 1);
+    assert.equal(taskB.columnId, 'col-todo', 'a queued task must not jump the board');
     const agents = await T.list_agents({});
     assert.equal(agents.find(x => x.id === busyAgent.id).queueLength, 1);
 });
@@ -287,6 +313,8 @@ await check('finish_task frees the agent and promotes the oldest queued task (FI
     const next = await T.get_task({ task: r.agentNextTaskId });
     assert.equal(next.taskKey, taskB.taskKey, 'should promote B before C — B was queued first');
     assert.equal(next.isActiveForAgent, true);
+    assert.equal(next.columnId, 'col-ip', 'the newly-promoted task should move to In Progress');
+    assert.equal(next.columnName, 'In Progress');
 });
 
 await check('a finished task does not reappear in its own queue listing', async () => {
@@ -303,6 +331,14 @@ await check('moving the active task to a column named Done auto-finishes and pro
     const c = await T.get_task({ task: r.agentNextTaskId });
     assert.equal(c.taskKey, taskC.taskKey);
     assert.equal(c.isActiveForAgent, true);
+    assert.equal(c.columnId, 'col-ip', 'promotion via the Done-move path should also move to In Progress');
+});
+
+await check('a project with no In Progress column: claiming does not throw and leaves the column alone', async () => {
+    const bareAgent = (await T.create_agent({ name: 'Bare Tester' })).agent;
+    const r = await T.create_task({ projectId: bareProjectId, title: 'Bare Task', agent: bareAgent.slug });
+    assert.equal(r.startNow, true);
+    assert.equal(r.task.columnId, 'bare-todo', 'no In Progress column exists — task should stay where it was created');
 });
 
 await check('finishing the last task leaves the agent idle', async () => {
