@@ -972,6 +972,8 @@ img, svg { display: block; max-width: 100%; }
     gap: var(--sp-1);
 }
 
+.form-group[hidden] { display: none; }
+
 .form-label {
     font-size: var(--text-sm);
     font-weight: var(--fw-medium);
@@ -3911,6 +3913,118 @@ input.form-control--inline { padding: 5px 10px; }
     width: 32px;
     height: 32px;
     font-size: var(--text-sm);
+}
+
+.task-card-assignee img,
+.agent-row-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    object-fit: cover;
+}
+
+.agent-avatar-upload {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+}
+
+.agent-avatar-preview {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-overlay);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: var(--text-lg);
+    font-weight: var(--fw-semibold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.agent-avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.agent-avatar-upload-actions {
+    display: flex;
+    gap: var(--sp-2);
+}
+
+.agents-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--sp-4);
+}
+
+.agent-dash-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    background: var(--surface-overlay);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.agent-dash-card--disabled { opacity: 0.6; }
+
+.agent-dash-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+}
+
+.agent-dash-head-main { min-width: 0; flex: 1; }
+
+.agent-dash-name {
+    font-weight: var(--fw-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.agent-dash-section-label {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: var(--sp-1);
+}
+
+.agent-dash-empty {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+}
+
+.agent-dash-task {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: var(--sp-1) 0;
+    color: var(--text);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.agent-dash-task:hover { color: var(--primary); }
+
+.agent-dash-queue {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .agent-row-main {

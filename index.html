@@ -54,13 +54,9 @@
                         <span class="nav-label">My Tasks</span>
                         <span class="nav-badge" id="myTasksBadge" style="display:none;">0</span>
                     </button>
-                    <button type="button" class="nav-item" data-route="backlog" id="nav-backlog">
-                        <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
-                        <span class="nav-label">Backlog</span>
-                    </button>
-                    <button type="button" class="nav-item" data-route="timeline" id="nav-timeline">
-                        <i class="fa-solid fa-chart-gantt" aria-hidden="true"></i>
-                        <span class="nav-label">Timeline</span>
+                    <button type="button" class="nav-item" data-route="agents" id="nav-agents">
+                        <i class="fa-solid fa-robot" aria-hidden="true"></i>
+                        <span class="nav-label">Agent Activity</span>
                     </button>
                 </div>
 
@@ -278,6 +274,19 @@
                     </div>
                 </div>
 
+                <!-- ─────────────────────────── AGENT ACTIVITY ─ -->
+                <div class="view" id="view-agents">
+                    <div class="view-header">
+                        <div>
+                            <h1 class="view-title">Agent Activity</h1>
+                            <div class="view-subtitle">What every agent is working on, right now</div>
+                        </div>
+                    </div>
+                    <div class="agents-dashboard" id="agentsDashboardContent">
+                        <!-- Rendered by agents.js -->
+                    </div>
+                </div>
+
                 <!-- ──────────────────────────────── MY TASKS ─ -->
                 <div class="view" id="view-mytasks">
                     <div class="view-header">
@@ -422,15 +431,15 @@
                             <option value="">Select…</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group task-modal-schedule-field">
                         <label class="form-label">Due Date</label>
                         <input class="form-control" type="date" id="taskModalDueDate" />
                     </div>
-                    <div class="form-group">
+                    <div class="form-group task-modal-schedule-field">
                         <label class="form-label">Start Date</label>
                         <input class="form-control" type="date" id="taskModalStartDate" />
                     </div>
-                    <div class="form-group">
+                    <div class="form-group task-modal-schedule-field">
                         <label class="form-label" for="taskModalEstimate">Estimate (hours)</label>
                         <input class="form-control" type="number" id="taskModalEstimate" placeholder="e.g. 4" min="0" step="0.5" />
                     </div>
@@ -448,7 +457,7 @@
                         <select class="form-control" id="taskModalAssignee"></select>
                     </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group task-modal-schedule-field">
                     <label class="form-label">Sprint</label>
                     <select class="form-control" id="taskModalSprint">
                         <option value="">No sprint (Backlog)</option>
@@ -566,6 +575,22 @@
                         <label class="form-label" for="agentModalEmoji">Emoji</label>
                         <input class="form-control" type="text" id="agentModalEmoji" placeholder="e.g. &#128030;" maxlength="4" />
                     </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Profile Image</label>
+                    <div class="agent-avatar-upload">
+                        <div class="agent-avatar-preview" id="agentModalAvatarPreview" aria-hidden="true"></div>
+                        <div class="agent-avatar-upload-actions">
+                            <input type="file" id="agentModalAvatarInput" accept="image/*" hidden />
+                            <button type="button" class="btn btn-ghost btn-sm" id="agentModalAvatarPick">
+                                <i class="fa-solid fa-image" aria-hidden="true"></i> Choose Image
+                            </button>
+                            <button type="button" class="btn btn-ghost btn-sm" id="agentModalAvatarRemove" hidden>
+                                <i class="fa-solid fa-trash" aria-hidden="true"></i> Remove
+                            </button>
+                        </div>
+                    </div>
+                    <p class="settings-hint">Optional. Falls back to the emoji and color badge when not set.</p>
                 </div>
                 <p class="settings-hint" id="agentModalSlugHint">Claude refers to agents by a short handle derived from the name.</p>
                 <div class="form-group">
