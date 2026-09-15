@@ -147,10 +147,15 @@ export function queueForAgent(tasks, agentId, excludeTaskId) {
 }
 
 export function agentStatus(agent, tasks) {
-    const working = agent.currentTaskId != null;
-    const current = working ? (tasks || []).find(t => t.id == agent.currentTaskId) || null : null;
+    const pointed = agent.currentTaskId != null
+        ? (tasks || []).find(t => t.id == agent.currentTaskId) || null
+        : null;
+    // currentTaskId can go stale (e.g. a task got finished through a path
+    // that didn't clear it) — never report "working" on a task that's
+    // actually already done or gone. Mirrors js/state.js statusFor.
+    const current = pointed && pointed.agentDoneAt == null ? pointed : null;
     return {
-        working,
+        working: current != null,
         currentTask: current,
         queueLength: queueForAgent(tasks, agent.id, agent.currentTaskId).length,
     };

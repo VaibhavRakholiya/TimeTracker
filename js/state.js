@@ -985,9 +985,13 @@ const State = (() => {
             const agent = this.get(id);
             if (!agent) return null;
             const current = agent.currentTaskId != null ? _data.tasks.find(t => t.id == agent.currentTaskId) : null;
+            // currentTaskId can go stale (e.g. a task got finished through a
+            // path that didn't clear it) — never show "working" on a task
+            // that's actually already done or gone.
+            const activeTask = current && current.agentDoneAt == null ? current : null;
             return {
-                working:     agent.currentTaskId != null,
-                currentTask: current || null,
+                working:     activeTask != null,
+                currentTask: activeTask,
                 queueLength: queueForAgent(id, agent.currentTaskId).length,
             };
         },

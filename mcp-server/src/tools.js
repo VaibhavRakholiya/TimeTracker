@@ -231,8 +231,9 @@ export async function get_task({ task }) {
         agent:       agent ? { id: agent.id, slug: agent.slug, name: agent.name, role: agent.role } : null,
         // True when this is the agent's current active task (start now); false
         // when it's queued behind something else, or the agent already
-        // finished it (see agentDoneAt above).
-        isActiveForAgent: agent != null && agent.currentTaskId == t.id,
+        // finished it (see agentDoneAt above). A finished task is never
+        // "active" even if a stale currentTaskId still points at it.
+        isActiveForAgent: agent != null && agent.currentTaskId == t.id && t.agentDoneAt == null,
         subtaskStats: countSubtasks(t.subtasks),
     };
 }
