@@ -253,6 +253,7 @@ const Projects = (() => {
             document.getElementById('projectModalId').value = _editingProjectId;
             document.getElementById('projectModalName').value = proj.name;
             document.getElementById('projectModalDesc').value = proj.description || '';
+            document.getElementById('projectModalRepo').value = proj.repo || '';
             _selectedColor  = proj.color;
             _editingColumns = proj.columns.map(c => ({ ...c }));
         } else {
@@ -261,6 +262,7 @@ const Projects = (() => {
             document.getElementById('projectModalId').value = '';
             document.getElementById('projectModalName').value = '';
             document.getElementById('projectModalDesc').value = '';
+            document.getElementById('projectModalRepo').value = '';
             _selectedColor  = '#6366f1';
             _editingColumns = [
                 { id: `col-${Date.now()}-1`, name: 'To Do',       color: '#6b7280', position: 0, wipLimit: null },
@@ -384,6 +386,7 @@ const Projects = (() => {
         const fields = {
             name,
             description: document.getElementById('projectModalDesc').value.trim(),
+            repo:        document.getElementById('projectModalRepo').value.trim(),
             color:       _selectedColor,
             columns:     cols,
         };

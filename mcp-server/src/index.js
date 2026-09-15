@@ -38,7 +38,8 @@ const agentRef = z.union([z.string(), z.number()])
 // ── Reads ──────────────────────────────────────────────────
 
 register('list_projects',
-    'List FlowBoard projects with their workflow columns and task counts. Start here to get a projectId.',
+    'List FlowBoard projects with their workflow columns, task counts, and configured repo. Start here to get ' +
+    'a projectId — check `repo` for which local repository a task\'s work belongs in.',
     {}, T.list_projects);
 
 register('list_agents',

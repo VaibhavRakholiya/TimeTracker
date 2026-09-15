@@ -371,6 +371,7 @@ const State = (() => {
                 id:          Date.now(),
                 name:        fields.name   || 'Untitled Project',
                 description: fields.description || '',
+                repo:        fields.repo   || '',
                 emoji:       '',
                 color:       fields.color  || '#6366f1',
                 position:    (_data.projects.length + 1) * 1000,
