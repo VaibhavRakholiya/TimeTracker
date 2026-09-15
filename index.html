@@ -567,6 +567,22 @@
                         <input class="form-control" type="text" id="agentModalEmoji" placeholder="e.g. &#128030;" maxlength="4" />
                     </div>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">Profile Image</label>
+                    <div class="agent-avatar-upload">
+                        <div class="agent-avatar-preview" id="agentModalAvatarPreview" aria-hidden="true"></div>
+                        <div class="agent-avatar-upload-actions">
+                            <input type="file" id="agentModalAvatarInput" accept="image/*" hidden />
+                            <button type="button" class="btn btn-ghost btn-sm" id="agentModalAvatarPick">
+                                <i class="fa-solid fa-image" aria-hidden="true"></i> Choose Image
+                            </button>
+                            <button type="button" class="btn btn-ghost btn-sm" id="agentModalAvatarRemove" hidden>
+                                <i class="fa-solid fa-trash" aria-hidden="true"></i> Remove
+                            </button>
+                        </div>
+                    </div>
+                    <p class="settings-hint">Optional. Falls back to the emoji and color badge when not set.</p>
+                </div>
                 <p class="settings-hint" id="agentModalSlugHint">Claude refers to agents by a short handle derived from the name.</p>
                 <div class="form-group">
                     <label class="form-label" for="agentModalRole">Role</label>

@@ -19,8 +19,41 @@ const Agents = (() => {
 
     let _editingAgentId = null;
     let _selectedColor  = '#6366f1';
+    let _selectedAvatar = '';
 
     const escHtml = (s) => UI.escHtml(s);
+
+    // Avatars are cropped to a square and downscaled before being stored as a
+    // data URL — keeps them small enough for the shared Firebase record.
+    const AVATAR_SIZE = 160;
+
+    function readImageAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload  = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function resizeAvatar(dataUrl) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                const side   = Math.min(img.width, img.height);
+                const sx     = (img.width  - side) / 2;
+                const sy     = (img.height - side) / 2;
+                const canvas = document.createElement('canvas');
+                canvas.width  = AVATAR_SIZE;
+                canvas.height = AVATAR_SIZE;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, sx, sy, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
+                resolve(canvas.toDataURL('image/jpeg', 0.85));
+            };
+            img.onerror = () => reject(new Error('Could not read image'));
+            img.src = dataUrl;
+        });
+    }
 
     // ── Identity helpers (shared with tasks.js / board.js / ui.js) ──
     /**
@@ -36,6 +69,7 @@ const Agents = (() => {
                 name:    agent.name,
                 badge:   agent.emoji || agent.name.charAt(0).toUpperCase(),
                 color:   agent.color,
+                avatar:  agent.avatar || null,
                 title:   agent.role ? `${agent.name} — ${agent.role}` : agent.name,
                 isAgent: true,
             };
@@ -45,6 +79,7 @@ const Agents = (() => {
             name:    task.assignee,
             badge:   String(task.assignee).charAt(0).toUpperCase(),
             color:   null,
+            avatar:  null,
             title:   task.assignee,
             isAgent: false,
         };
@@ -63,10 +98,13 @@ const Agents = (() => {
         if (!a) return '';
         const cls = `task-card-assignee${sizeMod ? ' task-card-assignee' + sizeMod : ''}` +
                     (a.isAgent ? ' task-card-assignee--agent' : '');
-        const style = a.isAgent
+        const style = a.isAgent && !a.avatar
             ? ` style="background:${hexToRgba(a.color, 0.15)};color:${a.color};border-color:${hexToRgba(a.color, 0.4)};"`
             : '';
-        return `<div class="${cls}"${style} title="${escHtml(a.title)}">${escHtml(a.badge)}</div>`;
+        const inner = a.avatar
+            ? `<img src="${a.avatar}" alt="" />`
+            : escHtml(a.badge);
+        return `<div class="${cls}"${style} title="${escHtml(a.title)}">${inner}</div>`;
     }
 
     // ── Assignee picker (task modal) ───────────────────────
@@ -137,7 +175,9 @@ const Agents = (() => {
 
         box.innerHTML = agents.map(a => {
             const count  = State.Agents.taskCount(a.id);
-            const badge  = escHtml(a.emoji || a.name.charAt(0).toUpperCase());
+            const badge  = a.avatar
+                ? `<img src="${a.avatar}" alt="" />`
+                : escHtml(a.emoji || a.name.charAt(0).toUpperCase());
             const status = State.Agents.statusFor(a.id);
             const statusHtml = status.working
                 ? `<span class="agent-row-pill agent-row-pill--working" title="${escHtml(status.currentTask?.title || '')}">
@@ -213,8 +253,10 @@ const Agents = (() => {
             `<option value="${m.value}">${escHtml(m.label)}</option>`).join('');
         modelSel.value = agent ? agent.model : 'default';
 
-        _selectedColor = agent ? agent.color : AGENT_COLORS[0];
+        _selectedColor  = agent ? agent.color : AGENT_COLORS[0];
+        _selectedAvatar = agent ? (agent.avatar || '') : '';
         renderColors();
+        renderAvatarPreview();
         updateSlugHint();
 
         document.getElementById('agentModalScrim').classList.add('open');
@@ -236,8 +278,38 @@ const Agents = (() => {
             btn.addEventListener('click', () => {
                 _selectedColor = btn.dataset.color;
                 renderColors();
+                if (!_selectedAvatar) renderAvatarPreview();
             });
         });
+    }
+
+    function renderAvatarPreview() {
+        const box = document.getElementById('agentModalAvatarPreview');
+        const removeBtn = document.getElementById('agentModalAvatarRemove');
+        if (!box) return;
+        if (_selectedAvatar) {
+            box.innerHTML = `<img src="${_selectedAvatar}" alt="" />`;
+        } else {
+            const emoji = document.getElementById('agentModalEmoji')?.value.trim();
+            const name  = document.getElementById('agentModalName')?.value.trim();
+            box.style.color = _selectedColor;
+            box.textContent = emoji || (name ? name.charAt(0).toUpperCase() : '?');
+        }
+        if (removeBtn) removeBtn.hidden = !_selectedAvatar;
+    }
+
+    async function handleAvatarFile(file) {
+        if (!file || !file.type.startsWith('image/')) {
+            UI.toast('Choose an image file', 'error');
+            return;
+        }
+        try {
+            const raw = await readImageAsDataUrl(file);
+            _selectedAvatar = await resizeAvatar(raw);
+            renderAvatarPreview();
+        } catch {
+            UI.toast('Could not read that image', 'error');
+        }
     }
 
     /** Show the handle Claude will use, live, so it is never a surprise. */
@@ -271,6 +343,7 @@ const Agents = (() => {
             name,
             emoji:        document.getElementById('agentModalEmoji').value.trim(),
             color:        _selectedColor,
+            avatar:       _selectedAvatar,
             role:         document.getElementById('agentModalRole').value.trim(),
             systemPrompt: document.getElementById('agentModalPrompt').value.trim(),
             model:        document.getElementById('agentModalModel').value,
@@ -299,6 +372,24 @@ const Agents = (() => {
         document.getElementById('agentModalCancel')?.addEventListener('click', closeModal);
         document.getElementById('agentModalSave')?.addEventListener('click', save);
         document.getElementById('agentModalName')?.addEventListener('input', updateSlugHint);
+        document.getElementById('agentModalName')?.addEventListener('input', () => {
+            if (!_selectedAvatar) renderAvatarPreview();
+        });
+        document.getElementById('agentModalEmoji')?.addEventListener('input', () => {
+            if (!_selectedAvatar) renderAvatarPreview();
+        });
+        document.getElementById('agentModalAvatarPick')?.addEventListener('click', () => {
+            document.getElementById('agentModalAvatarInput')?.click();
+        });
+        document.getElementById('agentModalAvatarInput')?.addEventListener('change', e => {
+            const file = e.target.files && e.target.files[0];
+            if (file) handleAvatarFile(file);
+            e.target.value = '';
+        });
+        document.getElementById('agentModalAvatarRemove')?.addEventListener('click', () => {
+            _selectedAvatar = '';
+            renderAvatarPreview();
+        });
         document.getElementById('agentModalScrim')?.addEventListener('click', e => {
             if (e.target === document.getElementById('agentModalScrim')) closeModal();
         });

@@ -137,6 +137,8 @@ const State = (() => {
             (typeof e === 'string' && ['true', '1', 'yes'].includes(e.trim().toLowerCase()));
         agent.emoji        = typeof agent.emoji === 'string' ? agent.emoji.slice(0, 4) : '';
         agent.color        = /^#[0-9a-f]{6}$/i.test(agent.color || '') ? agent.color : '#6366f1';
+        agent.avatar       = typeof agent.avatar === 'string' && agent.avatar.startsWith('data:image/')
+            ? agent.avatar : '';
         agent.role         = String(agent.role || '').slice(0, 200);
         agent.systemPrompt = String(agent.systemPrompt || '').slice(0, 8000);
         agent.model        = AGENT_MODELS.includes(agent.model) ? agent.model : 'default';
@@ -875,6 +877,7 @@ const State = (() => {
                 name:         String(fields.name || 'Agent').slice(0, 40),
                 emoji:        fields.emoji || '',
                 color:        fields.color || '#6366f1',
+                avatar:       fields.avatar || '',
                 role:         fields.role || '',
                 systemPrompt: fields.systemPrompt || '',
                 model:        AGENT_MODELS.includes(fields.model) ? fields.model : 'default',
