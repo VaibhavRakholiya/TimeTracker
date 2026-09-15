@@ -169,7 +169,12 @@ const Board = (() => {
                             ).join('')}
                         </select>
                     </td>
-                    <td>${t.assignee ? `<div class="row-assignee"><span class="task-card-assignee task-card-assignee--sm">${(t.assignee || '?')[0].toUpperCase()}</span><span class="row-assignee-name">${escHtml(t.assignee)}</span></div>` : '<span class="text-muted">—</span>'}</td>
+                    <td>${(() => {
+                        const who = Agents.assigneeFor(t);
+                        return who
+                            ? `<div class="row-assignee">${Agents.assigneeChip(t, '--sm')}<span class="row-assignee-name">${escHtml(who.name)}</span></div>`
+                            : '<span class="text-muted">—</span>';
+                    })()}</td>
                     <td>${due ? `<span class="due-date-chip ${due.cls}">${due.text}</span>` : '<span class="text-muted">—</span>'}</td>
                     <td class="row-time">${t.timeSpent > 0 ? Tasks.formatHours(t.timeSpent) : '—'}</td>
                     <td>

@@ -182,6 +182,8 @@ const Router = (() => {
         document.querySelectorAll('[data-theme-pick]').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.themePick === theme);
         });
+
+        window.Agents && Agents.renderSettingsList();
     }
 
     function getCurrent()   { return { view: _currentRoute, projectId: _currentProjectId }; }

@@ -47,3 +47,23 @@ Every change made to this project MUST ensure that the application continues to 
 2. Verify offline functionality and data synchronization via `firebase-rest-integration.js`.
 3. Ensure UI remains fully responsive on both mobile and desktop screen sizes.
 4. If adding UI components, match the existing clean, modern, color-coded aesthetics.
+
+## Developer Tooling Boundary (`mcp-server/`)
+`mcp-server/` is a Node-only MCP server that lets Claude Code read and drive the
+board. It is **developer tooling, not part of the application**, and it is the one
+place in this repo permitted to use npm dependencies.
+
+The rules above still hold for the app itself, unconditionally:
+- `index.html` loads hand-written `<script>` tags only. No bundler, no transpile,
+  no build step, no framework.
+- Nothing under `mcp-server/` may be referenced by `index.html`, `sw.js`, the
+  service worker cache list, or the Electron bundle. It ships to no browser.
+- `mcp-server/` has its own `package.json` and `node_modules`. The root
+  `package.json` stays dependency-free.
+
+Because Node cannot import `js/state.js` (an IIFE bound to `window`, using
+`localStorage` and `document` throughout), a handful of domain invariants —
+the task shape, `nextTaskKey`, `taskHasValidProject`, `computeTimeSpent`,
+`slugifyAgent` — are deliberately duplicated in `mcp-server/src/domain.js`.
+`js/state.js` is the source of truth. `npm run smoke` in `mcp-server/` diffs the
+two task shapes and fails on drift; run it after changing either one.

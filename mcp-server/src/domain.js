@@ -1,0 +1,152 @@
+/**
+ * FlowBoard domain invariants, ported for Node.
+ *
+ * ── SOURCE OF TRUTH ─────────────────────────────────────────────────────────
+ * The browser's copy of these rules lives in ../../js/state.js — the task
+ * literal in `Tasks.create`, `taskHasValidProject`, the task-key counter in
+ * `load`/`importData`, `slugifyAgent`, and `Entries._recompute`.
+ *
+ * js/state.js cannot be imported here: it is an IIFE assigned to `window` that
+ * touches localStorage, document and setInterval throughout, and making it dual
+ * browser/Node would mean a build step the project deliberately does without.
+ * So these rules are duplicated on purpose. They CAN drift, and the symptoms
+ * are silent (duplicate TASK-n keys, timeSpent disagreeing with timeEntries),
+ * so `npm run smoke` diffs the task shape against js/state.js on every run.
+ * ────────────────────────────────────────────────────────────────────────────
+ */
+
+export const PRIORITIES  = ['low', 'medium', 'high', 'urgent', 'critical'];
+export const AGENT_MODELS = ['default', 'opus', 'sonnet', 'haiku'];
+
+/** Mirrors js/state.js `importData` — the /\D/g form, which is the more robust of the two in the app. */
+export function nextTaskKey(tasks) {
+    const max = (tasks || []).reduce((m, t) => {
+        const n = parseInt(String(t.taskKey || '').replace(/\D/g, ''), 10);
+        return Number.isNaN(n) ? m : Math.max(m, n);
+    }, 0);
+    return `TASK-${max + 1}`;
+}
+
+/** Date.now() collides when several records are created in the same millisecond. */
+export function uniqueId(existing) {
+    let id = Date.now();
+    const taken = new Set((existing || []).map(r => r.id));
+    while (taken.has(id)) id++;
+    return id;
+}
+
+/** Mirrors js/state.js `taskHasValidProject`. A task with no live project is invalid. */
+export function taskHasValidProject(task, projects) {
+    if (!task || task.projectId == null || task.projectId === '') return false;
+    return (projects || []).some(p => p.id == task.projectId);
+}
+
+export function getFirstColumn(project) {
+    if (!project || !Array.isArray(project.columns) || !project.columns.length) return null;
+    return [...project.columns].sort((a, b) => (a.position || 0) - (b.position || 0))[0];
+}
+
+/** Resolve a column by id, then by case-insensitive name, so Claude can say "In Progress". */
+export function resolveColumn(project, ref) {
+    if (!project || ref == null || ref === '') return null;
+    const cols = project.columns || [];
+    return cols.find(c => c.id === ref)
+        || cols.find(c => String(c.name).toLowerCase() === String(ref).toLowerCase())
+        || null;
+}
+
+/** Mirrors js/state.js `Tasks.create` — positions are spaced by 1000. */
+export function nextPosition(tasks) {
+    return ((tasks || []).length + 1) * 1000;
+}
+
+/** timeSpent is HOURS and is always derived, never accumulated (js/state.js `Entries._recompute`). */
+export function computeTimeSpent(entries) {
+    return (entries || []).reduce((s, e) => s + (Number(e.duration) || 0), 0) / 3600;
+}
+
+/** Mirrors js/state.js `slugifyAgent`. */
+export function slugifyAgent(name, taken) {
+    const base = String(name || 'agent').toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'agent';
+    let slug = base;
+    let n = 2;
+    while (taken && taken.has(slug)) slug = `${base}-${n++}`;
+    return slug;
+}
+
+/**
+ * Put back everything RTDB strips. A task read straight from Firebase can be
+ * missing every empty array and every null field, so nothing downstream can
+ * assume a key exists.
+ */
+export function hydrateTask(raw) {
+    const t = { ...raw };
+    t.labels      = asArray(t.labels);
+    t.comments    = asArray(t.comments);
+    t.timeEntries = asArray(t.timeEntries);
+    t.subtasks    = hydrateSubtasks(t.subtasks);
+
+    for (const k of ['sprintId', 'columnId', 'dueDate', 'startDate', 'timeEstimate', 'agentId', 'timerStart']) {
+        if (t[k] === undefined || t[k] === '') t[k] = null;
+    }
+    t.title          = t.title || 'Untitled Task';
+    t.description    = t.description || '';
+    t.priority       = t.priority || 'medium';
+    t.assignee       = t.assignee || '';
+    t.timerNote      = t.timerNote || '';
+    t.isTimerRunning = t.isTimerRunning === true;
+    t.position       = t.position != null ? t.position : 0;
+    t.createdAt      = t.createdAt || new Date().toISOString();
+    t.timeSpent      = computeTimeSpent(t.timeEntries);
+    return t;
+}
+
+function hydrateSubtasks(list) {
+    return asArray(list).map(s => ({
+        ...s,
+        completed: !!s.completed,
+        text:      s.text || '',
+        subtasks:  hydrateSubtasks(s.subtasks),
+    }));
+}
+
+function asArray(v) {
+    if (v == null) return [];
+    if (Array.isArray(v)) return v.filter(x => x != null);
+    if (typeof v === 'object') {
+        return Object.keys(v).sort((a, b) => Number(a) - Number(b)).map(k => v[k]).filter(x => x != null);
+    }
+    return [];
+}
+
+export function hydrateAgent(raw) {
+    const a = { ...raw };
+    a.name         = a.name || 'Agent';
+    a.slug         = a.slug || slugifyAgent(a.name);
+    a.emoji        = a.emoji || '';
+    a.color        = /^#[0-9a-f]{6}$/i.test(a.color || '') ? a.color : '#6366f1';
+    a.role         = a.role || '';
+    a.systemPrompt = a.systemPrompt || '';
+    a.model        = AGENT_MODELS.includes(a.model) ? a.model : 'default';
+    a.enabled      = a.enabled !== false;
+    a.createdAt    = a.createdAt || new Date().toISOString();
+    return a;
+}
+
+/** Accept an id or a slug — Claude naturally says the slug. */
+export function resolveAgent(agents, ref) {
+    if (ref == null || ref === '') return null;
+    return (agents || []).find(a => a.id == ref)
+        || (agents || []).find(a => a.slug === String(ref).toLowerCase())
+        || null;
+}
+
+/** Accept a numeric id or a "TASK-42" key. */
+export function resolveTask(tasks, ref) {
+    if (ref == null || ref === '') return null;
+    const byKey = String(ref).toUpperCase();
+    return (tasks || []).find(t => t.id == ref)
+        || (tasks || []).find(t => String(t.taskKey || '').toUpperCase() === byKey)
+        || null;
+}

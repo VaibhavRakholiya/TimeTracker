@@ -1,0 +1,17 @@
+{
+  "name": "flowboard-mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server exposing the FlowBoard board to Claude Code.",
+  "bin": {
+    "flowboard-mcp": "src/index.js"
+  },
+  "scripts": {
+    "smoke": "node smoke.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  }
+}

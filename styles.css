@@ -3877,3 +3877,102 @@ input.form-control--inline { padding: 5px 10px; }
     transform: rotate(2deg) scale(1.02);
     box-shadow: var(--shadow-xl);
 }
+
+/* ══════════════════════════════════════════════════════════
+   AGENTS
+   Agent profiles assignable to tasks and driven by Claude
+   through the MCP server.
+   ══════════════════════════════════════════════════════════ */
+
+/* A rounded square reads as an agent; the plain circle stays a person.
+   Colors come from the agent record as inline styles. */
+.task-card-assignee--agent {
+    border-radius: var(--radius-sm);
+}
+
+.agent-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-3);
+}
+
+.agent-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3);
+    background: var(--surface-overlay);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.agent-row-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: var(--text-sm);
+}
+
+.agent-row-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.agent-row-name {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-weight: var(--fw-semibold);
+    color: var(--text);
+}
+
+.agent-row-meta {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.agent-row-slug {
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: var(--text-2xs);
+    padding: 1px 5px;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+}
+
+.agent-row-pill {
+    font-size: var(--text-2xs);
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+}
+
+.agent-row-count {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.agent-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    min-height: 38px;
+}
+
+@media (max-width: 640px) {
+    .agent-row { flex-wrap: wrap; }
+    .agent-row-main { flex-basis: 100%; order: -1; }
+    .agent-row-count { margin-left: auto; }
+}

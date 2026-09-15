@@ -29,6 +29,7 @@ const State = (() => {
             projects: [],
             tasks:    [],
             sprints:  [],
+            agents:   [],
             labels:   defaultLabels,
             activity: [],
         };
@@ -54,6 +55,9 @@ const State = (() => {
         if (!task.isTimerRunning) task.timerNote = '';
         if (!Array.isArray(task.subtasks)) task.subtasks = [];
         normalizeSubtasksList(task.subtasks);
+        // Firebase strips null values, so an unassigned task comes back with no
+        // agentId key at all. Put it back so every task has the same shape.
+        if (task.agentId === undefined || task.agentId === '') task.agentId = null;
     }
 
     function normalizeSubtasksList(list) {
@@ -100,6 +104,56 @@ const State = (() => {
 
     function normalizeAllTasks() {
         (_data.tasks || []).forEach(normalizeImportedTask);
+    }
+
+    // ── Agents ────────────────────────────────────────────
+    const AGENT_MODELS = ['default', 'opus', 'sonnet', 'haiku'];
+
+    /**
+     * The slug is the stable handle Claude uses to refer to an agent, so it has
+     * to stay unique and URL-ish even when the display name is renamed.
+     */
+    function slugifyAgent(name, taken) {
+        const base = String(name || 'agent').toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'agent';
+        let slug = base;
+        let n = 2;
+        while (taken && taken.has(slug)) slug = `${base}-${n++}`;
+        return slug;
+    }
+
+    /** Coerce an imported / Firebase agent into a complete record. Mutates in place. */
+    function normalizeImportedAgent(agent, taken) {
+        if (!agent || typeof agent !== 'object') return;
+        if (agent.id == null) agent.id = Date.now() + Math.floor(Math.random() * 1000);
+        agent.name = String(agent.name || 'Agent').slice(0, 40);
+        const e = agent.enabled;
+        agent.enabled = e === undefined || e === true || e === 1 ||
+            (typeof e === 'string' && ['true', '1', 'yes'].includes(e.trim().toLowerCase()));
+        agent.emoji        = typeof agent.emoji === 'string' ? agent.emoji.slice(0, 4) : '';
+        agent.color        = /^#[0-9a-f]{6}$/i.test(agent.color || '') ? agent.color : '#6366f1';
+        agent.role         = String(agent.role || '').slice(0, 200);
+        agent.systemPrompt = String(agent.systemPrompt || '').slice(0, 8000);
+        agent.model        = AGENT_MODELS.includes(agent.model) ? agent.model : 'default';
+        agent.createdAt    = agent.createdAt || new Date().toISOString();
+        if (!agent.slug || (taken && taken.has(agent.slug))) agent.slug = slugifyAgent(agent.name, taken);
+        if (taken) taken.add(agent.slug);
+    }
+
+    /**
+     * Date.now() alone collides when several agents are created inside the same
+     * millisecond — which a human never does but the MCP server easily can, and
+     * two agents sharing an id means deleting one deletes both.
+     */
+    function nextAgentId() {
+        let id = Date.now();
+        while (_data.agents.some(a => a.id === id)) id++;
+        return id;
+    }
+
+    function normalizeAllAgents() {
+        const taken = new Set();
+        (_data.agents || []).forEach(a => normalizeImportedAgent(a, taken));
     }
 
     /** True when task.projectId references an existing project. */
@@ -197,8 +251,10 @@ const State = (() => {
                 _data = Object.assign(getDefaults(), parsed);
                 if (!_data.labels || !_data.labels.length) _data.labels = defaultLabels;
                 if (!_data.sprints) _data.sprints = [];
+                if (!Array.isArray(_data.agents)) _data.agents = [];
                 if (!_data.activity) _data.activity = [];
                 normalizeAllTasks();
+                normalizeAllAgents();
                 if (removeOrphanedTasks()) save();
             }
         } catch (e) {
@@ -226,6 +282,7 @@ const State = (() => {
             await window.firebaseRESTIntegration.saveData('flowboard_projects', _data.projects);
             await window.firebaseRESTIntegration.saveData('flowboard_tasks',    _data.tasks);
             await window.firebaseRESTIntegration.saveData('flowboard_sprints',  _data.sprints);
+            await window.firebaseRESTIntegration.saveData('flowboard_agents',   _data.agents);
             emit('sync:ok');
         } catch (e) {
             console.warn('State: Firebase sync failed', e);
@@ -238,15 +295,18 @@ const State = (() => {
     async function loadFromFirebase() {
         if (!window.firebaseRESTIntegration) return false;
         try {
-            const [projects, tasks, sprints] = await Promise.all([
+            const [projects, tasks, sprints, agents] = await Promise.all([
                 window.firebaseRESTIntegration.loadData('flowboard_projects'),
                 window.firebaseRESTIntegration.loadData('flowboard_tasks'),
                 window.firebaseRESTIntegration.loadData('flowboard_sprints'),
+                window.firebaseRESTIntegration.loadData('flowboard_agents'),
             ]);
             if (projects && Array.isArray(projects)) _data.projects = projects;
             if (tasks    && Array.isArray(tasks))    _data.tasks    = tasks;
             if (sprints  && Array.isArray(sprints))  _data.sprints  = sprints;
+            if (agents   && Array.isArray(agents))   _data.agents   = agents;
             normalizeAllTasks();
+            normalizeAllAgents();
             removeOrphanedTasks();
             save();
             return true;
@@ -421,6 +481,7 @@ const State = (() => {
                     priority:      t.priority || 'medium',
                     labels:        newLabelIds,
                     assignee:      t.assignee || (localStorage.getItem('username') || 'admin'),
+                    agentId:       t.agentId ?? null,
                     startDate:     t.startDate || null,
                     dueDate:       t.dueDate || null,
                     timeEstimate:  t.timeEstimate != null ? t.timeEstimate : null,
@@ -475,6 +536,7 @@ const State = (() => {
                 priority:      fields.priority    || 'medium',
                 labels:        fields.labels      || [],
                 assignee:      fields.assignee    || (localStorage.getItem('username') || 'admin'),
+                agentId:       fields.agentId    != null ? fields.agentId : null,
                 startDate:     fields.startDate   || null,
                 dueDate:       fields.dueDate     || null,
                 timeEstimate:  fields.timeEstimate|| null,
@@ -624,6 +686,7 @@ const State = (() => {
                 priority:      src.priority || 'medium',
                 labels:        [...(src.labels || [])],
                 assignee:      src.assignee || (localStorage.getItem('username') || 'admin'),
+                agentId:       src.agentId ?? null,
                 startDate:     src.startDate || null,
                 dueDate:       src.dueDate || null,
                 timeEstimate:  src.timeEstimate != null ? src.timeEstimate : null,
@@ -658,6 +721,88 @@ const State = (() => {
             addActivity('comment_added', task.title);
             emit('tasks:changed', { type: 'update', task });
             return comment;
+        },
+    };
+
+
+    // ── Agent accessors ───────────────────────────────────
+    /**
+     * Agents are profiles Claude adopts when working a task, stored alongside
+     * projects and sprints so the MCP server and the UI see the same records.
+     *
+     * `assignee` stays a plain display string and is kept in sync with the
+     * agent's name. Every existing read site (My Tasks, card avatars, the CSV
+     * export, the command palette) treats it as a string and keeps working;
+     * `agentId` is what actually identifies the agent.
+     */
+    const Agents = {
+        getAll()   { return _data.agents; },
+        /** Loose id match so string ids from DOM / Firebase still resolve. */
+        get(id)    { return _data.agents.find(a => a.id == id); },
+        bySlug(sl) { return _data.agents.find(a => a.slug === String(sl || '').toLowerCase()); },
+        /** Accept either an id or a slug — the MCP tools take both. */
+        resolve(ref) { return this.get(ref) || this.bySlug(ref) || null; },
+        enabled()  { return _data.agents.filter(a => a.enabled !== false); },
+        taskCount(id) { return _data.tasks.filter(t => t.agentId == id).length; },
+
+        create(fields) {
+            const taken = new Set(_data.agents.map(a => a.slug));
+            const agent = {
+                id:           nextAgentId(),
+                slug:         slugifyAgent(fields.slug || fields.name, taken),
+                name:         String(fields.name || 'Agent').slice(0, 40),
+                emoji:        fields.emoji || '',
+                color:        fields.color || '#6366f1',
+                role:         fields.role || '',
+                systemPrompt: fields.systemPrompt || '',
+                model:        AGENT_MODELS.includes(fields.model) ? fields.model : 'default',
+                enabled:      fields.enabled !== false,
+                createdAt:    new Date().toISOString(),
+            };
+            _data.agents.push(agent);
+            save();
+            addActivity('agent_created', agent.name);
+            emit('agents:changed', agent);
+            return agent;
+        },
+
+        update(id, fields) {
+            const idx = _data.agents.findIndex(a => a.id == id);
+            if (idx === -1) return null;
+            const oldName = _data.agents[idx].name;
+
+            if (fields.slug) {
+                const taken = new Set(_data.agents.filter(a => a.id != id).map(a => a.slug));
+                fields.slug = slugifyAgent(fields.slug, taken);
+            }
+            Object.assign(_data.agents[idx], fields);
+
+            // assignee is a denormalized copy of the name — a rename has to
+            // rewrite it, or cards and the CSV export go stale.
+            if (fields.name && fields.name !== oldName) {
+                let touched = false;
+                _data.tasks.forEach(t => {
+                    if (t.agentId == id) { t.assignee = fields.name; touched = true; }
+                });
+                if (touched) emit('tasks:changed', { type: 'update' });
+            }
+
+            save();
+            emit('agents:changed', _data.agents[idx]);
+            return _data.agents[idx];
+        },
+
+        delete(id) {
+            const agent = this.get(id);
+            if (!agent) return;
+            // Never delete the task with the agent. Drop the reference but keep
+            // `assignee` so the board still reads correctly afterwards.
+            _data.tasks.forEach(t => { if (t.agentId == id) t.agentId = null; });
+            _data.agents = _data.agents.filter(a => a.id != id);
+            save();
+            addActivity('agent_deleted', agent.name);
+            emit('agents:changed');
+            emit('tasks:changed', { type: 'update' });
         },
     };
 
@@ -1010,6 +1155,7 @@ const State = (() => {
                 projects: parsed.projects.length,
                 tasks:    parsed.tasks.length,
                 sprints:  Array.isArray(parsed.sprints) ? parsed.sprints.length : 0,
+                agents:   Array.isArray(parsed.agents)  ? parsed.agents.length  : 0,
             },
         };
     }
@@ -1022,9 +1168,11 @@ const State = (() => {
         _data = Object.assign(getDefaults(), check.data);
         if (!_data.labels?.length) _data.labels = defaultLabels;
         if (!Array.isArray(_data.sprints))  _data.sprints  = [];
+        if (!Array.isArray(_data.agents))   _data.agents   = [];
         if (!Array.isArray(_data.activity)) _data.activity = [];
 
         normalizeAllTasks();
+        normalizeAllAgents();
         removeOrphanedTasks();
         migrateTimeEntries();
 
@@ -1100,7 +1248,7 @@ const State = (() => {
 
     return {
         on, off, emit,
-        Projects, Tasks, Sprints, Labels, Activity, Timer, Entries,
+        Projects, Tasks, Sprints, Agents, Labels, Activity, Timer, Entries,
         getColumnById, getFirstColumn, formatDuration,
         load, save, init, exportData, importData, inspectImport, clearAll, loadFromFirebase,
         get data() { return _data; },

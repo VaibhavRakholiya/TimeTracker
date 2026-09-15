@@ -200,10 +200,6 @@ const Tasks = (() => {
         };
     }
 
-    function userInitials(name) {
-        return (name || 'U')[0].toUpperCase();
-    }
-
     function columnForTask(task) {
         if (!task.projectId) return null;
         return State.getColumnById(task.projectId, task.columnId);
@@ -261,7 +257,7 @@ const Tasks = (() => {
                     ${timeHtml}
                     ${subs ? subHtml : ''}
                 </div>
-                ${task.assignee ? `<div class="task-card-assignee" title="${escHtml(task.assignee)}">${userInitials(task.assignee)}</div>` : ''}
+                ${Agents.assigneeChip(task)}
                 <button class="task-card-timer${running ? ' running' : ''}"
                         data-timer-task="${task.id}"
                         title="${running ? 'Stop timer' : 'Start timer'}"
@@ -286,7 +282,7 @@ const Tasks = (() => {
                 ${col ? `<span class="badge" style="background:${hexToRgba(col.color,0.15)};color:${col.color};">${escHtml(col.name)}</span>` : ''}
                 ${proj ? `<span class="text-muted text-sm">${escHtml(proj.name)}</span>` : ''}
                 ${due  ? `<span class="due-date-chip ${due.cls}"><i class="fa-regular fa-calendar"></i> ${due.text}</span>` : ''}
-                ${task.assignee ? `<div class="task-card-assignee task-card-assignee--xs" title="${escHtml(task.assignee)}">${userInitials(task.assignee)}</div>` : ''}
+                ${Agents.assigneeChip(task, '--xs')}
             </div>
         </div>`;
     }
@@ -405,7 +401,9 @@ const Tasks = (() => {
             return (a.position || 0) - (b.position || 0);
         }
 
-        let tasks = State.Tasks.getAll().filter(t => t.assignee === username);
+        // Agent work is not the human's queue — `assignee` mirrors the agent
+        // name, so filter it back out here.
+        let tasks = State.Tasks.getAll().filter(t => t.assignee === username && !t.agentId);
 
         if (_myTasksFilter === 'active') tasks = tasks.filter(t => !isDoneColumn(t));
         if (_myTasksFilter === 'done')   tasks = tasks.filter(t =>  isDoneColumn(t));
@@ -432,7 +430,7 @@ const Tasks = (() => {
         }
 
         // Update my tasks badge
-        const activeMy = State.Tasks.getAll().filter(t => t.assignee === username && !isDoneColumn(t)).length;
+        const activeMy = State.Tasks.getAll().filter(t => t.assignee === username && !t.agentId && !isDoneColumn(t)).length;
         const badge = document.getElementById('myTasksBadge');
         if (badge) {
             badge.textContent = activeMy;
@@ -519,6 +517,7 @@ const Tasks = (() => {
                 populateSprintSelect(sprintSel, task.projectId, task.sprintId);
             }
             renderLabelSelect(labelsWrap, task.labels || [], task.projectId);
+            Agents.populateAssigneeSelect(document.getElementById('taskModalAssignee'), task);
         } else {
             titleEl.textContent = 'New Task';
             saveBtn.textContent = 'Create Task';
@@ -540,6 +539,7 @@ const Tasks = (() => {
                 sprintSel.innerHTML = '<option value="">No sprint (Backlog)</option>';
             }
             renderLabelSelect(labelsWrap, [], defaultProjId);
+            Agents.populateAssigneeSelect(document.getElementById('taskModalAssignee'), null);
         }
 
         // When project changes, update column and sprint selects
@@ -624,6 +624,8 @@ const Tasks = (() => {
             columnId:      colId || (projId ? State.getFirstColumn(projId)?.id : null),
             sprintId,
             labels:        getSelectedLabels(),
+            // Yields both agentId and the denormalized assignee string.
+            ...Agents.parseAssigneeValue(document.getElementById('taskModalAssignee').value),
         };
 
         if (_editingTaskId) {
@@ -760,7 +762,7 @@ const Tasks = (() => {
 
     function updateMyTasksBadge() {
         const username = localStorage.getItem('username') || 'admin';
-        const count = State.Tasks.getAll().filter(t => t.assignee === username && !isDoneColumn(t)).length;
+        const count = State.Tasks.getAll().filter(t => t.assignee === username && !t.agentId && !isDoneColumn(t)).length;
         const badge = document.getElementById('myTasksBadge');
         if (badge) {
             badge.textContent = count;

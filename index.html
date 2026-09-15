@@ -338,8 +338,27 @@
                             </div>
                         </div>
                         <div class="settings-section">
+                            <h2 class="settings-section-title">Agents</h2>
+                            <div class="agent-list" id="settingsAgentsList">
+                                <!-- populated by agents.js -->
+                            </div>
+                            <div class="settings-btn-row">
+                                <button class="btn btn-secondary btn-sm" id="addAgentBtn">
+                                    <i class="fa-solid fa-robot" aria-hidden="true"></i> New Agent
+                                </button>
+                            </div>
+                            <p class="settings-hint">
+                                Agents are profiles Claude Code picks up through the FlowBoard MCP server.
+                                Assign a task to an agent, then ask Claude to work that agent's queue.
+                                The board does not update live — use Refresh from Cloud below to pull Claude's work in.
+                            </p>
+                        </div>
+                        <div class="settings-section">
                             <h2 class="settings-section-title">Data</h2>
                             <div class="settings-btn-row">
+                                <button class="btn btn-secondary btn-sm" id="refreshCloudBtn">
+                                    <i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i> Refresh from Cloud
+                                </button>
                                 <button class="btn btn-secondary btn-sm" id="exportDataBtn">
                                     <i class="fa-solid fa-download" aria-hidden="true"></i> Export Data
                                 </button>
@@ -423,6 +442,10 @@
                             <option value="medium" selected>Medium</option>
                             <option value="low">Low</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="taskModalAssignee">Assignee</label>
+                        <select class="form-control" id="taskModalAssignee"></select>
                     </div>
                 </div>
                 <div class="form-group">
@@ -526,6 +549,62 @@
         </div>
     </div>
 
+    <!-- Create/Edit Agent Modal -->
+    <div class="modal-scrim" id="agentModalScrim">
+        <div class="modal" id="agentModal" role="dialog" aria-modal="true" aria-labelledby="agentModalTitle">
+            <div class="modal-header">
+                <h2 class="modal-title" id="agentModalTitle">New Agent</h2>
+                <button class="modal-close" id="agentModalClose" aria-label="Close dialog"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label class="form-label" for="agentModalName">Agent Name <span class="form-required" aria-hidden="true">*</span></label>
+                        <input class="form-control" type="text" id="agentModalName" placeholder="e.g. Bug Triager" maxlength="40" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="agentModalEmoji">Emoji</label>
+                        <input class="form-control" type="text" id="agentModalEmoji" placeholder="e.g. &#128030;" maxlength="4" />
+                    </div>
+                </div>
+                <p class="settings-hint" id="agentModalSlugHint">Claude refers to agents by a short handle derived from the name.</p>
+                <div class="form-group">
+                    <label class="form-label" for="agentModalRole">Role</label>
+                    <input class="form-control" type="text" id="agentModalRole" placeholder="e.g. Reproduces and triages incoming bug reports" maxlength="200" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="agentModalPrompt">System Prompt</label>
+                    <textarea class="form-control" id="agentModalPrompt" rows="6" maxlength="8000"
+                              placeholder="Instructions Claude adopts when working this agent's tasks."></textarea>
+                    <p class="settings-hint">Stored in the shared cloud database &mdash; keep secrets out of it.</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Color</label>
+                    <div class="color-swatch-row" id="agentModalColors">
+                        <!-- populated by agents.js -->
+                    </div>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label class="form-label" for="agentModalModel">Preferred Model</label>
+                        <select class="form-control" id="agentModalModel"></select>
+                    </div>
+                    <div class="form-group">
+                        <span class="form-label">Availability</span>
+                        <label class="agent-toggle">
+                            <input type="checkbox" id="agentModalEnabled" checked />
+                            <span>Available for assignment</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" id="agentModalCancel">Cancel</button>
+                <button class="btn btn-primary" id="agentModalSave">Create Agent</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Confirm Dialog -->
     <div class="modal-scrim confirm-modal" id="confirmModalScrim">
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
@@ -565,6 +644,7 @@
     <script src="js/router.js"></script>
     <script src="js/projects.js"></script>
     <script src="js/sprints.js"></script>
+    <script src="js/agents.js"></script>
     <script src="js/speech-to-text.js"></script>
     <script src="js/tasks.js"></script>
     <script src="js/board.js"></script>

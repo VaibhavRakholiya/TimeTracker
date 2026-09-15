@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "flowboard": {
+      "command": "node",
+      "args": ["mcp-server/src/index.js"],
+      "env": {
+        "FLOWBOARD_FIREBASE_URL": "https://tictac-405e5-default-rtdb.firebaseio.com",
+        "FLOWBOARD_NAMESPACE": "timetracker"
+      }
+    }
+  }
+}

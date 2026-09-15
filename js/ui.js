@@ -488,8 +488,9 @@ const UI = (() => {
                 <div class="panel-meta-item">
                     <div class="panel-meta-label">Assignee</div>
                     <div class="panel-meta-value panel-meta-value--row">
-                        <span class="task-card-assignee task-card-assignee--sm">${(task.assignee||'?')[0].toUpperCase()}</span>
-                        <span class="panel-meta-text">${escHtml(task.assignee || '—')}</span>
+                        ${Agents.assigneeChip(task, '--sm') || '<span class="task-card-assignee task-card-assignee--sm">?</span>'}
+                        <span class="panel-meta-text">${escHtml(Agents.assigneeFor(task)?.name || '—')}</span>
+                        ${task.agentId != null && State.Agents.get(task.agentId) ? '<span class="agent-row-pill">Agent</span>' : ''}
                     </div>
                 </div>
                 <div class="panel-meta-item">
@@ -1761,6 +1762,18 @@ const UI = (() => {
         installSyncStatus();
 
         // ── Export / Import / Clear Data ───────────────────
+        document.getElementById('refreshCloudBtn')?.addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            const loaded = await State.loadFromFirebase();
+            btn.disabled = false;
+            if (!loaded) { toast('Could not reach the cloud', 'error'); return; }
+            Projects.renderSidebar();
+            const { view, projectId } = Router.getCurrent();
+            Router.renderView(view, projectId);
+            toast('Refreshed from cloud', 'success');
+        });
+
         document.getElementById('exportDataBtn')?.addEventListener('click', () => {
             State.exportData();
             toast('Data exported', 'success');
@@ -1980,6 +1993,7 @@ const App = (() => {
         // Init all modules
         UI.init();
         Projects.init();
+        Agents.init();
         Tasks.init();
         Board.init();
         Backlog.init();

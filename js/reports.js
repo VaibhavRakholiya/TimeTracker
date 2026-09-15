@@ -127,7 +127,7 @@ const Reports = (() => {
         const start = startEl?.value ? new Date(startEl.value + 'T00:00:00') : null;
         const end   = endEl?.value   ? new Date(endEl.value   + 'T23:59:59') : null;
 
-        const rows = [['Date', 'Project', 'Task Key', 'Task', 'Priority', 'Assignee', 'Hours', 'Note', 'Source']];
+        const rows = [['Date', 'Project', 'Task Key', 'Task', 'Priority', 'Assignee', 'Agent', 'Hours', 'Note', 'Source']];
 
         State.Tasks.getAll().forEach(task => {
             const projName = task.projectId
@@ -145,6 +145,7 @@ const Reports = (() => {
                     task.title,
                     task.priority || 'medium',
                     task.assignee || '',
+                    task.agentId != null ? (State.Agents.get(task.agentId)?.slug || '') : '',
                     ((e.duration || 0) / 3600).toFixed(2),
                     e.note || '',
                     e.source || 'timer',
