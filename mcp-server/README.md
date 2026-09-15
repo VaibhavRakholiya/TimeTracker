@@ -75,14 +75,46 @@ Walkthrough:
 
 ### The honest limit on "starts automatically"
 
-There is no daemon in this architecture — nothing runs unattended. "Starts
-now" means the **live Claude Code session** reads `startNow: true` (or
-`agentNextTaskId` from `finish_task`) and acts on it in that same turn, because
-that is what it was told to do. If no Claude Code session is attached, a task
-can sit claimed-but-untouched, or queued, indefinitely — assignment changes
-*whose turn it is*, not *whether anyone is working*. Keep the session open (or
-ask Claude to keep working the queue) for a whole agent's backlog to actually
-get done in one sitting.
+By default there is no daemon — nothing runs unattended. "Starts now" means
+the **live Claude Code session** reads `startNow: true` (or `agentNextTaskId`
+from `finish_task`) and acts on it in that same turn, because that is what it
+was told to do. If no Claude Code session is attached, a task can sit
+claimed-but-untouched, or queued, indefinitely — assignment changes *whose
+turn it is*, not *whether anyone is working*. Keep the session open (or ask
+Claude to keep working the queue) for a whole agent's backlog to actually get
+done in one sitting.
+
+An optional daemon (`npm run daemon`, see below) closes this gap if you leave
+it running.
+
+## Auto-start daemon (optional)
+
+`src/daemon.js` polls the same Firebase collections the tools read and
+watches each agent's active task. Whenever one changes — an idle agent gets
+claimed, or `finish_task` promotes the next queued task — it spawns
+`claude --background --permission-mode auto ... "/start-agent <slug>"` in the
+repo root, which runs that agent's queue unattended the same way a person
+typing `/start-agent` would.
+
+```bash
+cd mcp-server && npm run daemon
+```
+
+It's a separate, long-lived process: start it once (under `nohup`, `pm2`,
+`launchd`, tmux, a background terminal — whatever keeps a process alive on
+your machine) and leave it running; this repo doesn't start it for you or
+keep it alive across a reboot. It requires the `claude` CLI on `PATH` and
+logged in.
+
+Notes:
+- On startup it baselines whatever's already claimed without spawning
+  anything, so restarting the daemon never double-starts work that was
+  already active — only a transition *after* it's running triggers a spawn.
+- It runs sessions with `--permission-mode auto`, the same autonomous mode
+  described in this repo's own CLAUDE.md guidance — it acts without pausing
+  for approval, but still isn't given `--dangerously-skip-permissions`.
+- It's still one Node process with no persistence: if it's killed mid-poll,
+  restarting just re-baselines from current state, per the note above.
 
 ## Tools
 
@@ -142,11 +174,14 @@ self-heals the drift rather than compounding it. If an agent looks stuck
 "idle" with tasks assigned to it, or "working" a task at 0 in its own queue,
 re-run `assign_task` on one of its tasks to force a resync.
 
-**4. "Starts automatically" only holds while a Claude Code session is attached.**
-There is no background worker. `startNow: true` and `agentNextTaskId` are
-signals in a tool response — the live session reading them is what makes an
-agent actually start on something. Close the session and a claimed task just
-sits there, claimed and untouched, however long the agent stays "busy" on it.
+**4. "Starts automatically" only holds while a Claude Code session is attached
+— unless the optional daemon (`npm run daemon`, above) is running.**
+`startNow: true` and `agentNextTaskId` are signals in a tool response; without
+the daemon, only a live session reading them makes an agent actually start on
+something, and closing the session leaves a claimed task sitting there,
+claimed and untouched, however long the agent stays "busy" on it. The daemon
+is a separate opt-in process — it doesn't run unless you start it, and
+nothing here restarts it for you.
 
 ## Security
 
