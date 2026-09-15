@@ -33,7 +33,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 // on) from whatever's already active on startup, so a restart never re-fires
 // work that was claimed before the daemon was watching — only genuine
 // transitions after that (idle -> claimed, or one task finishing and the next
-// one starting) trigger a spawn.
+// one starting) trigger a spawn./bg/
 const dispatched = new Map();
 let seeded = false;
 
