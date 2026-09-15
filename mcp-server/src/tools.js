@@ -113,6 +113,7 @@ export async function list_projects() {
         id:          p.id,
         name:        p.name,
         description: p.description || '',
+        repo:        p.repo || '',
         color:       p.color,
         columns:     (p.columns || []).slice()
                         .sort((a, b) => (a.position || 0) - (b.position || 0))

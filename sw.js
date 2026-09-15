@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flowboard-cache-v4';
+const CACHE_NAME = 'flowboard-cache-v5';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -56,9 +56,12 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Network First Strategy
+  // Network First Strategy. 'reload' forces revalidation with the server so
+  // a stale browser HTTP-cache entry can't silently stand in for "network" —
+  // that's how an old build (e.g. missing a new route) kept getting served
+  // after a deploy even though this handler always tries the network first.
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'reload' })
       .then(networkResponse => {
         // Cache the latest version
         return caches.open(CACHE_NAME).then(cache => {
