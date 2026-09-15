@@ -242,10 +242,14 @@ const Agents = (() => {
                 ? `<img src="${a.avatar}" alt="" />`
                 : escHtml(a.emoji || a.name.charAt(0).toUpperCase());
 
+            const currentProject = status.currentTask ? State.Projects.get(status.currentTask.projectId) : null;
             const currentHtml = status.currentTask
                 ? `<button type="button" class="agent-dash-task" data-open-task="${status.currentTask.id}">
                        ${escHtml(status.currentTask.taskKey || '')} — ${escHtml(status.currentTask.title)}
-                   </button>`
+                   </button>
+                   ${currentProject ? `<p class="agent-dash-project">
+                       <i class="fa-solid fa-diagram-project" aria-hidden="true"></i> ${escHtml(currentProject.name)}
+                   </p>` : ''}`
                 : `<p class="agent-dash-empty">Nothing in progress</p>`;
 
             const queueHtml = queue.length

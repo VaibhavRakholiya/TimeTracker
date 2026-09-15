@@ -4019,6 +4019,12 @@ input.form-control--inline { padding: 5px 10px; }
 
 .agent-dash-task:hover { color: var(--primary); }
 
+.agent-dash-project {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    margin: 0;
+}
+
 .agent-dash-queue {
     list-style: none;
     margin: 0;
