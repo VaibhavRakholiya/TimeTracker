@@ -367,7 +367,7 @@ const Tasks = (() => {
         const container = document.getElementById('myTasksList');
         if (!container) return;
 
-        const username = localStorage.getItem('username') || 'admin';
+        const username = localStorage.getItem('username') || 'Vaibhav';
 
         function projectSortKey(task) {
             if (!task.projectId) return '\uffff'; // no project: last
@@ -693,7 +693,7 @@ const Tasks = (() => {
     }
 
     function updateMyTasksBadge() {
-        const username = localStorage.getItem('username') || 'admin';
+        const username = localStorage.getItem('username') || 'Vaibhav';
         const count = State.Tasks.getAll().filter(t => t.assignee === username && !t.agentId && !isDoneColumn(t)).length;
         const badge = document.getElementById('myTasksBadge');
         if (badge) {

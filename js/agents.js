@@ -216,7 +216,7 @@ const Agents = (() => {
      */
     function populateAssigneeSelect(sel, task) {
         if (!sel) return;
-        const me = localStorage.getItem('username') || 'admin';
+        const me = localStorage.getItem('username') || 'Vaibhav';
 
         // Every human name already in use, so editing a task assigned to a
         // legacy name doesn't silently reassign it.
@@ -255,7 +255,7 @@ const Agents = (() => {
      */
     function populateDefaultAssigneeSelect(sel, selectedValue) {
         if (!sel) return;
-        const me = localStorage.getItem('username') || 'admin';
+        const me = localStorage.getItem('username') || 'Vaibhav';
         const people = new Set([me]);
         State.Tasks.getAll().forEach(t => {
             if (!t.agentId && t.assignee) people.add(t.assignee);
@@ -282,7 +282,7 @@ const Agents = (() => {
             const agent = State.Agents.get(Number(raw.slice(6)));
             // assignee mirrors the agent name so string-based views keep working.
             if (agent) return { agentId: agent.id, assignee: agent.name };
-            return { agentId: null, assignee: localStorage.getItem('username') || 'admin' };
+            return { agentId: null, assignee: localStorage.getItem('username') || 'Vaibhav' };
         }
         return { agentId: null, assignee: raw.slice(5) };
     }

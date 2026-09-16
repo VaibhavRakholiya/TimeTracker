@@ -168,7 +168,7 @@ const Router = (() => {
     }
 
     function renderSettings() {
-        const username = localStorage.getItem('username') || 'admin';
+        const username = localStorage.getItem('username') || 'Vaibhav';
         const initial  = username[0].toUpperCase();
         const theme    = document.documentElement.getAttribute('data-theme') || 'dark';
 

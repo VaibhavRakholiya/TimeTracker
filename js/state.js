@@ -409,7 +409,7 @@ const State = (() => {
             action,
             taskTitle: taskTitle || '',
             extra:     extra || '',
-            user:      localStorage.getItem('username') || 'admin',
+            user:      localStorage.getItem('username') || 'Vaibhav',
             at:        new Date().toISOString(),
         };
         _data.activity.unshift(item);
@@ -568,7 +568,7 @@ const State = (() => {
                     description:   t.description || '',
                     priority:      t.priority || 'medium',
                     labels:        newLabelIds,
-                    assignee:      t.assignee || (localStorage.getItem('username') || 'admin'),
+                    assignee:      t.assignee || (localStorage.getItem('username') || 'Vaibhav'),
                     agentId:       t.agentId ?? null,
                     startDate:     t.startDate || null,
                     dueDate:       t.dueDate || null,
@@ -623,7 +623,7 @@ const State = (() => {
                 priority:      fields.priority    || 'medium',
                 labels:        fields.labels      || [],
                 assignee:      owningAgent ? owningAgent.name
-                                   : (fields.assignee || (localStorage.getItem('username') || 'admin')),
+                                   : (fields.assignee || (localStorage.getItem('username') || 'Vaibhav')),
                 agentId:       fields.agentId    != null ? fields.agentId : null,
                 assignedAt:    null,
                 agentDoneAt:   null,
@@ -816,7 +816,7 @@ const State = (() => {
                 description:   src.description || '',
                 priority:      src.priority || 'medium',
                 labels:        [...(src.labels || [])],
-                assignee:      src.assignee || (localStorage.getItem('username') || 'admin'),
+                assignee:      src.assignee || (localStorage.getItem('username') || 'Vaibhav'),
                 agentId:       src.agentId ?? null,
                 startDate:     src.startDate || null,
                 dueDate:       src.dueDate || null,
@@ -856,7 +856,7 @@ const State = (() => {
             const comment = {
                 id:        Date.now(),
                 text,
-                author:    localStorage.getItem('username') || 'admin',
+                author:    localStorage.getItem('username') || 'Vaibhav',
                 createdAt: new Date().toISOString(),
             };
             (task.comments || (task.comments = [])).push(comment);
@@ -1096,7 +1096,7 @@ const State = (() => {
             const msg = {
                 id:         Date.now(),
                 projectId,
-                author:     localStorage.getItem('username') || 'admin',
+                author:     localStorage.getItem('username') || 'Vaibhav',
                 authorType: 'user',
                 text:       trimmed,
                 taskKey:    null,

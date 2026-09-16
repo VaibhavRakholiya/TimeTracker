@@ -1900,7 +1900,7 @@ const UI = (() => {
         });
 
         // ── User display ───────────────────────────────────
-        const username  = localStorage.getItem('username') || 'Admin';
+        const username  = localStorage.getItem('username') || 'Vaibhav';
         const initial   = username[0].toUpperCase();
         const avatarEl  = document.getElementById('sidebarUserAvatar');
         const nameEl    = document.getElementById('sidebarUserName');

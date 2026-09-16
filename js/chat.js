@@ -79,7 +79,7 @@ const Chat = (() => {
     /** Toast + desktop Notification for messages this tab hasn't seen before. */
     function notifyNew(prevMessages, nextMessages) {
         const seenIds = new Set(prevMessages.map(m => m.id));
-        const me = localStorage.getItem('username') || 'admin';
+        const me = localStorage.getItem('username') || 'Vaibhav';
         const fresh = nextMessages.filter(m =>
             !seenIds.has(m.id) && !(m.authorType === 'user' && m.author === me));
         if (!fresh.length) return;

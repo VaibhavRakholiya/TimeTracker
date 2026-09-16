@@ -697,7 +697,7 @@ function resolveOwner(rawAgents, args) {
         // (My Tasks, CSV export, command palette) keep working.
         return { agentId: a.id, assignee: a.name, agentSlug: a.slug };
     }
-    return { agentId: null, assignee: args.assignee || 'admin', agentSlug: null };
+    return { agentId: null, assignee: args.assignee || 'Vaibhav', agentSlug: null };
 }
 
 function summarize(t, projects, agents) {

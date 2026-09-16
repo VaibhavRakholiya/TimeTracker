@@ -235,7 +235,7 @@ localStorage → REST API → Realtime Database
    - Or serve from a web server for production
 
 3. **Login**
-   - Username: `admin`
+   - Username: `Vaibhav`
    - Password: `password123`
 
 ### ☁️ Firebase Setup (Optional)
@@ -269,7 +269,7 @@ const FIREBASE_DATABASE_URL = "https://your-project-id-default-rtdb.firebaseio.c
 ```javascript
 // login.html
 const VALID_CREDENTIALS = {
-    username: 'admin',
+    username: 'Vaibhav',
     password: 'password123'
 };
 ```
@@ -283,7 +283,7 @@ const VALID_CREDENTIALS = {
 #### First Login
 1. Open `login.html` in your browser
 2. Enter credentials:
-   - Username: `admin`
+   - Username: `Vaibhav`
    - Password: `password123`
 3. Click "Sign In"
 
@@ -576,7 +576,7 @@ offlineMode
 
 #### Authentication Problems
 **Issue**: Cannot log in
-- **Solution**: Check username/password (admin/password123)
+- **Solution**: Check username/password (Vaibhav/password123)
 - **Check**: Browser console for errors
 - **Verify**: Local storage is enabled
 
