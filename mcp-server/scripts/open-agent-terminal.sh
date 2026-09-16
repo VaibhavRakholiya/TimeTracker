@@ -70,9 +70,10 @@ for dir in "${REPO_PATHS[@]}"; do
     osascript <<EOF
 tell application "Terminal"
     activate
-    set newTab to do script "cd $(printf '%q' "$dir") && claude"
+    set newTab to do script "cd $(printf '%q' "$dir")"
     delay 3
-    do script "/start-agent $(printf '%q' "$SLUG")" in newTab
+    do script "claude" in newTab
+    # do script "/start-agent $(printf '%q' "$SLUG")" in newTab
 end tell
 EOF
 done

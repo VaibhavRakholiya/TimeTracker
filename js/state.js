@@ -9,10 +9,11 @@ const State = (() => {
     const MAX_ACTIVITY = 50;
 
     const defaultColumns = [
-        { id: 'col-todo',       name: 'To Do',       color: '#6b7280', position: 0, wipLimit: null },
-        { id: 'col-inprogress', name: 'In Progress',  color: '#3b82f6', position: 1, wipLimit: null },
-        { id: 'col-inreview',   name: 'In Review',    color: '#f59e0b', position: 2, wipLimit: null },
-        { id: 'col-done',       name: 'Done',         color: '#22c55e', position: 3, wipLimit: null },
+        { id: 'col-backlog',    name: 'Backlog',     color: '#94a3b8', position: 0, wipLimit: null },
+        { id: 'col-todo',       name: 'To Do',       color: '#6b7280', position: 1, wipLimit: null },
+        { id: 'col-inprogress', name: 'In Progress',  color: '#3b82f6', position: 2, wipLimit: null },
+        { id: 'col-inreview',   name: 'In Review',    color: '#f59e0b', position: 3, wipLimit: null },
+        { id: 'col-done',       name: 'Done',         color: '#22c55e', position: 4, wipLimit: null },
     ];
 
     const defaultLabels = [
