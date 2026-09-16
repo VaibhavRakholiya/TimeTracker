@@ -209,27 +209,6 @@
                     </div>
                 </div>
 
-                <!-- ─────────────────────────────── BACKLOG ── -->
-                <div class="view" id="view-backlog">
-                    <div class="view-header">
-                        <div>
-                            <h1 class="view-title" id="backlogViewTitle">Backlog</h1>
-                            <div class="view-subtitle">Manage your sprint backlog</div>
-                        </div>
-                        <div class="view-actions">
-                            <button class="btn btn-secondary btn-sm" id="createSprintBtn">
-                                <i class="fa-solid fa-bolt"></i> New Sprint
-                            </button>
-                            <button class="btn btn-primary btn-sm" id="backlogAddTaskBtn">
-                                <i class="fa-solid fa-plus"></i> Add Task
-                            </button>
-                        </div>
-                    </div>
-                    <div class="backlog-container" id="backlogContainer">
-                        <!-- Rendered by backlog.js -->
-                    </div>
-                </div>
-
                 <!-- ─────────────────────────────── TIMELINE ─ -->
                 <div class="view" id="view-timeline">
                     <div class="view-header">
@@ -457,12 +436,6 @@
                         <select class="form-control" id="taskModalAssignee"></select>
                     </div>
                 </div>
-                <div class="form-group task-modal-schedule-field">
-                    <label class="form-label">Sprint</label>
-                    <select class="form-control" id="taskModalSprint">
-                        <option value="">No sprint (Backlog)</option>
-                    </select>
-                </div>
                 <div class="form-group">
                     <label class="form-label">Labels</label>
                     <div class="labels-wrap" id="taskModalLabels">
@@ -518,47 +491,6 @@
             <div class="modal-footer">
                 <button class="btn btn-ghost" id="projectModalCancel">Cancel</button>
                 <button class="btn btn-primary" id="projectModalSave">Create Project</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Create/Edit Sprint Modal -->
-    <div class="modal-scrim" id="sprintModalScrim">
-        <div class="modal" id="sprintModal" role="dialog" aria-modal="true" aria-labelledby="sprintModalTitle">
-            <div class="modal-header">
-                <h2 class="modal-title" id="sprintModalTitle">New Sprint</h2>
-                <button class="modal-close" id="sprintModalClose" aria-label="Close dialog"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="sprintModalId" />
-                <div class="form-group">
-                    <label class="form-label">Sprint Name <span class="form-required" aria-hidden="true">*</span></label>
-                    <input class="form-control" type="text" id="sprintModalName" placeholder="e.g. Sprint 1" maxlength="60" />
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Goal</label>
-                    <textarea class="form-control" id="sprintModalGoal" placeholder="What do you want to achieve in this sprint?" rows="2"></textarea>
-                        </div>
-                <div class="form-grid-2">
-                    <div class="form-group">
-                        <label class="form-label">Start Date</label>
-                        <input class="form-control" type="date" id="sprintModalStart" />
-                        </div>
-                    <div class="form-group">
-                        <label class="form-label">End Date</label>
-                        <input class="form-control" type="date" id="sprintModalEnd" />
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Project</label>
-                    <select class="form-control" id="sprintModalProject">
-                        <option value="">All Projects</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-ghost" id="sprintModalCancel">Cancel</button>
-                <button class="btn btn-primary" id="sprintModalSave">Create Sprint</button>
             </div>
         </div>
     </div>
@@ -673,12 +605,10 @@
     <script src="js/state.js"></script>
     <script src="js/router.js"></script>
     <script src="js/projects.js"></script>
-    <script src="js/sprints.js"></script>
     <script src="js/agents.js"></script>
     <script src="js/speech-to-text.js"></script>
     <script src="js/tasks.js"></script>
     <script src="js/board.js"></script>
-    <script src="js/backlog.js"></script>
     <script src="js/reports.js"></script>
     <script src="js/dashboard.js"></script>
     <script src="js/timeline.js"></script>

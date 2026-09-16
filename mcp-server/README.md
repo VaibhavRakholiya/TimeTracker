@@ -118,7 +118,7 @@ Notes:
 
 ## Tools
 
-**Read:** `list_projects`, `list_agents`, `list_sprints`, `list_tasks`, `get_task`
+**Read:** `list_projects`, `list_agents`, `list_tasks`, `get_task`
 **Write:** `create_task`, `update_task`, `move_task`, `assign_task`, `finish_task`,
 `add_comment`, `log_time`, `create_agent`, `update_agent`
 

@@ -28,7 +28,6 @@ const State = (() => {
         return {
             projects: [],
             tasks:    [],
-            sprints:  [],
             agents:   [],
             labels:   defaultLabels,
             activity: [],
@@ -226,7 +225,6 @@ const State = (() => {
             }
             t.projectId = proj.id;
             t.columnId  = firstCol?.id ?? null;
-            t.sprintId  = null;
         });
 
         // This runs during load(), before the UI subscribes — defer so the
@@ -273,7 +271,6 @@ const State = (() => {
                 const parsed = JSON.parse(raw);
                 _data = Object.assign(getDefaults(), parsed);
                 if (!_data.labels || !_data.labels.length) _data.labels = defaultLabels;
-                if (!_data.sprints) _data.sprints = [];
                 if (!Array.isArray(_data.agents)) _data.agents = [];
                 if (!_data.activity) _data.activity = [];
                 normalizeAllTasks();
@@ -304,7 +301,6 @@ const State = (() => {
         try {
             await window.firebaseRESTIntegration.saveData('flowboard_projects', _data.projects);
             await window.firebaseRESTIntegration.saveData('flowboard_tasks',    _data.tasks);
-            await window.firebaseRESTIntegration.saveData('flowboard_sprints',  _data.sprints);
             await window.firebaseRESTIntegration.saveData('flowboard_agents',   _data.agents);
             emit('sync:ok');
         } catch (e) {
@@ -318,15 +314,13 @@ const State = (() => {
     async function loadFromFirebase() {
         if (!window.firebaseRESTIntegration) return false;
         try {
-            const [projects, tasks, sprints, agents] = await Promise.all([
+            const [projects, tasks, agents] = await Promise.all([
                 window.firebaseRESTIntegration.loadData('flowboard_projects'),
                 window.firebaseRESTIntegration.loadData('flowboard_tasks'),
-                window.firebaseRESTIntegration.loadData('flowboard_sprints'),
                 window.firebaseRESTIntegration.loadData('flowboard_agents'),
             ]);
             if (projects && Array.isArray(projects)) _data.projects = projects;
             if (tasks    && Array.isArray(tasks))    _data.tasks    = tasks;
-            if (sprints  && Array.isArray(sprints))  _data.sprints  = sprints;
             if (agents   && Array.isArray(agents))   _data.agents   = agents;
             normalizeAllTasks();
             normalizeAllAgents();
@@ -442,7 +436,7 @@ const State = (() => {
 
         /**
          * Clone a project (columns, labels, description, color) and all of its tasks.
-         * Column / project-label IDs are remapped; sprint membership is not copied.
+         * Column / project-label IDs are remapped.
          */
         duplicate(sourceId) {
             const src = this.get(sourceId);
@@ -498,7 +492,6 @@ const State = (() => {
                     id:            nextId(),
                     taskKey:       nextTaskKey(),
                     projectId:     newProj.id,
-                    sprintId:      null,
                     columnId:      mappedCol,
                     title:         t.title,
                     description:   t.description || '',
@@ -536,12 +529,6 @@ const State = (() => {
         /** Loose id match so string ids from DOM / Firebase still resolve. */
         get(id)              { return _data.tasks.find(t => t.id == id); },
         byProject(projectId) { return _data.tasks.filter(t => t.projectId === projectId); },
-        bySprint(sprintId)   { return _data.tasks.filter(t => t.sprintId  === sprintId); },
-        backlog(projectId)   {
-            return _data.tasks.filter(t =>
-                !t.sprintId && (projectId == null || t.projectId === projectId)
-            );
-        },
 
         create(fields) {
             if (!taskHasValidProject({ projectId: fields.projectId })) {
@@ -559,7 +546,6 @@ const State = (() => {
                 id:            nextTaskId(),
                 taskKey:       nextTaskKey(),
                 projectId:     fields.projectId,
-                sprintId:      fields.sprintId    || null,
                 columnId:      fields.columnId    || null,
                 title:         fields.title       || 'Untitled Task',
                 description:   fields.description || '',
@@ -734,7 +720,7 @@ const State = (() => {
         },
 
         /**
-         * Clone a task in the same project/column/sprint (new id, key, subtasks, comments).
+         * Clone a task in the same project/column (new id, key, subtasks, comments).
          * Timer and logged time are not copied.
          */
         duplicate(id) {
@@ -754,7 +740,6 @@ const State = (() => {
                 id:            nextId(),
                 taskKey:       nextTaskKey(),
                 projectId:     src.projectId ?? null,
-                sprintId:      src.sprintId ?? null,
                 columnId:      src.columnId ?? null,
                 title:         newTitle,
                 description:   src.description || '',
@@ -853,7 +838,7 @@ const State = (() => {
     // ── Agent accessors ───────────────────────────────────
     /**
      * Agents are profiles Claude adopts when working a task, stored alongside
-     * projects and sprints so the MCP server and the UI see the same records.
+     * projects and tasks so the MCP server and the UI see the same records.
      *
      * `assignee` stays a plain display string and is kept in sync with the
      * agent's name. Every existing read site (My Tasks, card avatars, the CSV
@@ -996,73 +981,6 @@ const State = (() => {
         queue(id) {
             const agent = this.get(id);
             return agent ? queueForAgent(id, agent.currentTaskId) : [];
-        },
-    };
-
-    // ── Sprint accessors ──────────────────────────────────
-    const Sprints = {
-        getAll()           { return _data.sprints; },
-        get(id)            { return _data.sprints.find(s => s.id === id); },
-        active()           { return _data.sprints.find(s => s.status === 'active'); },
-        byProject(pid)     { return _data.sprints.filter(s => !pid || s.projectId === pid || s.projectId == null); },
-
-        create(fields) {
-            const sprint = {
-                id:        Date.now(),
-                projectId: fields.projectId || null,
-                name:      fields.name      || 'Sprint',
-                goal:      fields.goal      || '',
-                startDate: fields.startDate || null,
-                endDate:   fields.endDate   || null,
-                status:    'planned',
-                createdAt: new Date().toISOString(),
-            };
-            _data.sprints.push(sprint);
-            save();
-            addActivity('sprint_created', sprint.name);
-            emit('sprints:changed', sprint);
-            return sprint;
-        },
-
-        update(id, fields) {
-            const idx = _data.sprints.findIndex(s => s.id === id);
-            if (idx === -1) return null;
-            Object.assign(_data.sprints[idx], fields);
-            save();
-            emit('sprints:changed', _data.sprints[idx]);
-            return _data.sprints[idx];
-        },
-
-        start(id) {
-            // Only one active sprint at a time
-            _data.sprints.forEach(s => {
-                if (s.status === 'active') s.status = 'planned';
-            });
-            return this.update(id, { status: 'active', startDate: _data.sprints.find(s=>s.id===id)?.startDate || new Date().toISOString().split('T')[0] });
-        },
-
-        complete(id) {
-            const sprint = this.get(id);
-            if (!sprint) return;
-            // Move incomplete tasks to backlog
-            _data.tasks.forEach(t => {
-                if (t.sprintId === id) {
-                    const col = getColumnById(t.projectId, t.columnId);
-                    const isDone = col && col.name.toLowerCase().includes('done');
-                    if (!isDone) t.sprintId = null;
-                }
-            });
-            addActivity('sprint_completed', sprint.name);
-            return this.update(id, { status: 'completed' });
-        },
-
-        delete(id) {
-            const sprint = this.get(id);
-            if (!sprint) return;
-            _data.tasks.forEach(t => { if (t.sprintId === id) t.sprintId = null; });
-            _data.sprints = _data.sprints.filter(s => s.id !== id);
-            save();
-            emit('sprints:changed');
         },
     };
 
@@ -1347,7 +1265,6 @@ const State = (() => {
             summary: {
                 projects: parsed.projects.length,
                 tasks:    parsed.tasks.length,
-                sprints:  Array.isArray(parsed.sprints) ? parsed.sprints.length : 0,
                 agents:   Array.isArray(parsed.agents)  ? parsed.agents.length  : 0,
             },
         };
@@ -1360,7 +1277,6 @@ const State = (() => {
 
         _data = Object.assign(getDefaults(), check.data);
         if (!_data.labels?.length) _data.labels = defaultLabels;
-        if (!Array.isArray(_data.sprints))  _data.sprints  = [];
         if (!Array.isArray(_data.agents))   _data.agents   = [];
         if (!Array.isArray(_data.activity)) _data.activity = [];
 
@@ -1441,7 +1357,7 @@ const State = (() => {
 
     return {
         on, off, emit,
-        Projects, Tasks, Sprints, Agents, Labels, Activity, Timer, Entries,
+        Projects, Tasks, Agents, Labels, Activity, Timer, Entries,
         getColumnById, getFirstColumn, formatDuration,
         load, save, init, exportData, importData, inspectImport, clearAll, loadFromFirebase,
         get data() { return _data; },

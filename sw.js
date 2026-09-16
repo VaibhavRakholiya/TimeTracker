@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flowboard-cache-v5';
+const CACHE_NAME = 'flowboard-cache-v6';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -10,11 +10,10 @@ const ASSETS_TO_CACHE = [
   './js/router.js',
   './js/projects.js',
   './js/agents.js',
+  './js/chat.js',
   './js/dashboard.js',
   './js/tasks.js',
   './js/board.js',
-  './js/backlog.js',
-  './js/sprints.js',
   './js/speech-to-text.js',
   './js/reports.js',
   './js/timeline.js',
