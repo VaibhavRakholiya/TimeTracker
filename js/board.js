@@ -4,11 +4,15 @@
  */
 
 const Board = (() => {
+    const VIEW_MODE_KEY = 'flowboard-task-view-mode';
+
     let _currentProjectId = null;
     let _filterDue        = false;
     let _filterStatus     = null; // null => first column (To Do); 'all' => show all statuses
     let _listDragTaskId   = null;
     let _listDragFromHandle = false;
+    let _kanbanDragTaskId = null;
+    let _viewMode = localStorage.getItem(VIEW_MODE_KEY) === 'list' ? 'list' : 'board';
 
     function getFirstColumnId(columns) {
         const sorted = [...columns].sort((a, b) => a.position - b.position);
@@ -24,15 +28,20 @@ const Board = (() => {
     // Delegates to the shared helper in ui.js (loaded last, so resolve at call time).
     function escHtml(str) { return UI.escHtml(str); }
 
+    function applyDueFilter(tasks) {
+        if (!_filterDue) return tasks;
+        const now = Date.now();
+        return tasks.filter(t => {
+            if (!t.dueDate) return false;
+            const diff = (new Date(t.dueDate + 'T00:00:00') - now) / 86400000;
+            return diff <= 7;
+        });
+    }
+
+    // Status filtering only applies to the list view — the board view shows
+    // every column side by side, so "filter to one status" has no meaning there.
     function applyTaskFilters(tasks, columns) {
-        if (_filterDue) {
-            const now = Date.now();
-            tasks = tasks.filter(t => {
-                if (!t.dueDate) return false;
-                const diff = (new Date(t.dueDate + 'T00:00:00') - now) / 86400000;
-                return diff <= 7;
-            });
-        }
+        tasks = applyDueFilter(tasks);
         const effectiveStatus = getEffectiveFilterStatus(columns);
         if (effectiveStatus !== 'all') {
             const defaultColId = getFirstColumnId(columns);
@@ -41,13 +50,26 @@ const Board = (() => {
         return tasks;
     }
 
+    function setViewMode(mode) {
+        if (mode !== 'board' && mode !== 'list') return;
+        if (_viewMode === mode) return;
+        _viewMode = mode;
+        localStorage.setItem(VIEW_MODE_KEY, mode);
+        if (_currentProjectId !== null) render(_currentProjectId);
+    }
+
+    function syncViewModeUI() {
+        document.getElementById('boardModeKanban')?.classList.toggle('active', _viewMode === 'board');
+        document.getElementById('boardModeList')?.classList.toggle('active', _viewMode === 'list');
+    }
+
     function syncStatusFilterUI(proj) {
         const wrap    = document.getElementById('boardStatusFilterWrap');
         const toolbar = document.getElementById('boardViewToolbar');
         const group   = document.getElementById('boardStatusFilterGroup');
         if (!wrap || !group) return;
 
-        const show = !!proj;
+        const show = !!proj && _viewMode === 'list';
         wrap.hidden = !show;
         toolbar?.classList.toggle('has-status-filter', show);
         if (!show) return;
@@ -76,7 +98,8 @@ const Board = (() => {
         if (titleEl) titleEl.textContent = proj ? proj.name : 'Tasks';
         if (subtitleEl) subtitleEl.textContent = proj ? 'Task list' : 'Select a project';
 
-        container.classList.add('board-list-mode');
+        syncViewModeUI();
+        container.classList.toggle('board-list-mode', _viewMode === 'list');
 
         if (!projectId || !proj) {
             syncStatusFilterUI(null);
@@ -93,7 +116,136 @@ const Board = (() => {
         }
 
         syncStatusFilterUI(proj);
-        renderList(projectId, proj, container);
+        if (_viewMode === 'list') renderList(projectId, proj, container);
+        else renderKanban(projectId, proj, container);
+    }
+
+    function renderKanban(projectId, proj, container) {
+        const columns = [...proj.columns].sort((a, b) => a.position - b.position);
+        const allTasks = State.Tasks.byProject(projectId);
+
+        if (!allTasks.length) {
+            container.innerHTML = UI.emptyState({
+                icon: 'fa-table-columns',
+                title: 'No tasks',
+                body: 'This project has no tasks yet.',
+                action: { id: 'emptyAddTask', label: 'Add task', icon: 'fa-plus' },
+                grow: true,
+            });
+            container.querySelector('#emptyAddTask')
+                ?.addEventListener('click', () => Tasks.openModal(null, { projectId }));
+            return;
+        }
+
+        const tasks = applyDueFilter(allTasks);
+        const tasksByCol = {};
+        columns.forEach(c => { tasksByCol[c.id] = []; });
+        tasks.forEach(t => {
+            const colId = t.columnId || columns[0]?.id;
+            if (tasksByCol[colId] !== undefined) tasksByCol[colId].push(t);
+            else if (columns[0]) tasksByCol[columns[0].id].push(t);
+        });
+        Object.values(tasksByCol).forEach(arr => arr.sort((a, b) => a.position - b.position));
+
+        container.innerHTML = columns.map(col => {
+            const colTasks = tasksByCol[col.id] || [];
+            const wipExceeded = !!(col.wipLimit && colTasks.length > col.wipLimit);
+            return `<div class="board-column" data-column-id="${escHtml(col.id)}">
+                <div class="column-header">
+                    <span class="column-color-dot" style="background:${escHtml(col.color)};"></span>
+                    <span class="column-name">${escHtml(col.name)}</span>
+                    <span class="column-count${wipExceeded ? ' wip-exceeded' : ''}">${colTasks.length}${col.wipLimit ? '/' + col.wipLimit : ''}</span>
+                </div>
+                <div class="column-body" data-column-id="${escHtml(col.id)}">
+                    ${colTasks.map(t => Tasks.buildTaskCard(t)).join('')}
+                </div>
+                <div class="column-footer">
+                    <button type="button" class="add-task-inline" data-add-column="${escHtml(col.id)}">
+                        <i class="fa-solid fa-plus"></i> Add task
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+
+        attachKanbanEvents(container, projectId, proj);
+    }
+
+    function attachKanbanEvents(container, projectId, proj) {
+        container.querySelectorAll('.task-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('[data-timer-task]')) return;
+                UI.openTaskPanel(parseInt(card.dataset.taskId, 10));
+            });
+
+            card.addEventListener('dragstart', (e) => {
+                _kanbanDragTaskId = parseInt(card.dataset.taskId, 10);
+                card.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(_kanbanDragTaskId));
+            });
+
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+                _kanbanDragTaskId = null;
+                container.querySelectorAll('.board-column').forEach(c => c.classList.remove('drag-over'));
+            });
+        });
+
+        container.querySelectorAll('.board-column').forEach(col => {
+            col.addEventListener('dragover', (e) => {
+                if (_kanbanDragTaskId == null) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                col.classList.add('drag-over');
+            });
+
+            col.addEventListener('dragleave', (e) => {
+                if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+            });
+
+            col.addEventListener('drop', (e) => {
+                e.preventDefault();
+                col.classList.remove('drag-over');
+                if (_kanbanDragTaskId == null) return;
+
+                const dragTaskId = _kanbanDragTaskId;
+                const dragTask   = State.Tasks.get(dragTaskId);
+                if (!dragTask) return;
+
+                const newColId = col.dataset.columnId;
+                const targetCol = proj.columns.find(c => c.id === newColId);
+                if (targetCol?.wipLimit && dragTask.columnId !== newColId) {
+                    const count = State.Tasks.byProject(projectId)
+                        .filter(t => t.columnId === newColId && t.id !== dragTaskId).length;
+                    if (count >= targetCol.wipLimit) {
+                        UI.toast(`WIP limit (${targetCol.wipLimit}) reached for "${targetCol.name}"`, 'warning');
+                        return;
+                    }
+                }
+
+                const updates = { columnId: newColId };
+                const targetCard = e.target.closest('.task-card');
+                if (targetCard && parseInt(targetCard.dataset.taskId, 10) !== dragTaskId) {
+                    const targetTask = State.Tasks.get(parseInt(targetCard.dataset.taskId, 10));
+                    const rect  = targetCard.getBoundingClientRect();
+                    const isTop = e.clientY < rect.top + rect.height / 2;
+                    updates.position = isTop ? targetTask.position - 0.5 : targetTask.position + 0.5;
+                } else {
+                    const colTasks = State.Tasks.byProject(projectId)
+                        .filter(t => t.columnId === newColId && t.id !== dragTaskId);
+                    updates.position = colTasks.reduce((max, t) => Math.max(max, t.position || 0), 0) + 1;
+                }
+
+                State.Tasks.update(dragTaskId, updates);
+                render(projectId);
+            });
+        });
+
+        container.querySelectorAll('[data-add-column]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                Tasks.openModal(null, { projectId, columnId: btn.dataset.addColumn });
+            });
+        });
     }
 
     function renderList(projectId, proj, container) {
@@ -351,6 +503,10 @@ const Board = (() => {
 
     function init() {
         initFilters();
+        syncViewModeUI();
+
+        document.getElementById('boardModeKanban')?.addEventListener('click', () => setViewMode('board'));
+        document.getElementById('boardModeList')?.addEventListener('click', () => setViewMode('list'));
 
         State.on('tasks:changed', () => {
             const { view, projectId } = Router.getCurrent();
