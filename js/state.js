@@ -30,6 +30,7 @@ const State = (() => {
             tasks:    [],
             sprints:  [],
             agents:   [],
+            chats:    [],
             labels:   defaultLabels,
             activity: [],
         };
@@ -275,6 +276,7 @@ const State = (() => {
                 if (!_data.labels || !_data.labels.length) _data.labels = defaultLabels;
                 if (!_data.sprints) _data.sprints = [];
                 if (!Array.isArray(_data.agents)) _data.agents = [];
+                if (!Array.isArray(_data.chats)) _data.chats = [];
                 if (!_data.activity) _data.activity = [];
                 normalizeAllTasks();
                 normalizeAllAgents();
@@ -318,25 +320,52 @@ const State = (() => {
     async function loadFromFirebase() {
         if (!window.firebaseRESTIntegration) return false;
         try {
-            const [projects, tasks, sprints, agents] = await Promise.all([
+            const [projects, tasks, sprints, agents, chats] = await Promise.all([
                 window.firebaseRESTIntegration.loadData('flowboard_projects'),
                 window.firebaseRESTIntegration.loadData('flowboard_tasks'),
                 window.firebaseRESTIntegration.loadData('flowboard_sprints'),
                 window.firebaseRESTIntegration.loadData('flowboard_agents'),
+                window.firebaseRESTIntegration.loadData('flowboard_chats'),
             ]);
             if (projects && Array.isArray(projects)) _data.projects = projects;
             if (tasks    && Array.isArray(tasks))    _data.tasks    = tasks;
             if (sprints  && Array.isArray(sprints))  _data.sprints  = sprints;
             if (agents   && Array.isArray(agents))   _data.agents   = agents;
+            if (chats    && Array.isArray(chats))    _data.chats    = chats;
             normalizeAllTasks();
             normalizeAllAgents();
             removeOrphanedTasks();
             save();
+            emit('chats:changed');
             return true;
         } catch (e) {
             console.warn('State: Firebase load failed', e);
             return false;
         }
+    }
+
+    /**
+     * Chats are pulled here on their own (not folded into the periodic
+     * syncToFirebase push) because that push is a wholesale last-write-wins
+     * overwrite of the whole collection — fine for single-editor data like
+     * tasks, but chats are appended concurrently by the MCP server (agents)
+     * while a browser tab is open, so a full overwrite could erase messages
+     * this tab never saw. Reads are safe either way; only writes need care —
+     * see Chats.send below, which appends via a fresh read instead.
+     */
+    async function refreshChatsFromFirebase() {
+        if (!window.firebaseRESTIntegration) return false;
+        try {
+            const chats = await window.firebaseRESTIntegration.loadData('flowboard_chats');
+            if (Array.isArray(chats)) {
+                _data.chats = chats;
+                emit('chats:changed');
+                return true;
+            }
+        } catch (e) {
+            console.warn('State: chat refresh failed', e);
+        }
+        return false;
     }
 
     // ── Activity log ─────────────────────────────────────
@@ -1066,6 +1095,49 @@ const State = (() => {
         },
     };
 
+    // ── Chats (per-project log, TASK-519) ──────────────────
+    const Chats = {
+        getAll()       { return _data.chats; },
+        byProject(pid) { return _data.chats.filter(c => c.projectId == pid).sort((a, b) => a.id - b.id); },
+        refresh:  refreshChatsFromFirebase,
+
+        /**
+         * Post a human message. Appends via a fresh read-then-write straight to
+         * Firebase rather than routing through the debounced whole-state
+         * syncToFirebase — see refreshChatsFromFirebase's comment on why chats
+         * don't ride that wholesale push.
+         */
+        async send(projectId, text) {
+            const trimmed = String(text || '').trim();
+            if (!projectId || !trimmed) return null;
+
+            const msg = {
+                id:         Date.now(),
+                projectId,
+                author:     localStorage.getItem('username') || 'admin',
+                authorType: 'user',
+                text:       trimmed,
+                taskKey:    null,
+                createdAt:  new Date().toISOString(),
+            };
+
+            _data.chats.push(msg);
+            emit('chats:changed');
+
+            if (window.firebaseRESTIntegration) {
+                try {
+                    const current = await window.firebaseRESTIntegration.loadData('flowboard_chats');
+                    const list = Array.isArray(current) ? current : [];
+                    list.push(msg);
+                    await window.firebaseRESTIntegration.saveData('flowboard_chats', list);
+                } catch (e) {
+                    console.warn('State: chat send failed', e);
+                }
+            }
+            return msg;
+        },
+    };
+
     // ── Timer ─────────────────────────────────────────────
     /**
      * A timer left running past this is almost certainly a forgotten tab, not
@@ -1441,7 +1513,7 @@ const State = (() => {
 
     return {
         on, off, emit,
-        Projects, Tasks, Sprints, Agents, Labels, Activity, Timer, Entries,
+        Projects, Tasks, Sprints, Agents, Chats, Labels, Activity, Timer, Entries,
         getColumnById, getFirstColumn, formatDuration,
         load, save, init, exportData, importData, inspectImport, clearAll, loadFromFirebase,
         get data() { return _data; },

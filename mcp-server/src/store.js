@@ -25,6 +25,7 @@ export const KEYS = {
     tasks:    'flowboard_tasks',
     sprints:  'flowboard_sprints',
     agents:   'flowboard_agents',
+    chats:    'flowboard_chats',
 };
 
 const MAX_RETRIES = 4;

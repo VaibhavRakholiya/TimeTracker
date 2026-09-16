@@ -1996,6 +1996,7 @@ const App = (() => {
         Agents.init();
         Tasks.init();
         Board.init();
+        Chat.init();
         Backlog.init();
         Sprints.init();
         Reports.init();

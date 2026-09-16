@@ -185,6 +185,9 @@
                             <div class="view-subtitle" id="boardViewSubtitle">Task list</div>
                         </div>
                         <div class="view-actions">
+                            <button class="btn btn-secondary btn-sm" id="boardChatBtn" title="Project chat">
+                                <i class="fa-solid fa-comments"></i> Chat
+                            </button>
                             <button class="btn btn-secondary btn-sm" id="manageBoardBtn">
                                 <i class="fa-solid fa-sliders"></i> Manage
                             </button>
@@ -206,6 +209,24 @@
                     </div>
                     <div class="board-container" id="boardContainer">
                         <!-- Task list rendered by board.js -->
+                    </div>
+                </div>
+
+                <!-- ─────────────────────────────────── CHAT ── -->
+                <div class="view" id="view-chat">
+                    <div class="view-header">
+                        <div>
+                            <h1 class="view-title" id="chatViewTitle">Chat</h1>
+                            <div class="view-subtitle">Project chat</div>
+                        </div>
+                        <div class="view-actions">
+                            <button class="btn btn-secondary btn-sm" id="chatBackToBoardBtn">
+                                <i class="fa-solid fa-table-columns"></i> Back to Tasks
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chat-container" id="chatContainer">
+                        <!-- Rendered by chat.js -->
                     </div>
                 </div>
 
@@ -675,6 +696,7 @@
     <script src="js/projects.js"></script>
     <script src="js/sprints.js"></script>
     <script src="js/agents.js"></script>
+    <script src="js/chat.js"></script>
     <script src="js/speech-to-text.js"></script>
     <script src="js/tasks.js"></script>
     <script src="js/board.js"></script>
