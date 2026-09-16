@@ -1,0 +1,9 @@
+{
+  "_comment": "Maps a FlowBoard project name to the absolute path of its local repo. Used by open-agent-terminal.sh to open one terminal per project an agent has pending work in. Keep in sync with the routing rules in ~/.claude/CLAUDE.md.",
+  "AriseX": "/Users/vaibhav/WebProjects/TimeTracker",
+  "Big Font": "/Users/vaibhav/Flutter/Projects/font-changer",
+  "Crush Test": "/Users/vaibhav/Flutter/Projects/crush-test",
+  "Pregnancy Test Checker": "/Users/vaibhav/Flutter/Projects/pregnancy-test",
+  "Origami Weapons": "/Users/vaibhav/Flutter/Projects/origami-weapons",
+  "Blower": "/Users/vaibhav/UnityProjects/Blower"
+}

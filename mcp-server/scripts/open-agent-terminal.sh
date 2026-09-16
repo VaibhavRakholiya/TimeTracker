@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 #
-# Opens a new Terminal.app window in this repo, running `claude` and
-# immediately feeding it `/start-agent <slug>` so the chosen FlowBoard
-# agent starts working its queue for this project.
+# Opens a new Terminal.app tab running `claude` and immediately feeding it
+# `/start-agent <slug>`, so the chosen FlowBoard agent starts working its
+# queue. If the agent has pending work across multiple projects (e.g. Igris
+# assigned to both "Crush Test" and "Big Font"), one tab is opened per
+# project, each cd'd into that project's repo (mcp-server/scripts/repo-paths.json).
+# Falls back to this repo if none of the agent's projects resolve to a path.
 #
 # Usage: mcp-server/scripts/open-agent-terminal.sh [slug]
 #   With no argument, lists enabled agents and prompts for one.
@@ -50,11 +53,26 @@ if ! grep -q "^${SLUG}"$'\t' <<< "$AGENTS_TSV"; then
     exit 1
 fi
 
-osascript <<EOF
+PROJECTS_TSV="$(node "$REPO_DIR/mcp-server/scripts/list-agent-projects.js" "$SLUG")"
+
+declare -a REPO_PATHS
+if [[ -n "$PROJECTS_TSV" ]]; then
+    while IFS=$'\t' read -r project_name repo_path; do
+        REPO_PATHS+=("$repo_path")
+    done <<< "$PROJECTS_TSV"
+fi
+
+if [[ ${#REPO_PATHS[@]} -eq 0 ]]; then
+    REPO_PATHS=("$REPO_DIR")
+fi
+
+for dir in "${REPO_PATHS[@]}"; do
+    osascript <<EOF
 tell application "Terminal"
     activate
-    set newTab to do script "cd $(printf '%q' "$REPO_DIR") && claude"
+    set newTab to do script "cd $(printf '%q' "$dir") && claude"
     delay 3
     do script "/start-agent $(printf '%q' "$SLUG")" in newTab
 end tell
 EOF
+done
