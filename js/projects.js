@@ -14,6 +14,10 @@ const Projects = (() => {
     let _sidebarGripMouseupClear = null;
     let _selectedColor    = '#6366f1';
     let _editingColumns   = [];
+    let _colDragIdx           = null;
+    /** dragstart's e.target is the whole row, not the grip — gate drag start to the handle, same as the sidebar project list. */
+    let _colGripMousedownIdx  = null;
+    let _colGripMouseupClear  = null;
 
     // ── Sidebar ────────────────────────────────────────────
     function renderSidebar() {
@@ -305,8 +309,8 @@ const Projects = (() => {
         if (!container) return;
 
         container.innerHTML = _editingColumns.map((col, i) => `
-            <div class="column-editor-item" data-col-idx="${i}">
-                <i class="fa-solid fa-grip-vertical column-editor-drag"></i>
+            <div class="column-editor-item" data-col-idx="${i}" draggable="true">
+                <i class="fa-solid fa-grip-vertical column-editor-drag" title="Drag to reorder"></i>
                 <input type="color"
                        class="column-color-picker"
                        value="${col.color}"
@@ -363,6 +367,78 @@ const Projects = (() => {
                 _editingColumns.forEach((c, i) => c.position = i);
                 renderColumnEditor();
             });
+        });
+
+        // Drag-to-reorder, gated to the grip handle like the sidebar project list.
+        container.querySelectorAll('.column-editor-item').forEach(el => {
+            const idx  = parseInt(el.dataset.colIdx, 10);
+            const grip = el.querySelector('.column-editor-drag');
+
+            grip?.addEventListener('mousedown', () => {
+                _colGripMousedownIdx = idx;
+                if (_colGripMouseupClear) window.removeEventListener('mouseup', _colGripMouseupClear);
+                _colGripMouseupClear = () => {
+                    _colGripMousedownIdx = null;
+                    window.removeEventListener('mouseup', _colGripMouseupClear);
+                    _colGripMouseupClear = null;
+                };
+                window.addEventListener('mouseup', _colGripMouseupClear);
+            });
+
+            el.addEventListener('dragstart', (e) => {
+                if (_colGripMousedownIdx !== idx) {
+                    e.preventDefault();
+                    return;
+                }
+                _colGripMousedownIdx = null;
+                if (_colGripMouseupClear) {
+                    window.removeEventListener('mouseup', _colGripMouseupClear);
+                    _colGripMouseupClear = null;
+                }
+                _colDragIdx = idx;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(idx));
+                el.classList.add('column-editor-dragging');
+            });
+
+            el.addEventListener('dragend', () => {
+                el.classList.remove('column-editor-dragging');
+                container.querySelectorAll('.column-editor-item').forEach(x => x.classList.remove('column-editor-drop-target'));
+                _colDragIdx = null;
+            });
+        });
+
+        bindColumnEditorReorder(container);
+    }
+
+    function bindColumnEditorReorder(container) {
+        if (container.dataset.reorderBound === '1') return;
+        container.dataset.reorderBound = '1';
+
+        container.addEventListener('dragover', (e) => {
+            if (_colDragIdx == null) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const item = e.target.closest('.column-editor-item');
+            container.querySelectorAll('.column-editor-item').forEach(x => x.classList.remove('column-editor-drop-target'));
+            if (item) item.classList.add('column-editor-drop-target');
+        });
+
+        container.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const item = e.target.closest('.column-editor-item');
+            container.querySelectorAll('.column-editor-item').forEach(x => x.classList.remove('column-editor-drop-target'));
+            if (_colDragIdx == null || !item) return;
+
+            const targetIdx = parseInt(item.dataset.colIdx, 10);
+            const dragIdx   = _colDragIdx;
+            _colDragIdx = null;
+            if (targetIdx === dragIdx) return;
+
+            const [moved] = _editingColumns.splice(dragIdx, 1);
+            _editingColumns.splice(targetIdx, 0, moved);
+            _editingColumns.forEach((c, i) => c.position = i);
+            renderColumnEditor();
         });
     }
 
