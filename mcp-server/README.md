@@ -116,6 +116,22 @@ Notes:
 - It's still one Node process with no persistence: if it's killed mid-poll,
   restarting just re-baselines from current state, per the note above.
 
+## Opening an agent in its own terminal
+
+`scripts/open-agent-terminal.sh` opens a new Terminal.app window in this repo,
+launches `claude`, and feeds it `/start-agent <slug>` — the same thing the
+daemon above does headlessly, but in a visible, interactive window you can
+watch and step in on.
+
+```bash
+mcp-server/scripts/open-agent-terminal.sh          # lists enabled agents, prompts for one
+mcp-server/scripts/open-agent-terminal.sh monday    # skips the prompt
+```
+
+It's macOS-only (drives Terminal.app via `osascript`) and always opens in
+this repo's directory — run it once per agent you want to give its own
+terminal.
+
 ## Tools
 
 **Read:** `list_projects`, `list_agents`, `list_tasks`, `get_task`
