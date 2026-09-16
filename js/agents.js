@@ -146,6 +146,33 @@ const Agents = (() => {
         if (!sel.value) sel.value = `user:${me}`;
     }
 
+    /**
+     * Same People/Agents option list as populateAssigneeSelect, but for a
+     * project's "Default Assignee" setting — which, unlike a task, may
+     * legitimately have none. Adds a leading "No default" option.
+     */
+    function populateDefaultAssigneeSelect(sel, selectedValue) {
+        if (!sel) return;
+        const me = localStorage.getItem('username') || 'admin';
+        const people = new Set([me]);
+        State.Tasks.getAll().forEach(t => {
+            if (!t.agentId && t.assignee) people.add(t.assignee);
+        });
+
+        const peopleOpts = [...people].sort().map(n =>
+            `<option value="user:${escHtml(n)}">${escHtml(n)}</option>`).join('');
+        const agentOpts = State.Agents.enabled().map(a =>
+            `<option value="agent:${a.id}">${escHtml((a.emoji ? a.emoji + ' ' : '') + a.name)}</option>`).join('');
+
+        sel.innerHTML =
+            `<option value="">No default</option>` +
+            `<optgroup label="People">${peopleOpts}</optgroup>` +
+            (agentOpts ? `<optgroup label="Agents">${agentOpts}</optgroup>` : '');
+
+        // A stale value (agent since deleted, or person no longer in use) leaves the select blank.
+        sel.value = selectedValue || '';
+    }
+
     /** Turn the select's value back into task fields. */
     function parseAssigneeValue(raw) {
         raw = String(raw || '');
@@ -387,9 +414,9 @@ const Agents = (() => {
         if (!hint) return;
         const name = document.getElementById('agentModalName').value.trim();
         const existing = _editingAgentId ? State.Agents.get(_editingAgentId) : null;
-        // Editing keeps the established slug — renaming must not break the
-        // handle Claude may already be using.
-        const slug = existing ? existing.slug : slugPreview(name);
+        // A rename updates the slug on save (TASK-529), so the hint previews
+        // what it's about to become rather than the slug on file right now.
+        const slug = (existing && (!name || name === existing.name)) ? existing.slug : slugPreview(name);
         hint.innerHTML = name || existing
             ? `Claude refers to this agent as <code>${escHtml(slug)}</code>`
             : 'Claude refers to agents by a short handle derived from the name.';
@@ -472,7 +499,7 @@ const Agents = (() => {
 
     return {
         init, openModal, closeModal, renderSettingsList, renderDashboard,
-        assigneeFor, assigneeChip, populateAssigneeSelect, parseAssigneeValue,
+        assigneeFor, assigneeChip, populateAssigneeSelect, populateDefaultAssigneeSelect, parseAssigneeValue,
         COLORS: AGENT_COLORS,
     };
 })();

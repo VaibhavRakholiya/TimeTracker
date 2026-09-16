@@ -76,6 +76,21 @@ export function slugifyAgent(name, taken) {
 }
 
 /**
+ * Mirrors js/state.js `reclaimStaleSlug` (TASK-529). Mutates `agents` in
+ * place: if `cleanSlug` is held by a different agent whose own current name
+ * no longer slugifies to it (left behind by a rename), relocate that agent
+ * to a slug matching its own name, freeing `cleanSlug` for whoever's asking.
+ * A slug that still matches its holder's name is a live identity and is
+ * left untouched.
+ */
+export function reclaimStaleSlug(agents, cleanSlug, excludeId) {
+    const holder = agents.find(a => a.slug === cleanSlug && a.id != excludeId);
+    if (!holder || slugifyAgent(holder.name) === cleanSlug) return;
+    const taken = new Set(agents.filter(a => a.id !== holder.id).map(a => a.slug));
+    holder.slug = slugifyAgent(holder.name, taken);
+}
+
+/**
  * Put back everything RTDB strips. A task read straight from Firebase can be
  * missing every empty array and every null field, so nothing downstream can
  * assume a key exists.
