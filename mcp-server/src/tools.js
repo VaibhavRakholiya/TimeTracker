@@ -168,19 +168,8 @@ export async function list_agents({ includeDisabled = false } = {}) {
         });
 }
 
-export async function list_sprints({ projectId } = {}) {
-    const [sprints, tasks] = await Promise.all([store.read('sprints'), store.read('tasks')]);
-    return sprints
-        .filter(s => projectId == null || s.projectId == projectId || s.projectId == null)
-        .map(s => ({
-            id: s.id, name: s.name, projectId: s.projectId, goal: s.goal || '',
-            status: s.status, startDate: s.startDate, endDate: s.endDate,
-            taskCount: tasks.filter(t => t.sprintId == s.id).length,
-        }));
-}
-
 export async function list_tasks(args = {}) {
-    const { projectId, sprintId, column, assignee, agent, priority,
+    const { projectId, column, assignee, agent, priority,
             unassignedAgent, query, limit = 50 } = args;
 
     const [rawTasks, projects, agents] = await Promise.all([
@@ -197,7 +186,6 @@ export async function list_tasks(args = {}) {
 
     const out = tasks.filter(t => {
         if (projectId != null && t.projectId != projectId) return false;
-        if (sprintId  != null && t.sprintId  != sprintId)  return false;
         if (priority  != null && t.priority  !== priority) return false;
         if (assignee  != null && t.assignee  !== assignee) return false;
         if (agentId   != null && t.agentId   != agentId)   return false;
@@ -235,8 +223,8 @@ export async function list_tasks(args = {}) {
 }
 
 export async function get_task({ task }) {
-    const [rawTasks, projects, agents, sprints] = await Promise.all([
-        store.read('tasks'), store.read('projects'), store.read('agents'), store.read('sprints'),
+    const [rawTasks, projects, agents] = await Promise.all([
+        store.read('tasks'), store.read('projects'), store.read('agents'),
     ]);
     const found = D.resolveTask(rawTasks, task);
     if (!found) throw new Error(`No task matches "${task}". Pass a numeric id or a key like TASK-12.`);
@@ -250,7 +238,6 @@ export async function get_task({ task }) {
         ...t,
         projectName: proj?.name || null,
         columnName:  D.resolveColumn(proj, t.columnId)?.name || null,
-        sprintName:  sprints.find(s => s.id == t.sprintId)?.name || null,
         labelNames:  (proj?.labels || []).filter(l => labelIds.has(l.id)).map(l => l.name),
         agent:       agent ? { id: agent.id, slug: agent.slug, name: agent.name, role: agent.role } : null,
         // True when this is the agent's current active task (start now); false
@@ -285,7 +272,6 @@ export async function create_task(args) {
             id:             D.uniqueId(tasks),
             taskKey:        D.nextTaskKey(tasks),
             projectId:      project.id,
-            sprintId:       args.sprintId ?? null,
             columnId:       column?.id ?? null,
             title:          String(title).trim(),
             description:    args.description || '',
@@ -333,7 +319,7 @@ export async function create_task(args) {
 }
 
 const UPDATABLE = ['title', 'description', 'priority', 'dueDate', 'startDate',
-                   'timeEstimate', 'sprintId', 'labels'];
+                   'timeEstimate', 'labels'];
 
 export async function update_task(args) {
     const { task: ref } = args;

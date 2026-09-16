@@ -1,14 +1,14 @@
 /**
  * Firebase Realtime Database REST client for the FlowBoard MCP server.
  *
- * The browser app writes the same four keys through firebase-rest-integration.js.
+ * The browser app writes the same keys through firebase-rest-integration.js.
  * Two facts about RTDB drive everything here, both verified against the live DB:
  *
  *   1. RTDB does not store arrays. It stores objects keyed "0", "1", … and only
  *      returns a JSON array when those keys are contiguous from zero. It also
  *      deletes empty and null values outright — which is why a stored task can
  *      come back with no `labels`, `comments` or `dueDate` key at all, and why
- *      `flowboard_sprints` does not exist in the live DB.
+ *      an empty collection does not exist as a node in the live DB at all.
  *
  *   2. RTDB REST supports compare-and-set: GET with `X-Firebase-ETag: true`
  *      returns an ETag, and PUT with `if-match` returns 412 if the node changed
@@ -23,7 +23,6 @@ const NS = process.env.FLOWBOARD_NAMESPACE || 'timetracker';
 export const KEYS = {
     projects: 'flowboard_projects',
     tasks:    'flowboard_tasks',
-    sprints:  'flowboard_sprints',
     agents:   'flowboard_agents',
     chats:    'flowboard_chats',
 };

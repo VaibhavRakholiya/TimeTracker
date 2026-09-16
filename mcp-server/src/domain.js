@@ -87,7 +87,7 @@ export function hydrateTask(raw) {
     t.timeEntries = asArray(t.timeEntries);
     t.subtasks    = hydrateSubtasks(t.subtasks);
 
-    for (const k of ['sprintId', 'columnId', 'dueDate', 'startDate', 'timeEstimate', 'agentId',
+    for (const k of ['columnId', 'dueDate', 'startDate', 'timeEstimate', 'agentId',
                      'timerStart', 'assignedAt', 'agentDoneAt']) {
         if (t[k] === undefined || t[k] === '') t[k] = null;
     }

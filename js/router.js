@@ -2,7 +2,6 @@
  * FlowBoard — Router
  * Hash-based SPA routing. Routes:
  *   #board/:projectId   (project task list; no bare #board)
- *   #backlog/:projectId
  *   #chat/:projectId    (project chat log; no bare #chat)
  *   #timeline
  *   #reports
@@ -17,7 +16,6 @@ const Router = (() => {
     const VIEWS = {
         dashboard: 'view-dashboard',
         board:     'view-board',
-        backlog:   'view-backlog',
         chat:      'view-chat',
         timeline:  'view-timeline',
         reports:   'view-reports',
@@ -48,24 +46,17 @@ const Router = (() => {
     function navigate(view, projectId) {
         const v = VIEWS[view] ? view : DEFAULT_VIEW;
 
-        if (v !== 'board' && v !== 'backlog' && v !== 'chat') {
+        if (v !== 'board' && v !== 'chat') {
             window.location.hash = `#${v}`;
             return;
         }
 
         const idNum = projectId != null ? Number(projectId) : NaN;
-        if (v === 'board' || v === 'chat') {
-            if (!Number.isFinite(idNum)) {
-                window.location.hash = `#${DEFAULT_VIEW}`;
-                return;
-            }
-            window.location.hash = `#${v}/${Math.floor(idNum)}`;
+        if (!Number.isFinite(idNum)) {
+            window.location.hash = `#${DEFAULT_VIEW}`;
             return;
         }
-
-        // backlog — optional project id
-        if (Number.isFinite(idNum)) window.location.hash = `#backlog/${Math.floor(idNum)}`;
-        else window.location.hash = '#backlog';
+        window.location.hash = `#${v}/${Math.floor(idNum)}`;
     }
 
     function activate({ view, projectId }) {
@@ -100,7 +91,7 @@ const Router = (() => {
         // Highlight project items
         document.querySelectorAll('.project-item[data-project-id]').forEach(el => {
             const pid = parseInt(el.dataset.projectId, 10);
-            const on = (viewName === 'board' || viewName === 'backlog' || viewName === 'chat') && pid === projectId;
+            const on = (viewName === 'board' || viewName === 'chat') && pid === projectId;
             el.classList.toggle('active', on);
             if (on) el.setAttribute('aria-current', 'page');
             else    el.removeAttribute('aria-current');
@@ -120,9 +111,6 @@ const Router = (() => {
                 break;
             case 'board':
                 window.Board      && Board.render(projectId);
-                break;
-            case 'backlog':
-                window.Backlog    && Backlog.render(projectId);
                 break;
             case 'chat':
                 window.Chat       && Chat.render(projectId);
@@ -152,7 +140,6 @@ const Router = (() => {
         const labels = {
             dashboard: 'Dashboard',
             board:     'Tasks',
-            backlog:   'Backlog',
             chat:      'Chat',
             timeline:  'Timeline',
             reports:   'Reports',

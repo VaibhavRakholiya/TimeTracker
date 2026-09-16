@@ -1546,130 +1546,6 @@ select.form-control {
 
 .add-column-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-subtle); }
 
-/* ── 10. BACKLOG VIEW ────────────────────────────────────── */
-#view-backlog {
-    overflow: auto;
-    flex-direction: column;
-}
-
-.backlog-container {
-    padding: 0 var(--sp-6) var(--sp-6);
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-4);
-}
-
-.sprint-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-}
-
-.sprint-section-header {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-3);
-    padding: var(--sp-3) var(--sp-4);
-    border-bottom: 1px solid var(--border-subtle);
-    cursor: pointer;
-    user-select: none;
-}
-
-.sprint-section-header:hover { background: var(--surface-hover); }
-
-.sprint-chevron {
-    color: var(--text-tertiary);
-    transition: transform var(--transition-fast);
-    font-size: var(--text-base);
-}
-
-.sprint-section.collapsed .sprint-chevron { transform: rotate(-90deg); }
-.sprint-section.collapsed .sprint-section-body { display: none; }
-
-.sprint-title {
-    font-size: var(--text-lg);
-    font-weight: var(--fw-bold);
-    color: var(--text);
-    flex: 1;
-}
-
-.sprint-status-chip {
-    font-size: var(--text-sm);
-    font-weight: var(--fw-semibold);
-    padding: 2px 8px;
-    border-radius: var(--radius-pill);
-}
-
-.sprint-status-active   { background: rgba(34,197,94,0.12); color: #22c55e; }
-.sprint-status-planned  { background: rgba(59,130,246,0.12); color: #3b82f6; }
-.sprint-status-completed{ background: rgba(107,114,128,0.12); color: #9ca3af; }
-
-.sprint-dates { font-size: var(--text-sm); color: var(--text-tertiary); }
-
-.sprint-section-body { padding: var(--sp-2) 0; }
-
-/* Backlog task row */
-.backlog-task {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-3);
-    padding: var(--sp-2) var(--sp-4);
-    cursor: pointer;
-    transition: background var(--transition-fast);
-    border-bottom: 1px solid var(--border-subtle);
-}
-
-.backlog-task:last-child { border-bottom: none; }
-.backlog-task:hover { background: var(--surface-hover); }
-.backlog-task.dragging { opacity: 0.5; }
-.backlog-task.drag-over-top { border-top: 2px solid var(--primary); }
-.backlog-task.drag-over-bottom { border-bottom: 2px solid var(--primary); }
-
-.backlog-task-drag-handle {
-    color: var(--text-disabled);
-    font-size: var(--text-base);
-    cursor: grab;
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-}
-
-.backlog-task:hover .backlog-task-drag-handle { opacity: 1; }
-
-.backlog-task-title {
-    flex: 1;
-    font-size: var(--text-base);
-    font-weight: var(--fw-medium);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.backlog-task-title.completed {
-    text-decoration: line-through;
-    color: var(--text-tertiary);
-}
-
-.backlog-task-meta {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    flex-shrink: 0;
-}
-
-.empty-backlog {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: var(--sp-12);
-    gap: var(--sp-3);
-    color: var(--text-tertiary);
-}
-
-.empty-backlog i { font-size: var(--text-display); opacity: 0.4; }
-.empty-backlog p { font-size: var(--text-base); }
-
 /* ── 11. TIMELINE VIEW ───────────────────────────────────── */
 #view-timeline {
     overflow: hidden;
@@ -2901,17 +2777,6 @@ body.task-panel-fullscreen #content-area {
 
 .dropdown-separator { height: 1px; background: var(--border); margin: var(--sp-1) 0; }
 
-/* ── 21. SPRINT CAPACITY ─────────────────────────────────── */
-.capacity-ring {
-    display: flex;
-        flex-direction: column;
-    align-items: center;
-    gap: var(--sp-1);
-}
-
-.capacity-ring canvas { display: block; }
-.capacity-ring-label { font-size: var(--text-sm); color: var(--text-tertiary); }
-
 /* ── 22. INLINE INPUTS ───────────────────────────────────── */
 .inline-add {
     display: flex;
@@ -3458,8 +3323,7 @@ input.form-control--inline { padding: 5px 10px; }
 
 /* Keyboard-focused task row — J/K navigation target */
 .list-task-row:focus-visible,
-.my-task-row:focus-visible,
-.backlog-task-row:focus-visible {
+.my-task-row:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: -2px;
 }
@@ -4024,6 +3888,47 @@ input.form-control--inline { padding: 5px 10px; }
 }
 
 .chat-composer .form-control { flex: 1; }
+
+.avatar-crop-modal { width: 400px; }
+
+.avatar-crop-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    max-width: 280px;
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    background: var(--surface-overlay);
+    border: 1px solid var(--border);
+    cursor: grab;
+    touch-action: none;
+}
+
+.avatar-crop-stage.dragging { cursor: grabbing; }
+
+.avatar-crop-stage img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    max-width: none;
+    transform-origin: 0 0;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+}
+
+.avatar-crop-zoom {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    color: var(--text-tertiary);
+    max-width: 280px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.avatar-crop-zoom input[type="range"] { flex: 1; }
 
 .agents-dashboard {
     display: grid;

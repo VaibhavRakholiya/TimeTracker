@@ -34,7 +34,7 @@ const Projects = (() => {
         }
 
         container.innerHTML = projects.map(p => `
-            <div class="project-item${(view === 'board' || view === 'backlog') && projectId === p.id ? ' active' : ''}"
+            <div class="project-item${(view === 'board' || view === 'chat') && projectId === p.id ? ' active' : ''}"
                  data-project-id="${p.id}"
                  draggable="true"
                  title="${p.name}">
@@ -186,7 +186,6 @@ const Projects = (() => {
         menu.style.cssText = `position:fixed;top:${event.clientY}px;left:${event.clientX}px;z-index:400;`;
         menu.innerHTML = `
             <div class="dropdown-item" id="ctxBoard"><i class="fa-solid fa-list"></i> View Tasks</div>
-            <div class="dropdown-item" id="ctxBacklog"><i class="fa-solid fa-list"></i> View Backlog</div>
             <div class="dropdown-separator"></div>
             <div class="dropdown-item" id="ctxEdit"><i class="fa-solid fa-pen"></i> Edit Project</div>
             <div class="dropdown-item" id="ctxDuplicate"><i class="fa-solid fa-copy"></i> Duplicate Project</div>
@@ -197,9 +196,6 @@ const Projects = (() => {
 
         menu.querySelector('#ctxBoard').addEventListener('click', () => {
             Router.navigate('board', projectId); cleanup();
-        });
-        menu.querySelector('#ctxBacklog').addEventListener('click', () => {
-            Router.navigate('backlog', projectId); cleanup();
         });
         menu.querySelector('#ctxEdit').addEventListener('click', () => {
             openModal(projectId); cleanup();
@@ -405,7 +401,7 @@ const Projects = (() => {
         closeModal();
     }
 
-    // ── Populate project selects (used by task/sprint modals) ─
+    // ── Populate project selects (used by task modals) ────────
     function populateProjectSelect(selectEl, includeNone = true) {
         if (!selectEl) return;
         const projects = State.Projects.getAll().slice().sort((a, b) => (a.position || 0) - (b.position || 0));
