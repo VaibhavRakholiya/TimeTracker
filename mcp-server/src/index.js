@@ -2,7 +2,7 @@
 /**
  * FlowBoard MCP server — stdio transport.
  *
- * Exposes the FlowBoard board (projects, tasks, sprints, agent profiles) to
+ * Exposes the FlowBoard board (projects, tasks, agent profiles) to
  * Claude Code. Registration only; all behaviour lives in tools.js.
  */
 
@@ -48,15 +48,11 @@ register('list_agents',
     { includeDisabled: z.boolean().optional().describe('Include agents marked unavailable.') },
     T.list_agents);
 
-register('list_sprints', 'List sprints, optionally for one project.',
-    { projectId: z.number().optional() }, T.list_sprints);
-
 register('list_tasks',
     'List tasks with optional filters. Use `agent` to get one agent\'s queue — results include ' +
     'queuePosition (0 = active/start now, 1+ = waiting) and agentDone.',
     {
         projectId: z.number().optional(),
-        sprintId:  z.number().optional(),
         column:    z.string().optional().describe('Column id or name, e.g. "In Progress".'),
         assignee:  z.string().optional().describe('Exact person name.'),
         agent:     agentRef.optional(),
@@ -81,7 +77,6 @@ register('create_task',
         description:  z.string().optional(),
         priority:     z.enum(['low', 'medium', 'high', 'urgent', 'critical']).optional(),
         column:       z.string().optional().describe('Column id or name. Defaults to the project\'s first column.'),
-        sprintId:     z.number().optional(),
         assignee:     z.string().optional(),
         agent:        agentRef.optional(),
         dueDate:      z.string().optional().describe('YYYY-MM-DD'),
@@ -99,7 +94,6 @@ register('update_task', 'Update a task\'s fields. Does not move columns or chang
         dueDate:      z.string().optional(),
         startDate:    z.string().optional(),
         timeEstimate: z.number().optional(),
-        sprintId:     z.number().nullable().optional(),
         labels:       z.array(z.string()).optional(),
     }, T.update_task);
 

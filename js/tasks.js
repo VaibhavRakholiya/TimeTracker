@@ -1,7 +1,7 @@
 /**
  * FlowBoard — Tasks Module
  * Task modal (create/edit), My Tasks view, task list rendering helpers,
- * and shared task card/row builder functions used by Board and Backlog.
+ * and the shared task card builder function used by Board.
  */
 
 const Tasks = (() => {
@@ -268,25 +268,6 @@ const Tasks = (() => {
         </div>`;
     }
 
-    // ── Task row HTML (used by backlog/list) ───────────────
-    function buildTaskRow(task) {
-        const done = isDoneColumn(task);
-        const due  = formatDueDate(task.dueDate);
-        const proj = task.projectId ? State.Projects.get(task.projectId) : null;
-        const col  = columnForTask(task);
-
-        return `<div class="backlog-task" data-task-id="${task.id}" draggable="true">
-            <i class="fa-solid fa-grip-vertical backlog-task-drag-handle"></i>
-            <span class="backlog-task-title${done ? ' completed' : ''}">${escHtml(task.title)}</span>
-            <div class="backlog-task-meta">
-                ${col ? `<span class="badge" style="background:${hexToRgba(col.color,0.15)};color:${col.color};">${escHtml(col.name)}</span>` : ''}
-                ${proj ? `<span class="text-muted text-sm">${escHtml(proj.name)}</span>` : ''}
-                ${due  ? `<span class="due-date-chip ${due.cls}"><i class="fa-regular fa-calendar"></i> ${due.text}</span>` : ''}
-                ${Agents.assigneeChip(task, '--xs')}
-            </div>
-        </div>`;
-    }
-
     function getDueDateGroup(task) {
         if (!task.dueDate) return 'none';
         const due  = new Date(task.dueDate + 'T00:00:00');
@@ -493,7 +474,6 @@ const Tasks = (() => {
         const saveBtn   = document.getElementById('taskModalSave');
         const projSel   = document.getElementById('taskModalProject');
         const colSel    = document.getElementById('taskModalColumn');
-        const sprintSel = document.getElementById('taskModalSprint');
         const labelsWrap= document.getElementById('taskModalLabels');
 
         Projects.populateProjectSelect(projSel);
@@ -514,7 +494,6 @@ const Tasks = (() => {
                 projSel.value = task.projectId;
                 Projects.populateColumnSelect(colSel, task.projectId);
                 colSel.value = task.columnId || '';
-                populateSprintSelect(sprintSel, task.projectId, task.sprintId);
             }
             renderLabelSelect(labelsWrap, task.labels || [], task.projectId);
             Agents.populateAssigneeSelect(document.getElementById('taskModalAssignee'), task);
@@ -534,26 +513,22 @@ const Tasks = (() => {
                 projSel.value = defaultProjId;
                 Projects.populateColumnSelect(colSel, defaultProjId);
                 if (defaults?.columnId) colSel.value = defaults.columnId;
-                populateSprintSelect(sprintSel, defaultProjId, defaults?.sprintId);
-            } else {
-                sprintSel.innerHTML = '<option value="">No sprint (Backlog)</option>';
             }
             renderLabelSelect(labelsWrap, [], defaultProjId);
             Agents.populateAssigneeSelect(document.getElementById('taskModalAssignee'), null);
         }
 
-        // Due date / start date / estimate / sprint clutter the quick "add
-        // task" flow — keep them for editing, where they're the only place
-        // (besides the panel's Due Date field) to set them.
+        // Due date / start date / estimate clutter the quick "add task" flow
+        // — keep them for editing, where they're the only place (besides the
+        // panel's Due Date field) to set them.
         document.querySelectorAll('.task-modal-schedule-field').forEach(el => {
             el.hidden = !_editingTaskId;
         });
 
-        // When project changes, update column and sprint selects
+        // When project changes, update the column select
         projSel.onchange = () => {
             const pid = parseInt(projSel.value, 10) || null;
             Projects.populateColumnSelect(colSel, pid);
-            populateSprintSelect(sprintSel, pid, null);
             renderLabelSelect(labelsWrap, [], pid);
         };
 
@@ -564,15 +539,6 @@ const Tasks = (() => {
     function closeModal() {
         SpeechToText.stopAll();
         document.getElementById('taskModalScrim').classList.remove('open');
-    }
-
-    function populateSprintSelect(selectEl, projectId, selectedId) {
-        if (!selectEl) return;
-        const sprints = projectId
-            ? State.Sprints.byProject(projectId)
-            : State.Sprints.getAll();
-        selectEl.innerHTML = '<option value="">No sprint (Backlog)</option>' +
-            sprints.map(s => `<option value="${s.id}"${s.id === selectedId ? ' selected' : ''}>${escHtml(s.name)}</option>`).join('');
     }
 
     function renderLabelSelect(container, selected, projectId) {
@@ -610,7 +576,6 @@ const Tasks = (() => {
 
         const projId   = parseInt(document.getElementById('taskModalProject').value, 10) || null;
         const colId    = document.getElementById('taskModalColumn').value || null;
-        const sprintId = parseInt(document.getElementById('taskModalSprint').value, 10) || null;
         const estimate = parseFloat(document.getElementById('taskModalEstimate').value) || null;
         const priority = document.getElementById('taskModalPriority').value || 'medium';
 
@@ -629,7 +594,6 @@ const Tasks = (() => {
             priority,
             projectId:     projId,
             columnId:      colId || (projId ? State.getFirstColumn(projId)?.id : null),
-            sprintId,
             labels:        getSelectedLabels(),
             // Yields both agentId and the denormalized assignee string.
             ...Agents.parseAssigneeValue(document.getElementById('taskModalAssignee').value),
@@ -671,12 +635,6 @@ const Tasks = (() => {
 
         // Board "Add Task" button
         document.getElementById('boardAddTaskBtn')?.addEventListener('click', () => {
-            const pid = Router.getCurrentProjectId();
-            openModal(null, { projectId: pid });
-        });
-
-        // Backlog "Add Task" button
-        document.getElementById('backlogAddTaskBtn')?.addEventListener('click', () => {
             const pid = Router.getCurrentProjectId();
             openModal(null, { projectId: pid });
         });
@@ -779,7 +737,7 @@ const Tasks = (() => {
 
     return {
         init, openModal, closeModal,
-        buildTaskCard, buildTaskRow,
+        buildTaskCard,
         renderMyTasks, formatDueDate, formatTime, formatHours, formatElapsed,
         escHtml, hexToRgba, isDoneColumn, subtaskProgress,
         PRIORITIES, priorityDot, priorityLabel, priorityOptions,

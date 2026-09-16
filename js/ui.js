@@ -1090,12 +1090,10 @@ const UI = (() => {
         const navCmds = [
             { icon: 'fa-gauge-high',     label: 'Dashboard',        action: () => { closeCommandPalette(); Router.navigate('dashboard'); } },
             { icon: 'fa-check-circle',   label: 'My Tasks',         action: () => { closeCommandPalette(); Router.navigate('mytasks'); } },
-            { icon: 'fa-layer-group',    label: 'Backlog',          action: () => { closeCommandPalette(); Router.navigate('backlog'); } },
             { icon: 'fa-chart-gantt',    label: 'Timeline',         action: () => { closeCommandPalette(); Router.navigate('timeline'); } },
             { icon: 'fa-chart-bar',      label: 'Reports',          action: () => { closeCommandPalette(); Router.navigate('reports'); } },
             { icon: 'fa-plus',           label: 'New Task',         action: () => { closeCommandPalette(); Tasks.openModal(); }, kbd: ['N'] },
             { icon: 'fa-diagram-project',label: 'New Project',      action: () => { closeCommandPalette(); Projects.openModal(); } },
-            { icon: 'fa-bolt',           label: 'New Sprint',       action: () => { closeCommandPalette(); Sprints.openModal(); } },
         ];
 
         const filteredCmds = q ? navCmds.filter(c => c.label.toLowerCase().includes(q)) : navCmds;
@@ -1431,7 +1429,6 @@ const UI = (() => {
         { group: 'General', keys: ['Esc'],    desc: 'Close panel or dialog' },
         { group: 'Navigation', keys: ['G', 'D'], desc: 'Go to Dashboard' },
         { group: 'Navigation', keys: ['G', 'M'], desc: 'Go to My Tasks' },
-        { group: 'Navigation', keys: ['G', 'B'], desc: 'Go to Backlog' },
         { group: 'Navigation', keys: ['G', 'T'], desc: 'Go to Timeline' },
         { group: 'Navigation', keys: ['G', 'R'], desc: 'Go to Reports' },
         { group: 'Navigation', keys: ['G', 'S'], desc: 'Go to Settings' },
@@ -1443,7 +1440,7 @@ const UI = (() => {
         { group: 'Dialogs', keys: ['⌘', 'Enter'], desc: 'Save and close' },
     ];
 
-    const GOTO_ROUTES = { d: 'dashboard', m: 'mytasks', b: 'backlog', t: 'timeline', r: 'reports', s: 'settings' };
+    const GOTO_ROUTES = { d: 'dashboard', m: 'mytasks', t: 'timeline', r: 'reports', s: 'settings' };
     let _gotoArmed = false;
     let _gotoTimer = null;
 
@@ -1794,10 +1791,10 @@ const UI = (() => {
                 return;
             }
 
-            const { projects, tasks, sprints } = check.summary;
+            const { projects, tasks } = check.summary;
             confirm(
-                `This file has ${projects} project${projects === 1 ? '' : 's'}, ${tasks} task${tasks === 1 ? '' : 's'} ` +
-                `and ${sprints} sprint${sprints === 1 ? '' : 's'}. Importing replaces everything currently in this workspace.`,
+                `This file has ${projects} project${projects === 1 ? '' : 's'} and ${tasks} task${tasks === 1 ? '' : 's'}. ` +
+                `Importing replaces everything currently in this workspace.`,
                 () => {
                     State.importData(check.data);
                     Projects.renderSidebar();
@@ -1996,8 +1993,6 @@ const App = (() => {
         Agents.init();
         Tasks.init();
         Board.init();
-        Backlog.init();
-        Sprints.init();
         Reports.init();
         Timeline.init();
         Dashboard.init();
