@@ -127,6 +127,23 @@ const State = (() => {
         return slug;
     }
 
+    /**
+     * If `cleanSlug` is currently held by a different agent whose slug no
+     * longer matches ITS OWN name (i.e. inherited from a name it has since
+     * been renamed away from), relocate that agent to a slug that matches its
+     * current name — freeing `cleanSlug` for whoever actually deserves it now
+     * (TASK-529: renaming an agent away from "Monday" left the next agent
+     * actually named Monday stuck with "monday-2"). A slug that still matches
+     * its holder's current name is a live collision, not a stale one, so it's
+     * left alone and the asker gets a numeric-suffixed slug instead.
+     */
+    function reclaimStaleSlug(cleanSlug, excludeId) {
+        const holder = _data.agents.find(a => a.slug === cleanSlug && a.id !== excludeId);
+        if (!holder || slugifyAgent(holder.name) === cleanSlug) return;
+        const taken = new Set(_data.agents.filter(a => a.id !== holder.id).map(a => a.slug));
+        holder.slug = slugifyAgent(holder.name, taken);
+    }
+
     /** Coerce an imported / Firebase agent into a complete record. Mutates in place. */
     function normalizeImportedAgent(agent, taken) {
         if (!agent || typeof agent !== 'object') return;
@@ -177,6 +194,29 @@ const State = (() => {
     function normalizeAllAgents() {
         const taken = new Set();
         (_data.agents || []).forEach(a => normalizeImportedAgent(a, taken));
+        resyncStaleAgentSlugs();
+    }
+
+    /**
+     * TASK-529: self-heal a slug that no longer matches its own agent's
+     * current name — typically left behind by a rename before this file's
+     * create()/update() started keeping slugs in sync — so a *different*,
+     * later agent actually named after the freed slug isn't stuck with a
+     * numeric suffix (e.g. an agent renamed away from "Monday" was still
+     * sitting on the "monday" slug, so the next agent actually named Monday
+     * got "monday-2"). Only touches a slug that is provably stale; one that
+     * still matches its holder's current name is a live identity and is
+     * never reassigned out from under it.
+     */
+    function resyncStaleAgentSlugs() {
+        _data.agents.forEach(a => {
+            const clean = slugifyAgent(a.name);
+            if (a.slug === clean) return;
+            reclaimStaleSlug(clean, a.id);
+            if (!_data.agents.some(o => o.id !== a.id && o.slug === clean)) {
+                a.slug = clean;
+            }
+        });
     }
 
     /** True when task.projectId references an existing project. */
@@ -391,16 +431,17 @@ const State = (() => {
 
         create(fields) {
             const proj = {
-                id:          Date.now(),
-                name:        fields.name   || 'Untitled Project',
-                description: fields.description || '',
-                repo:        fields.repo   || '',
-                emoji:       '',
-                color:       fields.color  || '#6366f1',
-                position:    (_data.projects.length + 1) * 1000,
-                columns:     fields.columns || defaultColumns.map(c => ({ ...c })),
-                labels:      fields.labels  || [],
-                createdAt:   new Date().toISOString(),
+                id:              Date.now(),
+                name:            fields.name   || 'Untitled Project',
+                description:     fields.description || '',
+                repo:            fields.repo   || '',
+                emoji:           '',
+                color:           fields.color  || '#6366f1',
+                position:        (_data.projects.length + 1) * 1000,
+                columns:         fields.columns || defaultColumns.map(c => ({ ...c })),
+                labels:          fields.labels  || [],
+                defaultAssignee: fields.defaultAssignee || null,
+                createdAt:       new Date().toISOString(),
             };
             _data.projects.push(proj);
             save();
@@ -497,15 +538,16 @@ const State = (() => {
             const newName = (prefix + trimmed).slice(0, maxName);
 
             const newProj = {
-                id:          nextId(),
-                name:        newName,
-                description: src.description || '',
-                emoji:       src.emoji || '',
-                color:       src.color || '#6366f1',
-                position:    (_data.projects.length + 1) * 1000,
-                columns:     newColumns,
-                labels:      newLabels,
-                createdAt:   new Date().toISOString(),
+                id:              nextId(),
+                name:            newName,
+                description:     src.description || '',
+                emoji:           src.emoji || '',
+                color:           src.color || '#6366f1',
+                position:        (_data.projects.length + 1) * 1000,
+                columns:         newColumns,
+                labels:          newLabels,
+                defaultAssignee: src.defaultAssignee || null,
+                createdAt:       new Date().toISOString(),
             };
             _data.projects.push(newProj);
 
@@ -885,6 +927,7 @@ const State = (() => {
         taskCount(id) { return _data.tasks.filter(t => t.agentId == id).length; },
 
         create(fields) {
+            reclaimStaleSlug(slugifyAgent(fields.slug || fields.name), null);
             const taken = new Set(_data.agents.map(a => a.slug));
             const agent = {
                 id:           nextAgentId(),
@@ -915,6 +958,13 @@ const State = (() => {
             if (fields.slug) {
                 const taken = new Set(_data.agents.filter(a => a.id != id).map(a => a.slug));
                 fields.slug = slugifyAgent(fields.slug, taken);
+            } else if (fields.name && fields.name !== oldName) {
+                // TASK-529: a rename now follows through to the slug too, so
+                // Claude's handle for this agent tracks its current name
+                // instead of freezing at whatever it was called when created.
+                reclaimStaleSlug(slugifyAgent(fields.name), id);
+                const taken = new Set(_data.agents.filter(a => a.id != id).map(a => a.slug));
+                fields.slug = slugifyAgent(fields.name, taken);
             }
             Object.assign(_data.agents[idx], fields);
 

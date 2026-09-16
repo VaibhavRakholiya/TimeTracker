@@ -516,6 +516,12 @@ const Tasks = (() => {
             }
             renderLabelSelect(labelsWrap, [], defaultProjId);
             Agents.populateAssigneeSelect(document.getElementById('taskModalAssignee'), null);
+            // A project's default assignee pre-selects here, same as the current
+            // user would otherwise — only for a brand-new task, never editing.
+            const defaultProj = defaultProjId ? State.Projects.get(defaultProjId) : null;
+            if (defaultProj?.defaultAssignee) {
+                document.getElementById('taskModalAssignee').value = defaultProj.defaultAssignee;
+            }
         }
 
         // Due date / start date / estimate clutter the quick "add task" flow
@@ -530,6 +536,14 @@ const Tasks = (() => {
             const pid = parseInt(projSel.value, 10) || null;
             Projects.populateColumnSelect(colSel, pid);
             renderLabelSelect(labelsWrap, [], pid);
+            // Only for a new task — switching an edited task's project must not
+            // silently override an assignee the user already chose.
+            if (!_editingTaskId) {
+                const proj = pid ? State.Projects.get(pid) : null;
+                if (proj?.defaultAssignee) {
+                    document.getElementById('taskModalAssignee').value = proj.defaultAssignee;
+                }
+            }
         };
 
         modal.classList.add('open');
