@@ -414,9 +414,9 @@ const Agents = (() => {
         if (!hint) return;
         const name = document.getElementById('agentModalName').value.trim();
         const existing = _editingAgentId ? State.Agents.get(_editingAgentId) : null;
-        // Editing keeps the established slug — renaming must not break the
-        // handle Claude may already be using.
-        const slug = existing ? existing.slug : slugPreview(name);
+        // A rename updates the slug on save (TASK-529), so the hint previews
+        // what it's about to become rather than the slug on file right now.
+        const slug = (existing && (!name || name === existing.name)) ? existing.slug : slugPreview(name);
         hint.innerHTML = name || existing
             ? `Claude refers to this agent as <code>${escHtml(slug)}</code>`
             : 'Claude refers to agents by a short handle derived from the name.';

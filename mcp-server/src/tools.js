@@ -618,6 +618,7 @@ export async function create_agent(args) {
     if (!name || !String(name).trim()) throw new Error('name is required.');
 
     return store.mutate('agents', (agents) => {
+        D.reclaimStaleSlug(agents, D.slugifyAgent(args.slug || name), null);
         const taken = new Set(agents.map(a => a.slug).filter(Boolean));
         const agent = D.hydrateAgent({
             id:           D.uniqueId(agents),
@@ -651,6 +652,16 @@ export async function update_agent(args) {
             if (args[k] !== undefined) { merged[k] = args[k]; changed = true; }
         }
         if (!changed) return { next: undefined, result: { agent: found, renamed: false } };
+
+        // TASK-529: a rename follows through to the slug too, so Claude's
+        // handle for this agent tracks its current name rather than freezing
+        // at whatever it was called when created.
+        if (args.name !== undefined && args.name !== found.name) {
+            const cleanSlug = D.slugifyAgent(args.name);
+            D.reclaimStaleSlug(agents, cleanSlug, found.id);
+            const taken = new Set(agents.filter(a => a.id != found.id).map(a => a.slug));
+            merged.slug = D.slugifyAgent(args.name, taken);
+        }
 
         const next = agents.slice();
         next[idx] = D.hydrateAgent(merged);
