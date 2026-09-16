@@ -15,6 +15,30 @@ import * as D from './domain.js';
 const REFRESH_HINT = 'Reload FlowBoard, or use Settings → Data → Refresh from Cloud, to see this on the board.';
 
 /**
+ * Drop a system/agent message into a project's chat log (TASK-519) — the
+ * in-app trail of "moved to review", "assigned", "idle" events that the web
+ * app surfaces as chat + notifications. Best-effort: a chat write failing
+ * must never fail the task mutation it's reporting on.
+ */
+async function postChatMessage(projectId, { author, authorType = 'system', text, taskKey } = {}) {
+    if (projectId == null || !text) return;
+    try {
+        await store.mutate('chats', (chats) => {
+            const msg = {
+                id: D.uniqueId(chats),
+                projectId,
+                author: author || 'System',
+                authorType,
+                text,
+                taskKey: taskKey || null,
+                createdAt: new Date().toISOString(),
+            };
+            return { next: [...chats, msg], result: msg };
+        });
+    } catch { /* chat is a side channel — never block the caller on it */ }
+}
+
+/**
  * Keep one agent's busy/queue state consistent with a task that just finished,
  * moved away, or needs claiming — the one thing that makes assignment mean
  * "start now or wait your turn" instead of just a label on a card.
@@ -358,11 +382,30 @@ export async function move_task({ task: ref, column }) {
         return { next, result: { task: updated, columnName: col.name, autoFinish } };
     });
 
+    const isReviewColumn = String(moveResult.columnName).trim().toLowerCase().includes('review');
+    const movedByAgent = moveResult.task.agentId != null
+        ? (await store.read('agents')).find(a => a.id == moveResult.task.agentId)
+        : null;
+    await postChatMessage(moveResult.task.projectId, {
+        author:     movedByAgent?.name || 'System',
+        authorType: movedByAgent ? 'agent' : 'system',
+        taskKey:    moveResult.task.taskKey,
+        text: isReviewColumn
+            ? `🔍 "${moveResult.task.title}" (${moveResult.task.taskKey}) is ready for review.`
+            : `"${moveResult.task.title}" (${moveResult.task.taskKey}) moved to ${moveResult.columnName}.`,
+    });
+
     let queue = null;
     let moved = { moved: false };
     if (moveResult.autoFinish) {
         queue = await releaseAndClaim(moveResult.task.agentId, { justFinishedTaskId: moveResult.task.id });
         if (queue.currentTaskId != null) moved = await moveToInProgressIfActive(queue.currentTaskId);
+        if (queue.currentTaskId == null && movedByAgent) {
+            await postChatMessage(moveResult.task.projectId, {
+                author: movedByAgent.name, authorType: 'agent',
+                text: `${movedByAgent.name} is now idle.`,
+            });
+        }
     }
 
     return {
@@ -405,6 +448,12 @@ export async function assign_task({ task: ref, agent, assignee }) {
         const next = tasks.slice();
         next[idx] = updated;
         return { next, result: { task: updated, oldAgentId: previousAgentId } };
+    });
+
+    await postChatMessage(task.projectId, {
+        author: owner.assignee, authorType: owner.agentId != null ? 'agent' : 'system',
+        taskKey: task.taskKey,
+        text: `"${task.title}" (${task.taskKey}) assigned to ${owner.assignee}.`,
     });
 
     // Step 2: keep the agent busy/queue state honest. Two separate CAS writes
@@ -466,6 +515,15 @@ export async function finish_task({ task: ref }) {
     const moved = queue.currentTaskId != null
         ? await moveToInProgressIfActive(queue.currentTaskId)
         : { moved: false };
+
+    const finishingAgent = (await store.read('agents')).find(a => a.id == task.agentId);
+    await postChatMessage(task.projectId, {
+        author: finishingAgent?.name || 'Agent', authorType: 'agent',
+        taskKey: task.taskKey,
+        text: queue.currentTaskId != null
+            ? `${finishingAgent?.name || 'Agent'} finished "${task.title}" (${task.taskKey}) and moved on to the next task.`
+            : `${finishingAgent?.name || 'Agent'} finished "${task.title}" (${task.taskKey}) and is now idle.`,
+    });
 
     return {
         taskKey: task.taskKey,
@@ -546,6 +604,7 @@ export async function create_agent(args) {
     if (!name || !String(name).trim()) throw new Error('name is required.');
 
     return store.mutate('agents', (agents) => {
+        D.reclaimStaleSlug(agents, D.slugifyAgent(args.slug || name), null);
         const taken = new Set(agents.map(a => a.slug).filter(Boolean));
         const agent = D.hydrateAgent({
             id:           D.uniqueId(agents),
@@ -579,6 +638,16 @@ export async function update_agent(args) {
             if (args[k] !== undefined) { merged[k] = args[k]; changed = true; }
         }
         if (!changed) return { next: undefined, result: { agent: found, renamed: false } };
+
+        // TASK-529: a rename follows through to the slug too, so Claude's
+        // handle for this agent tracks its current name rather than freezing
+        // at whatever it was called when created.
+        if (args.name !== undefined && args.name !== found.name) {
+            const cleanSlug = D.slugifyAgent(args.name);
+            D.reclaimStaleSlug(agents, cleanSlug, found.id);
+            const taken = new Set(agents.filter(a => a.id != found.id).map(a => a.slug));
+            merged.slug = D.slugifyAgent(args.name, taken);
+        }
 
         const next = agents.slice();
         next[idx] = D.hydrateAgent(merged);

@@ -29,6 +29,7 @@ const State = (() => {
             projects: [],
             tasks:    [],
             agents:   [],
+            chats:    [],
             labels:   defaultLabels,
             activity: [],
         };
@@ -126,6 +127,23 @@ const State = (() => {
         return slug;
     }
 
+    /**
+     * If `cleanSlug` is currently held by a different agent whose slug no
+     * longer matches ITS OWN name (i.e. inherited from a name it has since
+     * been renamed away from), relocate that agent to a slug that matches its
+     * current name — freeing `cleanSlug` for whoever actually deserves it now
+     * (TASK-529: renaming an agent away from "Monday" left the next agent
+     * actually named Monday stuck with "monday-2"). A slug that still matches
+     * its holder's current name is a live collision, not a stale one, so it's
+     * left alone and the asker gets a numeric-suffixed slug instead.
+     */
+    function reclaimStaleSlug(cleanSlug, excludeId) {
+        const holder = _data.agents.find(a => a.slug === cleanSlug && a.id !== excludeId);
+        if (!holder || slugifyAgent(holder.name) === cleanSlug) return;
+        const taken = new Set(_data.agents.filter(a => a.id !== holder.id).map(a => a.slug));
+        holder.slug = slugifyAgent(holder.name, taken);
+    }
+
     /** Coerce an imported / Firebase agent into a complete record. Mutates in place. */
     function normalizeImportedAgent(agent, taken) {
         if (!agent || typeof agent !== 'object') return;
@@ -176,6 +194,29 @@ const State = (() => {
     function normalizeAllAgents() {
         const taken = new Set();
         (_data.agents || []).forEach(a => normalizeImportedAgent(a, taken));
+        resyncStaleAgentSlugs();
+    }
+
+    /**
+     * TASK-529: self-heal a slug that no longer matches its own agent's
+     * current name — typically left behind by a rename before this file's
+     * create()/update() started keeping slugs in sync — so a *different*,
+     * later agent actually named after the freed slug isn't stuck with a
+     * numeric suffix (e.g. an agent renamed away from "Monday" was still
+     * sitting on the "monday" slug, so the next agent actually named Monday
+     * got "monday-2"). Only touches a slug that is provably stale; one that
+     * still matches its holder's current name is a live identity and is
+     * never reassigned out from under it.
+     */
+    function resyncStaleAgentSlugs() {
+        _data.agents.forEach(a => {
+            const clean = slugifyAgent(a.name);
+            if (a.slug === clean) return;
+            reclaimStaleSlug(clean, a.id);
+            if (!_data.agents.some(o => o.id !== a.id && o.slug === clean)) {
+                a.slug = clean;
+            }
+        });
     }
 
     /** True when task.projectId references an existing project. */
@@ -272,6 +313,7 @@ const State = (() => {
                 _data = Object.assign(getDefaults(), parsed);
                 if (!_data.labels || !_data.labels.length) _data.labels = defaultLabels;
                 if (!Array.isArray(_data.agents)) _data.agents = [];
+                if (!Array.isArray(_data.chats)) _data.chats = [];
                 if (!_data.activity) _data.activity = [];
                 normalizeAllTasks();
                 normalizeAllAgents();
@@ -314,23 +356,50 @@ const State = (() => {
     async function loadFromFirebase() {
         if (!window.firebaseRESTIntegration) return false;
         try {
-            const [projects, tasks, agents] = await Promise.all([
+            const [projects, tasks, agents, chats] = await Promise.all([
                 window.firebaseRESTIntegration.loadData('flowboard_projects'),
                 window.firebaseRESTIntegration.loadData('flowboard_tasks'),
                 window.firebaseRESTIntegration.loadData('flowboard_agents'),
+                window.firebaseRESTIntegration.loadData('flowboard_chats'),
             ]);
             if (projects && Array.isArray(projects)) _data.projects = projects;
             if (tasks    && Array.isArray(tasks))    _data.tasks    = tasks;
             if (agents   && Array.isArray(agents))   _data.agents   = agents;
+            if (chats    && Array.isArray(chats))    _data.chats    = chats;
             normalizeAllTasks();
             normalizeAllAgents();
             removeOrphanedTasks();
             save();
+            emit('chats:changed');
             return true;
         } catch (e) {
             console.warn('State: Firebase load failed', e);
             return false;
         }
+    }
+
+    /**
+     * Chats are pulled here on their own (not folded into the periodic
+     * syncToFirebase push) because that push is a wholesale last-write-wins
+     * overwrite of the whole collection — fine for single-editor data like
+     * tasks, but chats are appended concurrently by the MCP server (agents)
+     * while a browser tab is open, so a full overwrite could erase messages
+     * this tab never saw. Reads are safe either way; only writes need care —
+     * see Chats.send below, which appends via a fresh read instead.
+     */
+    async function refreshChatsFromFirebase() {
+        if (!window.firebaseRESTIntegration) return false;
+        try {
+            const chats = await window.firebaseRESTIntegration.loadData('flowboard_chats');
+            if (Array.isArray(chats)) {
+                _data.chats = chats;
+                emit('chats:changed');
+                return true;
+            }
+        } catch (e) {
+            console.warn('State: chat refresh failed', e);
+        }
+        return false;
     }
 
     // ── Activity log ─────────────────────────────────────
@@ -362,16 +431,17 @@ const State = (() => {
 
         create(fields) {
             const proj = {
-                id:          Date.now(),
-                name:        fields.name   || 'Untitled Project',
-                description: fields.description || '',
-                repo:        fields.repo   || '',
-                emoji:       '',
-                color:       fields.color  || '#6366f1',
-                position:    (_data.projects.length + 1) * 1000,
-                columns:     fields.columns || defaultColumns.map(c => ({ ...c })),
-                labels:      fields.labels  || [],
-                createdAt:   new Date().toISOString(),
+                id:              Date.now(),
+                name:            fields.name   || 'Untitled Project',
+                description:     fields.description || '',
+                repo:            fields.repo   || '',
+                emoji:           '',
+                color:           fields.color  || '#6366f1',
+                position:        (_data.projects.length + 1) * 1000,
+                columns:         fields.columns || defaultColumns.map(c => ({ ...c })),
+                labels:          fields.labels  || [],
+                defaultAssignee: fields.defaultAssignee || null,
+                createdAt:       new Date().toISOString(),
             };
             _data.projects.push(proj);
             save();
@@ -468,15 +538,16 @@ const State = (() => {
             const newName = (prefix + trimmed).slice(0, maxName);
 
             const newProj = {
-                id:          nextId(),
-                name:        newName,
-                description: src.description || '',
-                emoji:       src.emoji || '',
-                color:       src.color || '#6366f1',
-                position:    (_data.projects.length + 1) * 1000,
-                columns:     newColumns,
-                labels:      newLabels,
-                createdAt:   new Date().toISOString(),
+                id:              nextId(),
+                name:            newName,
+                description:     src.description || '',
+                emoji:           src.emoji || '',
+                color:           src.color || '#6366f1',
+                position:        (_data.projects.length + 1) * 1000,
+                columns:         newColumns,
+                labels:          newLabels,
+                defaultAssignee: src.defaultAssignee || null,
+                createdAt:       new Date().toISOString(),
             };
             _data.projects.push(newProj);
 
@@ -856,6 +927,7 @@ const State = (() => {
         taskCount(id) { return _data.tasks.filter(t => t.agentId == id).length; },
 
         create(fields) {
+            reclaimStaleSlug(slugifyAgent(fields.slug || fields.name), null);
             const taken = new Set(_data.agents.map(a => a.slug));
             const agent = {
                 id:           nextAgentId(),
@@ -886,6 +958,13 @@ const State = (() => {
             if (fields.slug) {
                 const taken = new Set(_data.agents.filter(a => a.id != id).map(a => a.slug));
                 fields.slug = slugifyAgent(fields.slug, taken);
+            } else if (fields.name && fields.name !== oldName) {
+                // TASK-529: a rename now follows through to the slug too, so
+                // Claude's handle for this agent tracks its current name
+                // instead of freezing at whatever it was called when created.
+                reclaimStaleSlug(slugifyAgent(fields.name), id);
+                const taken = new Set(_data.agents.filter(a => a.id != id).map(a => a.slug));
+                fields.slug = slugifyAgent(fields.name, taken);
             }
             Object.assign(_data.agents[idx], fields);
 
@@ -981,6 +1060,49 @@ const State = (() => {
         queue(id) {
             const agent = this.get(id);
             return agent ? queueForAgent(id, agent.currentTaskId) : [];
+        },
+    };
+
+    // ── Chats (per-project log, TASK-519) ──────────────────
+    const Chats = {
+        getAll()       { return _data.chats; },
+        byProject(pid) { return _data.chats.filter(c => c.projectId == pid).sort((a, b) => a.id - b.id); },
+        refresh:  refreshChatsFromFirebase,
+
+        /**
+         * Post a human message. Appends via a fresh read-then-write straight to
+         * Firebase rather than routing through the debounced whole-state
+         * syncToFirebase — see refreshChatsFromFirebase's comment on why chats
+         * don't ride that wholesale push.
+         */
+        async send(projectId, text) {
+            const trimmed = String(text || '').trim();
+            if (!projectId || !trimmed) return null;
+
+            const msg = {
+                id:         Date.now(),
+                projectId,
+                author:     localStorage.getItem('username') || 'admin',
+                authorType: 'user',
+                text:       trimmed,
+                taskKey:    null,
+                createdAt:  new Date().toISOString(),
+            };
+
+            _data.chats.push(msg);
+            emit('chats:changed');
+
+            if (window.firebaseRESTIntegration) {
+                try {
+                    const current = await window.firebaseRESTIntegration.loadData('flowboard_chats');
+                    const list = Array.isArray(current) ? current : [];
+                    list.push(msg);
+                    await window.firebaseRESTIntegration.saveData('flowboard_chats', list);
+                } catch (e) {
+                    console.warn('State: chat send failed', e);
+                }
+            }
+            return msg;
         },
     };
 
@@ -1357,7 +1479,7 @@ const State = (() => {
 
     return {
         on, off, emit,
-        Projects, Tasks, Agents, Labels, Activity, Timer, Entries,
+        Projects, Tasks, Agents, Chats, Labels, Activity, Timer, Entries,
         getColumnById, getFirstColumn, formatDuration,
         load, save, init, exportData, importData, inspectImport, clearAll, loadFromFirebase,
         get data() { return _data; },

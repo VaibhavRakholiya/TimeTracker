@@ -252,6 +252,7 @@ const Projects = (() => {
             document.getElementById('projectModalRepo').value = proj.repo || '';
             _selectedColor  = proj.color;
             _editingColumns = proj.columns.map(c => ({ ...c }));
+            Agents.populateDefaultAssigneeSelect(document.getElementById('projectModalDefaultAssignee'), proj.defaultAssignee);
         } else {
             title.textContent = 'New Project';
             saveBtn.textContent = 'Create Project';
@@ -259,6 +260,7 @@ const Projects = (() => {
             document.getElementById('projectModalName').value = '';
             document.getElementById('projectModalDesc').value = '';
             document.getElementById('projectModalRepo').value = '';
+            Agents.populateDefaultAssigneeSelect(document.getElementById('projectModalDefaultAssignee'), '');
             _selectedColor  = '#6366f1';
             _editingColumns = [
                 { id: `col-${Date.now()}-1`, name: 'To Do',       color: '#6b7280', position: 0, wipLimit: null },
@@ -381,10 +383,11 @@ const Projects = (() => {
 
         const fields = {
             name,
-            description: document.getElementById('projectModalDesc').value.trim(),
-            repo:        document.getElementById('projectModalRepo').value.trim(),
-            color:       _selectedColor,
-            columns:     cols,
+            description:     document.getElementById('projectModalDesc').value.trim(),
+            repo:            document.getElementById('projectModalRepo').value.trim(),
+            color:           _selectedColor,
+            columns:         cols,
+            defaultAssignee: document.getElementById('projectModalDefaultAssignee').value || null,
         };
 
         if (_editingProjectId) {

@@ -193,6 +193,9 @@
                                     <i class="fa-solid fa-list"></i> List
                                 </button>
                             </div>
+                            <button class="btn btn-secondary btn-sm" id="boardChatBtn" title="Project chat">
+                                <i class="fa-solid fa-comments"></i> Chat
+                            </button>
                             <button class="btn btn-secondary btn-sm" id="manageBoardBtn">
                                 <i class="fa-solid fa-sliders"></i> Manage
                             </button>
@@ -214,6 +217,24 @@
                     </div>
                     <div class="board-container" id="boardContainer">
                         <!-- Task list rendered by board.js -->
+                    </div>
+                </div>
+
+                <!-- ─────────────────────────────────── CHAT ── -->
+                <div class="view" id="view-chat">
+                    <div class="view-header">
+                        <div>
+                            <h1 class="view-title" id="chatViewTitle">Chat</h1>
+                            <div class="view-subtitle">Project chat</div>
+                        </div>
+                        <div class="view-actions">
+                            <button class="btn btn-secondary btn-sm" id="chatBackToBoardBtn">
+                                <i class="fa-solid fa-table-columns"></i> Back to Tasks
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chat-container" id="chatContainer">
+                        <!-- Rendered by chat.js -->
                     </div>
                 </div>
 
@@ -481,6 +502,11 @@
                     <p class="settings-hint">The repo an agent should work in for this project's tasks — a name or a local path.</p>
                 </div>
                 <div class="form-group">
+                    <label class="form-label" for="projectModalDefaultAssignee">Default Assignee</label>
+                    <select class="form-control" id="projectModalDefaultAssignee"></select>
+                    <p class="settings-hint">Pre-selected when a new task is created in this project.</p>
+                </div>
+                <div class="form-group">
                     <label class="form-label">Color</label>
                     <div class="color-swatch-row" id="projectModalColors">
                         <!-- populated by projects.js -->
@@ -639,6 +665,7 @@
     <script src="js/router.js"></script>
     <script src="js/projects.js"></script>
     <script src="js/agents.js"></script>
+    <script src="js/chat.js"></script>
     <script src="js/speech-to-text.js"></script>
     <script src="js/tasks.js"></script>
     <script src="js/board.js"></script>

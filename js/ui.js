@@ -1993,6 +1993,7 @@ const App = (() => {
         Agents.init();
         Tasks.init();
         Board.init();
+        Chat.init();
         Reports.init();
         Timeline.init();
         Dashboard.init();
