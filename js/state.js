@@ -397,16 +397,17 @@ const State = (() => {
 
         create(fields) {
             const proj = {
-                id:          Date.now(),
-                name:        fields.name   || 'Untitled Project',
-                description: fields.description || '',
-                repo:        fields.repo   || '',
-                emoji:       '',
-                color:       fields.color  || '#6366f1',
-                position:    (_data.projects.length + 1) * 1000,
-                columns:     fields.columns || defaultColumns.map(c => ({ ...c })),
-                labels:      fields.labels  || [],
-                createdAt:   new Date().toISOString(),
+                id:              Date.now(),
+                name:            fields.name   || 'Untitled Project',
+                description:     fields.description || '',
+                repo:            fields.repo   || '',
+                emoji:           '',
+                color:           fields.color  || '#6366f1',
+                position:        (_data.projects.length + 1) * 1000,
+                columns:         fields.columns || defaultColumns.map(c => ({ ...c })),
+                labels:          fields.labels  || [],
+                defaultAssignee: fields.defaultAssignee || null,
+                createdAt:       new Date().toISOString(),
             };
             _data.projects.push(proj);
             save();
@@ -503,15 +504,16 @@ const State = (() => {
             const newName = (prefix + trimmed).slice(0, maxName);
 
             const newProj = {
-                id:          nextId(),
-                name:        newName,
-                description: src.description || '',
-                emoji:       src.emoji || '',
-                color:       src.color || '#6366f1',
-                position:    (_data.projects.length + 1) * 1000,
-                columns:     newColumns,
-                labels:      newLabels,
-                createdAt:   new Date().toISOString(),
+                id:              nextId(),
+                name:            newName,
+                description:     src.description || '',
+                emoji:           src.emoji || '',
+                color:           src.color || '#6366f1',
+                position:        (_data.projects.length + 1) * 1000,
+                columns:         newColumns,
+                labels:          newLabels,
+                defaultAssignee: src.defaultAssignee || null,
+                createdAt:       new Date().toISOString(),
             };
             _data.projects.push(newProj);
 
