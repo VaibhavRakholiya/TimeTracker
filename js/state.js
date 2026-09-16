@@ -1376,7 +1376,7 @@ const State = (() => {
         try { parsed = typeof json === 'string' ? JSON.parse(json) : json; }
         catch { return { ok: false, error: 'That file is not valid JSON.' }; }
 
-        if (!parsed || typeof parsed !== 'object') return { ok: false, error: 'That file is not a FlowBoard export.' };
+        if (!parsed || typeof parsed !== 'object') return { ok: false, error: 'That file is not an AriseX export.' };
         if (!Array.isArray(parsed.projects) || !Array.isArray(parsed.tasks)) {
             return { ok: false, error: 'That file is missing a projects or tasks list.' };
         }

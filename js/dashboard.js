@@ -203,7 +203,7 @@ const Dashboard = (() => {
         if (!projects.length) {
             container.innerHTML = UI.emptyState({
                 icon: 'fa-rocket',
-                title: 'Welcome to FlowBoard',
+                title: 'Welcome to AriseX',
                 body: 'Create your first project to start tracking tasks and time.',
                 action: { id: 'dashFirstProject', label: 'Create a project', icon: 'fa-plus' },
             });
