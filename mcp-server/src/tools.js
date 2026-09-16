@@ -67,18 +67,28 @@ async function releaseAndClaim(agentId, { justFinishedTaskId, claimTaskId } = {}
         // Freshly read on every attempt (including CAS retries) — cheap, and
         // it's what lets a promoted task reflect a task write that landed
         // between our own retries.
-        const tasks = await store.read('tasks');
+        const [tasks, projects] = await Promise.all([store.read('tasks'), store.read('projects')]);
+        // Backlog items are assigned but not ready — never auto-promoted or
+        // claimed, only tasks in a real working column are.
+        const isReady = t => !D.isBacklogColumn(D.hydrateTask(t), projects);
 
         let changed = false;
         if (justFinishedTaskId != null && agent.currentTaskId == justFinishedTaskId) {
-            const next = D.queueForAgent(tasks, agent.id, agent.currentTaskId)[0] || null;
+            const next = D.queueForAgent(tasks, agent.id, agent.currentTaskId).find(isReady) || null;
             agent.currentTaskId = next ? next.id : null;
             changed = true;
         }
 
         let result;
         if (claimTaskId != null) {
-            if (agent.currentTaskId == null) {
+            const claimTask = tasks.find(t => t.id == claimTaskId);
+            const claimIsBacklog = claimTask ? !isReady(claimTask) : false;
+
+            if (claimIsBacklog) {
+                // Assigned, but sitting in Backlog — stays put, doesn't start,
+                // even if the agent would otherwise be free right now.
+                result = { agentStatus: 'backlog', startNow: false, queuePosition: null };
+            } else if (agent.currentTaskId == null) {
                 agent.currentTaskId = claimTaskId;
                 changed = true;
                 result = { agentStatus: 'active', startNow: true, queuePosition: 0 };
@@ -312,9 +322,11 @@ export async function create_task(args) {
         hint: queue.startNow
             ? `${owner.agentSlug} is free — begin this task now.` +
               (moved.moved ? ` The card moved to "${moved.columnName}".` : '')
-            : queue.agentStatus === 'queued'
-                ? `${owner.agentSlug} is already working something else. This is #${queue.queuePosition} in its queue.`
-                : REFRESH_HINT,
+            : queue.agentStatus === 'backlog'
+                ? `This task is in the Backlog column, so ${owner.agentSlug} will not start it automatically. Move it to a workable column (e.g. "To Do") first.`
+                : queue.agentStatus === 'queued'
+                    ? `${owner.agentSlug} is already working something else. This is #${queue.queuePosition} in its queue.`
+                    : REFRESH_HINT,
     };
 }
 
@@ -477,9 +489,11 @@ export async function assign_task({ task: ref, agent, assignee }) {
         hint: queue.startNow
             ? `${owner.agentSlug} is free — begin this task now.` +
               (moved.moved ? ` The card moved to "${moved.columnName}".` : '')
-            : queue.agentStatus === 'queued'
-                ? `${owner.agentSlug} is already working something else. This is #${queue.queuePosition} in its queue — it will not start on its own; call finish_task on the active one to advance the queue.`
-                : REFRESH_HINT,
+            : queue.agentStatus === 'backlog'
+                ? `This task is in the Backlog column, so ${owner.agentSlug} will not start it automatically even though it's free. Move it to a workable column (e.g. "To Do") first, then it can be claimed.`
+                : queue.agentStatus === 'queued'
+                    ? `${owner.agentSlug} is already working something else. This is #${queue.queuePosition} in its queue — it will not start on its own; call finish_task on the active one to advance the queue.`
+                    : REFRESH_HINT,
     };
 }
 

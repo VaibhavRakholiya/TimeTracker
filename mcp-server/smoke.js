@@ -147,6 +147,24 @@ await store.mutate('projects', (projects) => ({
     result: null,
 }));
 
+// A third project mirroring the real workspace's "Blower" / "Origami Weapons"
+// projects: a literal Backlog column ahead of To Do.
+const backlogProjectId = Date.now() + 2;
+await store.mutate('projects', (projects) => ({
+    next: [...projects, {
+        id: backlogProjectId, name: 'Backlog Project', description: '', emoji: '', color: '#a855f7',
+        position: 3000, labels: [],
+        columns: [
+            { id: 'bl-backlog', name: 'Backlog',     color: '#94a3b8', position: 0, wipLimit: null },
+            { id: 'bl-todo',    name: 'To Do',       color: '#6b7280', position: 1, wipLimit: null },
+            { id: 'bl-ip',      name: 'In Progress', color: '#3b82f6', position: 2, wipLimit: null },
+            { id: 'bl-done',    name: 'Done',        color: '#22c55e', position: 3, wipLimit: null },
+        ],
+        createdAt: new Date().toISOString(),
+    }],
+    result: null,
+}));
+
 let agent, task;
 
 await check('list_projects returns the seeded project with columns', async () => {
@@ -360,6 +378,52 @@ await check('reassigning an agent\'s active task away promotes its queue', async
     assert.equal(a.currentTaskKey, t2.taskKey, 'promoting away from the active task should surface the queued one');
     // clean up: finish what's left so the agent doesn't leak into other checks
     await T.finish_task({ task: t2.taskKey });
+});
+
+// ── Backlog: assigned-but-not-ready tasks never auto-start ──
+section('backlog exclusion');
+
+await check('a task created in Backlog is not claimed — agent stays idle', async () => {
+    const backlogAgent = (await T.create_agent({ name: 'Backlog Tester' })).agent;
+    const r = await T.create_task({
+        projectId: backlogProjectId, title: 'Sits in backlog', column: 'Backlog', agent: backlogAgent.slug,
+    });
+    assert.equal(r.startNow, false);
+    assert.equal(r.agentStatus, 'backlog');
+    assert.equal(r.task.columnId, 'bl-backlog', 'it must stay put, not get moved to In Progress');
+
+    const agents = await T.list_agents({});
+    assert.equal(agents.find(a => a.id === backlogAgent.id).status, 'idle',
+        'a backlog-only task must not count as the agent working something');
+});
+
+await check('a workable task is claimed ahead of an already-assigned backlog task', async () => {
+    const backlogAgent = (await T.list_agents({})).find(a => a.slug === 'backlog-tester');
+    // Explicit column: this project's default (first-by-position) column is
+    // itself "Backlog" — matching "Blower"/"Origami Weapons" — so a task
+    // needs to be placed somewhere workable on purpose, same as real usage.
+    const r = await T.create_task({
+        projectId: backlogProjectId, title: 'Ready to go', column: 'To Do', agent: backlogAgent.slug,
+    });
+    assert.equal(r.startNow, true);
+    assert.equal(r.task.columnId, 'bl-ip', 'a fresh claim still moves to In Progress as usual');
+});
+
+await check('finishing the active task does not promote a backlog task', async () => {
+    const backlogAgent = (await T.list_agents({})).find(a => a.slug === 'backlog-tester');
+    const r = await T.finish_task({ task: backlogAgent.currentTaskKey });
+    assert.equal(r.agentNextTaskId, null, 'the only thing left queued is stuck in Backlog — agent should go idle');
+    const agents = await T.list_agents({});
+    assert.equal(agents.find(a => a.id === backlogAgent.id).status, 'idle');
+});
+
+await check('moving a task out of Backlog lets it be claimed on reassignment', async () => {
+    const backlogAgent = (await T.list_agents({})).find(a => a.slug === 'backlog-tester');
+    const mine = await T.list_tasks({ agent: backlogAgent.slug });
+    const stuck = mine.find(t => t.title === 'Sits in backlog');
+    await T.move_task({ task: stuck.taskKey, column: 'To Do' });
+    const r = await T.assign_task({ task: stuck.taskKey, agent: backlogAgent.slug });
+    assert.equal(r.startNow, true, 'now that it is out of Backlog, it should claim normally');
 });
 
 // ── Cleanup ────────────────────────────────────────────────

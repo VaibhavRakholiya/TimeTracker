@@ -647,7 +647,7 @@ const State = (() => {
                 const agent = Agents.get(task.agentId);
                 if (agent) {
                     task.assignedAt = new Date().toISOString();
-                    if (agent.currentTaskId == null) {
+                    if (agent.currentTaskId == null && !isBacklogColumn(task)) {
                         agent.currentTaskId = task.id;
                         moveToInProgressColumn(task);
                     }
@@ -686,7 +686,7 @@ const State = (() => {
                     // An agentId always wins the assignee string, unless the
                     // caller explicitly passed its own — same rule as create().
                     if (agent && !('assignee' in fields)) _data.tasks[idx].assignee = agent.name;
-                    if (agent && agent.currentTaskId == null) {
+                    if (agent && agent.currentTaskId == null && !isBacklogColumn(_data.tasks[idx])) {
                         agent.currentTaskId = id;
                         moveToInProgressColumn(_data.tasks[idx]);
                     }
@@ -838,7 +838,7 @@ const State = (() => {
                 const agent = Agents.get(newTask.agentId);
                 if (agent) {
                     newTask.assignedAt = new Date().toISOString();
-                    if (agent.currentTaskId == null) {
+                    if (agent.currentTaskId == null && !isBacklogColumn(newTask)) {
                         agent.currentTaskId = newTask.id;
                         moveToInProgressColumn(newTask);
                     }
@@ -896,11 +896,25 @@ const State = (() => {
         if (col && task.columnId !== col.id) task.columnId = col.id;
     }
 
-    /** The agent just went idle — hand it the next queued task, if any. */
+    /**
+     * A task sitting in a column literally named "Backlog" is assigned but
+     * not ready — several real projects here use it as the stage before
+     * "To Do". It stays in an agent's queue, it just never becomes the active
+     * task until a human moves it somewhere else.
+     */
+    function isBacklogColumn(task) {
+        if (!task) return false;
+        const proj = _data.projects.find(p => p.id == task.projectId);
+        if (!proj) return false;
+        const col = (proj.columns || []).find(c => c.id === task.columnId);
+        return !!col && String(col.name).trim().toLowerCase() === 'backlog';
+    }
+
+    /** The agent just went idle — hand it the next queued, workable task, if any. */
     function promoteNextForAgent(agentId) {
         const agent = _data.agents.find(a => a.id == agentId);
         if (!agent) return null;
-        const next = queueForAgent(agentId, agent.currentTaskId)[0] || null;
+        const next = queueForAgent(agentId, agent.currentTaskId).find(t => !isBacklogColumn(t)) || null;
         agent.currentTaskId = next ? next.id : null;
         if (next) moveToInProgressColumn(next);
         return next;
@@ -1014,7 +1028,7 @@ const State = (() => {
             task.assignedAt  = new Date().toISOString();
             task.agentDoneAt = null;
 
-            const startNow = agent.currentTaskId == null;
+            const startNow = agent.currentTaskId == null && !isBacklogColumn(task);
             if (startNow) {
                 agent.currentTaskId = task.id;
                 moveToInProgressColumn(task);

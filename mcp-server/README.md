@@ -133,6 +133,17 @@ into a column named exactly `"Done"` does the same automatically. `list_tasks`
 with an `agent` filter reports each task's `queuePosition` (`0` = active,
 `1+` = waiting, `null` = unrelated or already finished — see `agentDone`).
 
+A task sitting in a column named exactly `"Backlog"` (several real projects
+here — `Blower`, `Origami Weapons` — use it as the stage before `"To Do"`) is
+never claimed or promoted, even if the agent is otherwise free: `assign_task`
+and `create_task` return `agentStatus: "backlog"` instead of `startNow: true`,
+and `finish_task`/the auto-finish-into-`"Done"` path skip straight past it
+when picking what to promote next. It stays visibly assigned to the agent
+(`list_tasks` still shows it, `queuePosition: null`) — it just never becomes
+the active task until a human moves it somewhere else. This matters more with
+the daemon running: it's what stops an untriaged Backlog item from spawning
+unattended work the moment it's assigned.
+
 Deleting tasks and agents is deliberately **not** exposed. The database has no
 auth and no undo, so destruction stays a human action in the UI.
 

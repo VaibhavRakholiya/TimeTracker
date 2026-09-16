@@ -161,6 +161,19 @@ export function queueForAgent(tasks, agentId, excludeTaskId) {
         .sort((a, b) => new Date(a.assignedAt || a.createdAt) - new Date(b.assignedAt || b.createdAt));
 }
 
+/**
+ * A task sitting in a column literally named "Backlog" is assigned but not
+ * ready — several real projects here (e.g. "Blower", "Origami Weapons") use
+ * it as the stage before "To Do". Mirrors js/state.js isBacklogColumn.
+ */
+export function isBacklogColumn(task, projects) {
+    if (!task) return false;
+    const project = (projects || []).find(p => p.id == task.projectId);
+    if (!project) return false;
+    const col = (project.columns || []).find(c => c.id === task.columnId);
+    return !!col && String(col.name).trim().toLowerCase() === 'backlog';
+}
+
 export function agentStatus(agent, tasks) {
     const working = agent.currentTaskId != null;
     const current = working ? (tasks || []).find(t => t.id == agent.currentTaskId) || null : null;
