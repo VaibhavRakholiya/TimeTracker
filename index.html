@@ -635,6 +635,31 @@
         </div>
     </div>
 
+    <!-- Avatar Crop Dialog -->
+    <div class="modal-scrim" id="avatarCropModalScrim">
+        <div class="modal avatar-crop-modal" role="dialog" aria-modal="true" aria-labelledby="avatarCropTitle">
+            <div class="modal-header">
+                <h2 class="modal-title" id="avatarCropTitle">Crop Image</h2>
+                <button class="modal-close" id="avatarCropClose" aria-label="Close dialog"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="avatar-crop-stage" id="avatarCropStage">
+                    <img id="avatarCropImage" alt="" draggable="false" />
+                </div>
+                <div class="avatar-crop-zoom">
+                    <i class="fa-solid fa-magnifying-glass-minus" aria-hidden="true"></i>
+                    <input type="range" id="avatarCropZoom" min="1" max="3" step="0.01" value="1" aria-label="Zoom" />
+                    <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
+                </div>
+                <p class="settings-hint">Drag to reposition, use the slider to zoom.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" id="avatarCropCancel">Cancel</button>
+                <button class="btn btn-primary" id="avatarCropApply">Use This Photo</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Confirm Dialog -->
     <div class="modal-scrim confirm-modal" id="confirmModalScrim">
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">

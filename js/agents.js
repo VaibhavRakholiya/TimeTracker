@@ -36,23 +36,125 @@ const Agents = (() => {
         });
     }
 
-    function resizeAvatar(dataUrl) {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => {
-                const side   = Math.min(img.width, img.height);
-                const sx     = (img.width  - side) / 2;
-                const sy     = (img.height - side) / 2;
-                const canvas = document.createElement('canvas');
-                canvas.width  = AVATAR_SIZE;
-                canvas.height = AVATAR_SIZE;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, sx, sy, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
-                resolve(canvas.toDataURL('image/jpeg', 0.85));
-            };
-            img.onerror = () => reject(new Error('Could not read image'));
-            img.src = dataUrl;
-        });
+    // ── Crop modal ─────────────────────────────────────────
+    // Lets the user pick which square of the uploaded image to keep, instead
+    // of always taking a fixed center crop. The stage is a fixed-size square;
+    // the image is drawn "cover"-fit and the user pans/zooms it underneath.
+    const CROP_STAGE = 280;
+    const CROP_MAX_ZOOM = 3;
+
+    let _cropImg = null;
+    let _cropBaseScale = 1;
+    let _cropZoom = 1;
+    let _cropOffsetX = 0;
+    let _cropOffsetY = 0;
+    let _cropDrag = null; // { startX, startY, offsetX, offsetY }
+
+    function cropScale() {
+        return _cropBaseScale * _cropZoom;
+    }
+
+    function clampCropOffsets() {
+        const scale = cropScale();
+        const dispW = _cropImg.naturalWidth  * scale;
+        const dispH = _cropImg.naturalHeight * scale;
+        _cropOffsetX = Math.min(0, Math.max(CROP_STAGE - dispW, _cropOffsetX));
+        _cropOffsetY = Math.min(0, Math.max(CROP_STAGE - dispH, _cropOffsetY));
+    }
+
+    function renderCropTransform() {
+        const img = document.getElementById('avatarCropImage');
+        if (!img) return;
+        const scale = cropScale();
+        img.style.width     = `${_cropImg.naturalWidth}px`;
+        img.style.height    = `${_cropImg.naturalHeight}px`;
+        img.style.transform = `translate(${_cropOffsetX}px, ${_cropOffsetY}px) scale(${scale})`;
+    }
+
+    function openCropModal(dataUrl) {
+        const img = new Image();
+        img.onload = () => {
+            _cropImg = img;
+            _cropBaseScale = CROP_STAGE / Math.min(img.naturalWidth, img.naturalHeight);
+            _cropZoom = 1;
+            _cropOffsetX = (CROP_STAGE - img.naturalWidth  * _cropBaseScale) / 2;
+            _cropOffsetY = (CROP_STAGE - img.naturalHeight * _cropBaseScale) / 2;
+
+            const cropImgEl = document.getElementById('avatarCropImage');
+            cropImgEl.src = dataUrl;
+            const zoomInput = document.getElementById('avatarCropZoom');
+            if (zoomInput) zoomInput.value = '1';
+            renderCropTransform();
+
+            document.getElementById('avatarCropModalScrim')?.classList.add('open');
+        };
+        img.onerror = () => UI.toast('Could not read that image', 'error');
+        img.src = dataUrl;
+    }
+
+    function closeCropModal() {
+        document.getElementById('avatarCropModalScrim')?.classList.remove('open');
+        _cropImg = null;
+        _cropDrag = null;
+    }
+
+    function cropPointerPos(e) {
+        const point = e.touches ? e.touches[0] : e;
+        return { x: point.clientX, y: point.clientY };
+    }
+
+    function onCropPointerDown(e) {
+        if (!_cropImg) return;
+        const pos = cropPointerPos(e);
+        _cropDrag = { startX: pos.x, startY: pos.y, offsetX: _cropOffsetX, offsetY: _cropOffsetY };
+        document.getElementById('avatarCropStage')?.classList.add('dragging');
+        e.preventDefault();
+    }
+
+    function onCropPointerMove(e) {
+        if (!_cropDrag) return;
+        const pos = cropPointerPos(e);
+        _cropOffsetX = _cropDrag.offsetX + (pos.x - _cropDrag.startX);
+        _cropOffsetY = _cropDrag.offsetY + (pos.y - _cropDrag.startY);
+        clampCropOffsets();
+        renderCropTransform();
+        e.preventDefault();
+    }
+
+    function onCropPointerUp() {
+        _cropDrag = null;
+        document.getElementById('avatarCropStage')?.classList.remove('dragging');
+    }
+
+    function onCropZoomInput(e) {
+        if (!_cropImg) return;
+        const oldScale = cropScale();
+        // Anchor on the stage center so zooming doesn't fling the image around.
+        const centerImgX = (CROP_STAGE / 2 - _cropOffsetX) / oldScale;
+        const centerImgY = (CROP_STAGE / 2 - _cropOffsetY) / oldScale;
+        _cropZoom = Math.min(CROP_MAX_ZOOM, Math.max(1, Number(e.target.value) || 1));
+        const newScale = cropScale();
+        _cropOffsetX = CROP_STAGE / 2 - centerImgX * newScale;
+        _cropOffsetY = CROP_STAGE / 2 - centerImgY * newScale;
+        clampCropOffsets();
+        renderCropTransform();
+    }
+
+    async function applyCrop() {
+        if (!_cropImg) return;
+        const scale = cropScale();
+        const sx    = -_cropOffsetX / scale;
+        const sy    = -_cropOffsetY / scale;
+        const sSide = CROP_STAGE / scale;
+
+        const canvas = document.createElement('canvas');
+        canvas.width  = AVATAR_SIZE;
+        canvas.height = AVATAR_SIZE;
+        canvas.getContext('2d').drawImage(_cropImg, sx, sy, sSide, sSide, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
+
+        _selectedAvatar = canvas.toDataURL('image/jpeg', 0.85);
+        renderAvatarPreview();
+        closeCropModal();
     }
 
     // ── Identity helpers (shared with tasks.js / board.js / ui.js) ──
@@ -374,8 +476,7 @@ const Agents = (() => {
         }
         try {
             const raw = await readImageAsDataUrl(file);
-            _selectedAvatar = await resizeAvatar(raw);
-            renderAvatarPreview();
+            openCropModal(raw);
         } catch {
             UI.toast('Could not read that image', 'error');
         }
@@ -461,6 +562,21 @@ const Agents = (() => {
         });
         document.getElementById('agentModalScrim')?.addEventListener('click', e => {
             if (e.target === document.getElementById('agentModalScrim')) closeModal();
+        });
+
+        const cropStage = document.getElementById('avatarCropStage');
+        cropStage?.addEventListener('mousedown', onCropPointerDown);
+        cropStage?.addEventListener('touchstart', onCropPointerDown, { passive: false });
+        window.addEventListener('mousemove', onCropPointerMove);
+        window.addEventListener('touchmove', onCropPointerMove, { passive: false });
+        window.addEventListener('mouseup', onCropPointerUp);
+        window.addEventListener('touchend', onCropPointerUp);
+        document.getElementById('avatarCropZoom')?.addEventListener('input', onCropZoomInput);
+        document.getElementById('avatarCropApply')?.addEventListener('click', applyCrop);
+        document.getElementById('avatarCropCancel')?.addEventListener('click', closeCropModal);
+        document.getElementById('avatarCropClose')?.addEventListener('click', closeCropModal);
+        document.getElementById('avatarCropModalScrim')?.addEventListener('click', e => {
+            if (e.target === document.getElementById('avatarCropModalScrim')) closeCropModal();
         });
 
         const rerenderDashboard = () => {
