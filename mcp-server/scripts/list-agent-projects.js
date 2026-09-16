@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * Prints "<projectName>\t<repoPath>" for every project a given agent has
- * pending (not agentDone) work in, one per line, ordered by that project's
- * earliest queuePosition. Used by open-agent-terminal.sh to open one
- * terminal per project instead of always assuming the current repo.
+ * ever been assigned a task in (regardless of done status), one per line,
+ * ordered by that project's earliest assignment. Used by
+ * open-agent-terminal.sh to open one terminal per project instead of always
+ * assuming the current repo.
  *
  * Usage: list-agent-projects.js <agent-slug>
  *
@@ -16,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { read } from '../src/store.js';
-import { hydrateAgent, hydrateTask, queueForAgent } from '../src/domain.js';
+import { hydrateAgent, hydrateTask } from '../src/domain.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -38,11 +39,13 @@ if (!agent) {
     process.exit(1);
 }
 
-const tasks = rawTasks.map(hydrateTask);
-const pending = queueForAgent(tasks, agent.id, null);
+const assigned = rawTasks
+    .map(hydrateTask)
+    .filter(t => t.agentId == agent.id)
+    .sort((a, b) => new Date(a.assignedAt || a.createdAt) - new Date(b.assignedAt || b.createdAt));
 
 const seen = new Set();
-for (const t of pending) {
+for (const t of assigned) {
     if (seen.has(t.projectId)) continue;
     seen.add(t.projectId);
 
