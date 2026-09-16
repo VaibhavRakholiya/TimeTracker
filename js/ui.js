@@ -964,7 +964,7 @@ const UI = (() => {
             <div class="subtask-item" data-sub-id="${sub.id}" style="--subtask-depth:${depth}">
                 <i class="fa-solid fa-grip-vertical subtask-drag-handle" title="Drag to reorder"></i>
                 <div class="subtask-checkbox${sub.completed ? ' checked' : ''}" data-sub-id="${sub.id}"></div>
-                <span class="subtask-text${sub.completed ? ' completed' : ''}" data-sub-id="${sub.id}">${escHtml(sub.text)}</span>
+                <span class="subtask-text${sub.completed ? ' completed' : ''}" data-sub-id="${sub.id}">${linkify(sub.text)}</span>
                 <i class="fa-solid fa-plus subtask-add-child" data-parent-sub="${sub.id}" title="Add subtask"></i>
                 <i class="fa-solid fa-xmark subtask-delete" data-sub-del="${sub.id}" title="Remove subtask"></i>
             </div>
@@ -1340,7 +1340,7 @@ const UI = (() => {
                     ${e.source === 'manual' ? '<span class="time-entry-tag">manual</span>' : ''}
                     ${e.source === 'recovered' ? '<span class="time-entry-tag">recovered</span>' : ''}
                 </div>
-                ${e.note ? `<div class="time-entry-note">${escHtml(e.note)}</div>` : ''}
+                ${e.note ? `<div class="time-entry-note">${linkify(e.note)}</div>` : ''}
                 <div class="time-entry-actions">
                     <button type="button" class="btn btn-ghost btn-icon btn-sm" data-entry-edit="${e.id}"
                             aria-label="Edit this time entry" title="Edit">
@@ -1489,7 +1489,7 @@ const UI = (() => {
                         <strong class="comment-author">${escHtml(c.author || 'Someone')}</strong>
                         <time class="comment-time">${escHtml(timeAgo(c.createdAt))}</time>
                     </div>
-                    <div class="comment-text">${escHtml(c.text)}</div>
+                    <div class="comment-text">${linkify(c.text)}</div>
                 </div>
             </div>`).join('');
     }
@@ -1913,6 +1913,13 @@ const UI = (() => {
         return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    // Escapes then wraps http(s) URLs in clickable anchors.
+    const URL_RE = /(https?:\/\/[^\s<>"']+)/g;
+    function linkify(str) {
+        return escHtml(str).replace(URL_RE, url =>
+            `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
+    }
+
     function timeAgo(date) {
         const d = date instanceof Date ? date : new Date(date);
         if (Number.isNaN(d.getTime())) return '';
@@ -2049,7 +2056,7 @@ const UI = (() => {
         openShortcutsSheet, closeShortcutsSheet,
         applyTheme, toggleTheme,
         // Shared component layer
-        escHtml, timeAgo, emptyState, skeleton, menu, inlinePrompt, trapFocus,
+        escHtml, linkify, timeAgo, emptyState, skeleton, menu, inlinePrompt, trapFocus,
     };
 })();
 

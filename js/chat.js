@@ -72,7 +72,7 @@ const Chat = (() => {
                 <span class="chat-message-author">${escHtml(m.author || 'System')}</span>
                 <span class="chat-message-time">${escHtml(time)}</span>
             </div>
-            <div class="chat-message-text">${escHtml(m.text)}</div>
+            <div class="chat-message-text">${UI.linkify(m.text)}</div>
         </div>`;
     }
 

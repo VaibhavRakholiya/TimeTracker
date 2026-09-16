@@ -145,7 +145,7 @@ const Tasks = (() => {
         if (/<[a-z][\s\S]*>/i.test(stored)) {
             el.innerHTML = sanitizeDescriptionHtml(stored);
         } else {
-            el.textContent = stored;
+            el.innerHTML = UI.linkify(stored);
         }
     }
 
