@@ -581,6 +581,21 @@ const UI = (() => {
                 </div>
             </div>
 
+            <!-- Comments -->
+            <div class="panel-section">
+                <div class="panel-section-title">Comments</div>
+                <div class="comment-list" id="panelComments-${tid}">
+                    ${buildComments(task)}
+                </div>
+                <div class="add-comment-row">
+                    <textarea class="form-control" id="panelCommentInput-${tid}" rows="2"
+                              placeholder="Add a comment…" maxlength="4000"></textarea>
+                    <button type="button" class="btn btn-primary btn-sm" id="panelCommentSubmit-${tid}">
+                        <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Comment
+                    </button>
+                </div>
+            </div>
+
             <!-- Activity -->
             <div class="panel-section">
                 <div class="panel-section-title">Activity</div>
@@ -779,6 +794,21 @@ const UI = (() => {
             State.Entries.logManual(task.id, result);
             toast(`Logged ${State.formatDuration(result.seconds)}`, 'success');
             openTaskPanel(task.id);
+        });
+
+        // Comments
+        q('panelCommentSubmit')?.addEventListener('click', () => {
+            const input = q('panelCommentInput');
+            const text = input?.value.trim();
+            if (!text) return;
+            State.Tasks.addComment(task.id, text);
+            openTaskPanel(task.id);
+        });
+        q('panelCommentInput')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                q('panelCommentSubmit')?.click();
+            }
         });
 
         // Edit / delete individual entries
@@ -1440,6 +1470,26 @@ const UI = (() => {
                         ${a.extra ? `<span class="activity-extra">${escHtml(a.extra)}</span>` : ''}
                     </span>
                     <time class="activity-time">${escHtml(timeAgo(a.at))}</time>
+                </div>
+            </div>`).join('');
+    }
+
+    // ══════════════════════════════════════════════════════
+    // COMMENTS
+    // ══════════════════════════════════════════════════════
+    function buildComments(task) {
+        const comments = task.comments || [];
+        if (!comments.length) return `<p class="comment-empty">No comments yet.</p>`;
+
+        return comments.map(c => `
+            <div class="comment-item">
+                <span class="comment-avatar" aria-hidden="true">${escHtml((c.author || 'U')[0].toUpperCase())}</span>
+                <div class="comment-body">
+                    <div class="comment-meta">
+                        <strong class="comment-author">${escHtml(c.author || 'Someone')}</strong>
+                        <time class="comment-time">${escHtml(timeAgo(c.createdAt))}</time>
+                    </div>
+                    <div class="comment-text">${escHtml(c.text)}</div>
                 </div>
             </div>`).join('');
     }

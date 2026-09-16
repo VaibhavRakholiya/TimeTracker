@@ -3737,6 +3737,36 @@ input.form-control--inline { padding: 5px 10px; }
 .activity-extra { color: var(--text-tertiary); }
 .activity-time { font-size: var(--text-xs); color: var(--text-disabled); }
 
+/* ── 35b. COMMENTS ───────────────────────────────────────── */
+.comment-list { display: flex; flex-direction: column; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.comment-empty { font-size: var(--text-sm); color: var(--text-tertiary); margin: 0 0 var(--sp-3); }
+
+.comment-item { display: flex; gap: var(--sp-2); align-items: flex-start; }
+
+.comment-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--surface-overlay);
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-2xs);
+    font-weight: var(--fw-semibold);
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.comment-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.comment-meta { display: flex; align-items: baseline; gap: var(--sp-2); }
+.comment-author { font-size: var(--text-sm); color: var(--text); font-weight: var(--fw-semibold); }
+.comment-time { font-size: var(--text-xs); color: var(--text-disabled); }
+.comment-text { font-size: var(--text-sm); color: var(--text-secondary); line-height: var(--lh-snug); white-space: pre-wrap; }
+
+.add-comment-row { display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-end; }
+.add-comment-row textarea { width: 100%; resize: vertical; }
+
 /* ── 28. DRAG GHOST ──────────────────────────────────────── */
 .drag-ghost {
     position: fixed;

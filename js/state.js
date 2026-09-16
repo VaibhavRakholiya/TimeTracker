@@ -859,7 +859,7 @@ const State = (() => {
                 author:    localStorage.getItem('username') || 'admin',
                 createdAt: new Date().toISOString(),
             };
-            task.comments.push(comment);
+            (task.comments || (task.comments = [])).push(comment);
             save();
             addActivity('comment_added', task.title);
             emit('tasks:changed', { type: 'update', task });
