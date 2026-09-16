@@ -1,11 +1,11 @@
 /**
  * FlowBoard — Tasks Module
- * Task modal (create/edit), My Tasks view, task list rendering helpers,
- * and the shared task card builder function used by Board.
+ * New Task modal, My Tasks view, task list rendering helpers, and the
+ * shared task card builder function used by Board. Editing an existing
+ * task happens inline in its detail panel (js/ui.js), not through a modal.
  */
 
 const Tasks = (() => {
-    let _editingTaskId = null;
     let _defaultColumn = null;
     let _defaultProject = null;
     let _myTasksFilter  = 'all';
@@ -467,8 +467,9 @@ const Tasks = (() => {
     }
 
     // ── Task Modal ─────────────────────────────────────────
+    // Creation only — editing an existing task happens inline in its detail
+    // panel (see js/ui.js renderPanel); there is no "Edit Task" modal flow.
     function openModal(taskId, defaults) {
-        _editingTaskId  = taskId || null;
         const modal     = document.getElementById('taskModalScrim');
         const titleEl   = document.getElementById('taskModalTitle');
         const saveBtn   = document.getElementById('taskModalSave');
@@ -479,70 +480,35 @@ const Tasks = (() => {
         Projects.populateProjectSelect(projSel);
         Projects.populateColumnSelect(colSel, '');
 
-        if (_editingTaskId) {
-            const task     = State.Tasks.get(_editingTaskId);
-            titleEl.textContent = 'Edit Task';
-            saveBtn.textContent = 'Save Changes';
-            document.getElementById('taskModalId').value          = _editingTaskId;
-            document.getElementById('taskModalTitleInput').value  = task.title;
-            document.getElementById('taskModalDesc').value        = task.description || '';
-            document.getElementById('taskModalDueDate').value     = task.dueDate   || '';
-            document.getElementById('taskModalStartDate').value   = task.startDate || '';
-            document.getElementById('taskModalEstimate').value    = task.timeEstimate || '';
-            document.getElementById('taskModalPriority').value    = task.priority || 'medium';
-            if (task.projectId) {
-                projSel.value = task.projectId;
-                Projects.populateColumnSelect(colSel, task.projectId);
-                colSel.value = task.columnId || '';
-            }
-            renderLabelSelect(labelsWrap, task.labels || [], task.projectId);
-            Agents.populateAssigneeSelect(document.getElementById('taskModalAssignee'), task);
-        } else {
-            titleEl.textContent = 'New Task';
-            saveBtn.textContent = 'Create Task';
-            document.getElementById('taskModalId').value          = '';
-            document.getElementById('taskModalTitleInput').value  = defaults?.title || '';
-            document.getElementById('taskModalDesc').value        = '';
-            document.getElementById('taskModalDueDate').value     = '';
-            document.getElementById('taskModalStartDate').value   = '';
-            document.getElementById('taskModalEstimate').value    = '';
-            document.getElementById('taskModalPriority').value    = defaults?.priority || 'medium';
+        titleEl.textContent = 'New Task';
+        saveBtn.textContent = 'Create Task';
+        document.getElementById('taskModalTitleInput').value  = defaults?.title || '';
+        document.getElementById('taskModalDesc').value        = '';
+        document.getElementById('taskModalPriority').value    = defaults?.priority || 'medium';
 
-            const defaultProjId = defaults?.projectId || Router.getCurrentProjectId();
-            if (defaultProjId) {
-                projSel.value = defaultProjId;
-                Projects.populateColumnSelect(colSel, defaultProjId);
-                if (defaults?.columnId) colSel.value = defaults.columnId;
-            }
-            renderLabelSelect(labelsWrap, [], defaultProjId);
-            Agents.populateAssigneeSelect(document.getElementById('taskModalAssignee'), null);
-            // A project's default assignee pre-selects here, same as the current
-            // user would otherwise — only for a brand-new task, never editing.
-            const defaultProj = defaultProjId ? State.Projects.get(defaultProjId) : null;
-            if (defaultProj?.defaultAssignee) {
-                document.getElementById('taskModalAssignee').value = defaultProj.defaultAssignee;
-            }
+        const defaultProjId = defaults?.projectId || Router.getCurrentProjectId();
+        if (defaultProjId) {
+            projSel.value = defaultProjId;
+            Projects.populateColumnSelect(colSel, defaultProjId);
+            if (defaults?.columnId) colSel.value = defaults.columnId;
         }
-
-        // Due date / start date / estimate clutter the quick "add task" flow
-        // — keep them for editing, where they're the only place (besides the
-        // panel's Due Date field) to set them.
-        document.querySelectorAll('.task-modal-schedule-field').forEach(el => {
-            el.hidden = !_editingTaskId;
-        });
+        renderLabelSelect(labelsWrap, [], defaultProjId);
+        Agents.populateAssigneeSelect(document.getElementById('taskModalAssignee'), null);
+        // A project's default assignee pre-selects here, same as the current
+        // user would otherwise.
+        const defaultProj = defaultProjId ? State.Projects.get(defaultProjId) : null;
+        if (defaultProj?.defaultAssignee) {
+            document.getElementById('taskModalAssignee').value = defaultProj.defaultAssignee;
+        }
 
         // When project changes, update the column select
         projSel.onchange = () => {
             const pid = parseInt(projSel.value, 10) || null;
             Projects.populateColumnSelect(colSel, pid);
             renderLabelSelect(labelsWrap, [], pid);
-            // Only for a new task — switching an edited task's project must not
-            // silently override an assignee the user already chose.
-            if (!_editingTaskId) {
-                const proj = pid ? State.Projects.get(pid) : null;
-                if (proj?.defaultAssignee) {
-                    document.getElementById('taskModalAssignee').value = proj.defaultAssignee;
-                }
+            const proj = pid ? State.Projects.get(pid) : null;
+            if (proj?.defaultAssignee) {
+                document.getElementById('taskModalAssignee').value = proj.defaultAssignee;
             }
         };
 
@@ -590,7 +556,6 @@ const Tasks = (() => {
 
         const projId   = parseInt(document.getElementById('taskModalProject').value, 10) || null;
         const colId    = document.getElementById('taskModalColumn').value || null;
-        const estimate = parseFloat(document.getElementById('taskModalEstimate').value) || null;
         const priority = document.getElementById('taskModalPriority').value || 'medium';
 
         if (!projId || !State.Projects.get(projId)) {
@@ -602,9 +567,6 @@ const Tasks = (() => {
         const fields = {
             title,
             description:   normalizeDescription(document.getElementById('taskModalDesc').value),
-            dueDate:       document.getElementById('taskModalDueDate').value   || null,
-            startDate:     document.getElementById('taskModalStartDate').value || null,
-            timeEstimate:  estimate,
             priority,
             projectId:     projId,
             columnId:      colId || (projId ? State.getFirstColumn(projId)?.id : null),
@@ -613,21 +575,12 @@ const Tasks = (() => {
             ...Agents.parseAssigneeValue(document.getElementById('taskModalAssignee').value),
         };
 
-        if (_editingTaskId) {
-            const updated = State.Tasks.update(_editingTaskId, fields);
-            if (updated) {
-                UI.toast('Task updated', 'success');
-            } else {
-                UI.toast('Task removed — a project is required', 'info');
-            }
-        } else {
-            const created = State.Tasks.create(fields);
-            if (!created) {
-                UI.toast('A project is required', 'error');
-                return;
-            }
-            UI.toast('Task created', 'success');
+        const created = State.Tasks.create(fields);
+        if (!created) {
+            UI.toast('A project is required', 'error');
+            return;
         }
+        UI.toast('Task created', 'success');
 
         closeModal();
         // Re-render current view

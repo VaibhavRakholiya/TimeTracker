@@ -404,7 +404,7 @@
 
     <!-- ═══════════════════════════════════════ MODALS ════ -->
 
-    <!-- Create/Edit Task Modal -->
+    <!-- New Task Modal -->
     <div class="modal-scrim" id="taskModalScrim">
         <div class="modal" id="taskModal" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle">
             <div class="modal-header">
@@ -412,7 +412,6 @@
                 <button class="modal-close" id="taskModalClose" aria-label="Close dialog"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="modal-body">
-                <input type="hidden" id="taskModalId" />
                 <div class="form-group">
                     <label class="form-label">Title <span class="form-required" aria-hidden="true">*</span></label>
                     <input class="form-control" type="text" id="taskModalTitleInput" placeholder="What needs to be done?" maxlength="200" />
@@ -438,18 +437,6 @@
                         <select class="form-control" id="taskModalColumn">
                             <option value="">Select…</option>
                         </select>
-                    </div>
-                    <div class="form-group task-modal-schedule-field">
-                        <label class="form-label">Due Date</label>
-                        <input class="form-control" type="date" id="taskModalDueDate" />
-                    </div>
-                    <div class="form-group task-modal-schedule-field">
-                        <label class="form-label">Start Date</label>
-                        <input class="form-control" type="date" id="taskModalStartDate" />
-                    </div>
-                    <div class="form-group task-modal-schedule-field">
-                        <label class="form-label" for="taskModalEstimate">Estimate (hours)</label>
-                        <input class="form-control" type="number" id="taskModalEstimate" placeholder="e.g. 4" min="0" step="0.5" />
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="taskModalPriority">Priority</label>

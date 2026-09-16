@@ -486,11 +486,9 @@ const UI = (() => {
                     </div>
                 </div>
                 <div class="panel-meta-item">
-                    <div class="panel-meta-label">Assignee</div>
-                    <div class="panel-meta-value panel-meta-value--row">
-                        ${Agents.assigneeChip(task, '--sm') || '<span class="task-card-assignee task-card-assignee--sm">?</span>'}
-                        <span class="panel-meta-text">${escHtml(Agents.assigneeFor(task)?.name || '—')}</span>
-                        ${task.agentId != null && State.Agents.get(task.agentId) ? '<span class="agent-row-pill">Agent</span>' : ''}
+                    <label class="panel-meta-label" for="panelAssignee-${tid}">Assignee</label>
+                    <div class="panel-meta-value">
+                        <select class="form-control panel-meta-select" id="panelAssignee-${tid}"></select>
                     </div>
                 </div>
                 <div class="panel-meta-item">
@@ -499,6 +497,20 @@ const UI = (() => {
                         <select class="form-control panel-meta-select" id="panelPriority-${tid}">
                             ${Tasks.priorityOptions(task.priority)}
                         </select>
+                    </div>
+                </div>
+                <div class="panel-meta-item">
+                    <div class="panel-meta-label">Start Date</div>
+                    <div class="panel-meta-value">
+                        <input type="date" class="form-control" id="panelStartDate-${tid}"
+                               value="${task.startDate || ''}" />
+                    </div>
+                </div>
+                <div class="panel-meta-item">
+                    <div class="panel-meta-label">Estimate (hrs)</div>
+                    <div class="panel-meta-value">
+                        <input type="number" class="form-control" id="panelEstimate-${tid}"
+                               min="0" step="0.5" value="${task.timeEstimate ?? ''}" placeholder="—" />
                     </div>
                 </div>
             </div>
@@ -738,6 +750,28 @@ const UI = (() => {
             Router.renderView(view, projectId);
         });
 
+        // Assignee
+        const assigneeSel = q('panelAssignee');
+        if (assigneeSel) {
+            Agents.populateAssigneeSelect(assigneeSel, task);
+            assigneeSel.addEventListener('change', (e) => {
+                State.Tasks.update(task.id, Agents.parseAssigneeValue(e.target.value));
+                const { view, projectId } = Router.getCurrent();
+                Router.renderView(view, projectId);
+            });
+        }
+
+        // Start date
+        q('panelStartDate')?.addEventListener('change', (e) => {
+            State.Tasks.update(task.id, { startDate: e.target.value || null });
+        });
+
+        // Time estimate (hours)
+        q('panelEstimate')?.addEventListener('change', (e) => {
+            const val = parseFloat(e.target.value);
+            State.Tasks.update(task.id, { timeEstimate: Number.isFinite(val) ? val : null });
+        });
+
         // Log time manually
         q('panelLogTime')?.addEventListener('click', async () => {
             const result = await promptTimeEntry({ title: 'Log time' });
@@ -927,7 +961,6 @@ const UI = (() => {
         const fsIcon  = _fullscreenTaskId === task.id ? 'fa-compress' : 'fa-expand';
         menu.innerHTML = `
             <div class="dropdown-item" id="pmFullscreen"><i class="fa-solid ${fsIcon}"></i> ${fsLabel}</div>
-            <div class="dropdown-item" id="pmEdit"><i class="fa-solid fa-pen"></i> Edit Task</div>
             <div class="dropdown-item" id="pmDuplicate"><i class="fa-solid fa-copy"></i> Duplicate Task</div>
             <div class="dropdown-separator"></div>
             <div class="dropdown-item danger" id="pmDelete"><i class="fa-solid fa-trash"></i> Delete Task</div>
@@ -937,9 +970,6 @@ const UI = (() => {
         menu.querySelector('#pmFullscreen').addEventListener('click', () => {
             cleanup();
             toggleTaskPanelFullscreen(task.id);
-        });
-        menu.querySelector('#pmEdit').addEventListener('click', () => {
-            cleanup(); Tasks.openModal(task.id);
         });
         menu.querySelector('#pmDuplicate').addEventListener('click', () => {
             cleanup();
@@ -1435,7 +1465,6 @@ const UI = (() => {
         { group: 'Task list', keys: ['J'], desc: 'Focus next task' },
         { group: 'Task list', keys: ['K'], desc: 'Focus previous task' },
         { group: 'Task list', keys: ['Enter'], desc: 'Open focused task' },
-        { group: 'Task list', keys: ['E'], desc: 'Edit focused task' },
         { group: 'Task list', keys: ['T'], desc: 'Start / stop timer on focused task' },
         { group: 'Dialogs', keys: ['⌘', 'Enter'], desc: 'Save and close' },
     ];
@@ -1544,11 +1573,6 @@ const UI = (() => {
                 case 'enter': {
                     const id = focusedTaskId();
                     if (id != null) { e.preventDefault(); openTaskPanel(id); }
-                    break;
-                }
-                case 'e': {
-                    const id = focusedTaskId();
-                    if (id != null) { e.preventDefault(); Tasks.openModal(id); }
                     break;
                 }
                 case 't': {
