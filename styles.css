@@ -2641,6 +2641,9 @@ body.task-panel-fullscreen #content-area {
 
 .column-editor-drag { color: var(--text-disabled); cursor: grab; font-size: var(--text-base); }
 
+.column-editor-item.column-editor-dragging { opacity: 0.5; }
+.column-editor-item.column-editor-drop-target { border-color: var(--primary); background: var(--primary-subtle); }
+
 .column-color-picker {
     width: 20px;
     height: 20px;
