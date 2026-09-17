@@ -62,13 +62,13 @@
 
             <form class="login-form" id="loginForm" autocomplete="off">
                 <div class="login-form-group">
-                    <label class="login-form-label" for="username">Username</label>
+                    <label class="login-form-label" for="username">Email</label>
                     <input
                         class="login-form-input"
-                        type="text"
+                        type="email"
                         id="username"
                         name="username"
-                        placeholder="Enter your username"
+                        placeholder="Enter your email"
                         autocomplete="username"
                         required
                     />
@@ -115,7 +115,9 @@
         </section>
     </main>
 
-    <script src="firebase-rest-integration.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="firebase-config.js"></script>
     <script>
         // ── Theme toggle ──────────────────────────────────────
         const themeToggle = document.getElementById('themeToggle');
@@ -159,36 +161,45 @@
         const loginSpinner = document.getElementById('loginSpinner');
         const errorText    = document.getElementById('loginErrorText');
 
-        // Credentials live in Firebase now (flowboard_credentials, same
-        // /timetracker/<dataType>.json convention as everything else this app
-        // syncs) instead of a plaintext object shipped in this file (TASK-581).
-        // Passwords are stored as SHA-256 hex digests, never plaintext — the
-        // RTDB rules here are open like the rest of this app's data, so this
-        // is about not shipping the secret in source control, not real secret
-        // storage; a hash at least means a leaked database dump isn't the
-        // password directly.
-        async function sha256Hex(text) {
-            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        // Real Firebase Authentication (TASK-584) — supersedes the
+        // RTDB-stored-hash check from TASK-581. Firebase's own Identity
+        // Platform validates the password and issues the session; nothing
+        // here ever sees or stores a password. Sign-in is by email, which is
+        // what Firebase Auth's email/password provider requires — display
+        // names below are just for what greets the user in the sidebar.
+        const DISPLAY_NAMES = {
+            'rakholiyavaibhav@gmail.com': 'Vaibhav',
+            'aksidhhapura410@gmail.com':  'Aakash',
+        };
+
+        function displayNameFor(email) {
+            return DISPLAY_NAMES[email.toLowerCase()] || email.split('@')[0];
         }
 
-        async function loadCredentials() {
-            for (let attempt = 0; attempt < 20 && !window.firebaseRESTIntegration; attempt++) {
-                await new Promise(r => setTimeout(r, 100)); // firebase-rest-integration.js inits on DOMContentLoaded
+        function authErrorMessage(err) {
+            switch (err.code) {
+                case 'auth/invalid-email':
+                case 'auth/user-not-found':
+                case 'auth/wrong-password':
+                case 'auth/invalid-credential':
+                    return 'Invalid email or password. Please try again.';
+                case 'auth/too-many-requests':
+                    return 'Too many attempts. Please wait a moment and try again.';
+                case 'auth/network-request-failed':
+                    return 'Could not reach the server. Check your connection and try again.';
+                default:
+                    return 'Something went wrong signing you in. Please try again.';
             }
-            if (!window.firebaseRESTIntegration) throw new Error('Firebase integration did not load.');
-            const creds = await window.firebaseRESTIntegration.loadData('flowboard_credentials');
-            return creds && typeof creds === 'object' ? creds : {};
         }
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             loginError.classList.remove('visible');
 
-            const username = document.getElementById('username').value.trim();
+            const email    = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
 
-            if (!username || !password) {
+            if (!email || !password) {
                 errorText.textContent = 'Please fill in all fields.';
                 loginError.classList.add('visible');
                 return;
@@ -199,30 +210,18 @@
             loginSpinner.classList.remove('is-hidden');
             loginBtn.disabled = true;
 
-            let ok = false;
             try {
-                const [credentials, passwordHash] = await Promise.all([loadCredentials(), sha256Hex(password)]);
-                ok = credentials[username] != null && credentials[username] === passwordHash;
-            } catch (err) {
-                console.error('Login: could not reach Firebase for credentials', err);
-                loginBtnText.style.display = 'inline';
-                loginSpinner.classList.add('is-hidden');
-                loginBtn.disabled = false;
-                errorText.textContent = 'Could not reach the server. Check your connection and try again.';
-                loginError.classList.add('visible');
-                return;
-            }
-
-            if (ok) {
+                await window.firebaseAuth.signInWithEmailAndPassword(email, password);
                 localStorage.setItem('isLoggedIn', 'true');
-                localStorage.setItem('username', username);
+                localStorage.setItem('username', displayNameFor(email));
                 localStorage.setItem('loginTime', new Date().toISOString());
                 window.location.href = 'index.html';
-            } else {
+            } catch (err) {
+                console.error('Login: Firebase sign-in failed', err);
                 loginBtnText.style.display = 'inline';
                 loginSpinner.classList.add('is-hidden');
                 loginBtn.disabled = false;
-                errorText.textContent = 'Invalid username or password. Please try again.';
+                errorText.textContent = authErrorMessage(err);
                 loginError.classList.add('visible');
                 document.getElementById('username').classList.add('error');
                 document.getElementById('password').classList.add('error');

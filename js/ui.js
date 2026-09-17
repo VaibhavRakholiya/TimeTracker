@@ -1859,6 +1859,10 @@ const UI = (() => {
 
         // ── Logout ─────────────────────────────────────────
         function doLogout() {
+            // Best-effort — the app must still land back on the login page
+            // even if this fails (offline, SDK not loaded), so it's not
+            // awaited (TASK-584).
+            if (window.firebase?.auth) firebase.auth().signOut().catch(() => {});
             localStorage.removeItem('isLoggedIn');
             localStorage.removeItem('loginTime');
             window.location.href = 'login.html';

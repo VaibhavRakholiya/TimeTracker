@@ -21,6 +21,24 @@
             document.documentElement.setAttribute('data-theme', theme);
         })();
     </script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script>
+        // Real safety net on top of the synchronous localStorage check above
+        // (TASK-584): that check only guards against never having logged in;
+        // this catches a session Firebase itself no longer considers valid
+        // (e.g. the account was disabled/deleted, or the token was revoked)
+        // and sends the user back to login.html instead of leaving them on a
+        // page that still reads "logged in" from a stale local flag.
+        firebase.auth().onAuthStateChanged((user) => {
+            if (!user && localStorage.getItem('isLoggedIn') === 'true') {
+                localStorage.removeItem('isLoggedIn');
+                localStorage.removeItem('loginTime');
+                window.location.replace('login.html');
+            }
+        });
+    </script>
 </head>
 <body>
     <a class="skip-link" href="#content-area">Skip to content</a>
