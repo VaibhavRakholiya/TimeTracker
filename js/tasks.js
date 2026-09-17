@@ -264,6 +264,7 @@ const Tasks = (() => {
         const due      = formatDueDate(task.dueDate);
         const subs     = subtaskProgress(task);
         const running  = task.isTimerRunning;
+        const done     = isDoneColumn(task);
 
         const labelHtml = (task.labels || []).length
             ? `<div class="task-card-labels">${getTaskLabels(task, allLabels)}</div>`
@@ -293,6 +294,10 @@ const Tasks = (() => {
                      draggable="true">
             <div class="task-card-header">
                 <div class="task-card-title">${escHtml(task.title)}</div>
+                ${done ? `<button type="button" class="task-card-delete" data-task-id="${task.id}" title="Delete task"
+                        onclick="event.stopPropagation(); Tasks.deleteCardTask(${task.id});">
+                    <i class="fa-solid fa-trash"></i>
+                </button>` : ''}
             </div>
             ${labelHtml}
             <div class="task-card-footer">
@@ -310,6 +315,19 @@ const Tasks = (() => {
                 </button>
             </div>
         </div>`;
+    }
+
+    // Quick-delete affordance shown on Done-column cards, so a finished task
+    // can be cleared straight from the board without opening its panel.
+    function deleteCardTask(id) {
+        const task = State.Tasks.get(id);
+        if (!task) return;
+        UI.confirm(`Delete task "${task.title}"?`, () => {
+            State.Tasks.delete(id);
+            const { view, projectId } = Router.getCurrent();
+            Router.renderView(view, projectId);
+            UI.toast('Task deleted', 'success');
+        });
     }
 
     function getDueDateGroup(task) {
@@ -748,7 +766,7 @@ const Tasks = (() => {
 
     return {
         init, openModal, closeModal,
-        buildTaskCard,
+        buildTaskCard, deleteCardTask,
         renderMyTasks, formatDueDate, formatTime, formatHours, formatElapsed,
         escHtml, hexToRgba, isDoneColumn, subtaskProgress,
         PRIORITIES, priorityDot, priorityLabel, priorityOptions,
