@@ -704,7 +704,7 @@ const State = (() => {
                 && _data.tasks[idx].agentId != null
                 && isToBeTestedColumn(_data.tasks[idx])) {
                 const agent = Agents.get(_data.tasks[idx].agentId);
-                if (agent && agent.currentTaskId == id) promoteNextForAgent(agent.id);
+                if (agent && agent.currentTaskId == id) promoteNextForAgent(agent.id, _data.tasks[idx].projectId);
             }
 
             save();
@@ -957,11 +957,22 @@ const State = (() => {
         return !!col && String(col.name).trim().toLowerCase() === 'to be tested';
     }
 
-    /** The agent just went idle — hand it the next queued, workable task, if any. */
-    function promoteNextForAgent(agentId) {
+    /**
+     * The agent just went idle — hand it the next queued, workable task, if
+     * any. `preferProjectId`, when given, is the project the agent was just
+     * working in: an agent mid-stream on one project shouldn't hop to a
+     * different project's older-queued task just because that one was
+     * assigned first, and shouldn't sit idle because everything ready in its
+     * own project happens to be behind an older, still-blocked task from
+     * elsewhere (TASK-573). Falls back to the oldest ready task across all
+     * projects when its own project has nothing left. Mirrors
+     * mcp-server/src/domain.js pickNextForAgent.
+     */
+    function promoteNextForAgent(agentId, preferProjectId) {
         const agent = _data.agents.find(a => a.id == agentId);
         if (!agent) return null;
-        const next = queueForAgent(agentId, agent.currentTaskId).find(t => !isBlockedColumn(t)) || null;
+        const ready = queueForAgent(agentId, agent.currentTaskId).filter(t => !isBlockedColumn(t));
+        const next = (preferProjectId != null && ready.find(t => t.projectId == preferProjectId)) || ready[0] || null;
         agent.currentTaskId = next ? next.id : null;
         if (next) moveToInProgressColumn(next);
         return next;
@@ -1074,7 +1085,7 @@ const State = (() => {
             // agent, even if nobody explicitly freed it yet (TASK-572) —
             // self-heal here the same way releaseTask does.
             const current = agent.currentTaskId != null ? _data.tasks.find(t => t.id == agent.currentTaskId) : null;
-            if (current && isToBeTestedColumn(current)) promoteNextForAgent(agentId);
+            if (current && isToBeTestedColumn(current)) promoteNextForAgent(agentId, current.projectId);
 
             task.agentId     = agent.id;
             task.assignee    = agent.name;
@@ -1104,7 +1115,7 @@ const State = (() => {
             if (task) task.agentDoneAt = new Date().toISOString();
 
             let next = null;
-            if (agent.currentTaskId == taskId) next = promoteNextForAgent(agentId);
+            if (agent.currentTaskId == taskId) next = promoteNextForAgent(agentId, task?.projectId);
 
             save();
             emit('agents:changed', agent);

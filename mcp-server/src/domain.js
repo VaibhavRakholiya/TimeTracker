@@ -210,6 +210,26 @@ export function isToBeTestedColumn(task, projects) {
 }
 
 /**
+ * Which of an agent's pending tasks should become active next. Prefers the
+ * oldest ready task in `preferProjectId` (the project the agent was just
+ * working in) over strict global FIFO order — an agent mid-stream on one
+ * project shouldn't hop to a different project's older-queued task just
+ * because that one was assigned first, and shouldn't sit idle because
+ * everything ready in its own project happens to be behind an older,
+ * still-blocked task from elsewhere (TASK-573). Falls back to the oldest
+ * ready task across all projects when its own project has nothing left.
+ * Mirrors js/state.js pickNextForAgent.
+ */
+export function pickNextForAgent(tasks, agentId, excludeTaskId, projects, preferProjectId) {
+    const ready = queueForAgent(tasks, agentId, excludeTaskId).filter(t => !isBlockedColumn(hydrateTask(t), projects));
+    if (preferProjectId != null) {
+        const sameProject = ready.find(t => t.projectId == preferProjectId);
+        if (sameProject) return sameProject;
+    }
+    return ready[0] || null;
+}
+
+/**
  * `projects` is optional for callers that only need queue bookkeeping and
  * never see a "To Be Tested" column, but passing it is what lets a task
  * sitting there stop counting as occupying the agent (TASK-572).

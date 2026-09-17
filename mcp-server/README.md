@@ -40,8 +40,14 @@ turn" actually gets decided:
 - Assigning a task to a **busy** agent queues it (`queuePosition`) behind
   whatever it's already doing. It does not start on its own.
 - Calling `finish_task` on the active task frees the agent and immediately
-  promotes the oldest queued task to active — again as a signal in the tool
-  response (`agentNextTaskId`), not a background action.
+  promotes a queued task to active — again as a signal in the tool response
+  (`agentNextTaskId`), not a background action. It prefers the oldest queued
+  task in the project the agent was just working in over strict FIFO order;
+  only when that project has nothing left does it fall back to the oldest
+  ready task queued anywhere.
+- A task an agent moved into a column literally named "To Be Tested" frees
+  the agent the same way, without marking the task finished — it's waiting
+  on a human, not back in the queue for rework.
 
 Walkthrough:
 
@@ -232,5 +238,6 @@ Calls the tool handlers directly against a scratch namespace
 the script refuses to run against the live namespace. It also diffs the task
 shape in `src/domain.js` / `src/tools.js` against `js/state.js` and fails on
 drift, since those invariants are deliberately duplicated (see `.cursorrules`),
-and covers the queue mechanics — claim-if-free, queue-if-busy, FIFO promotion
-on `finish_task`, and the auto-finish-on-move-to-"Done" heuristic.
+and covers the queue mechanics — claim-if-free, queue-if-busy, same-project-
+preferred promotion on `finish_task`, and the auto-finish-on-move-to-"Done"
+and free-on-move-to-"To Be Tested" heuristics.

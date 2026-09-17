@@ -84,11 +84,11 @@ async function releaseAndClaim(agentId, { justFinishedTaskId, claimTaskId } = {}
 
         let changed = false;
         if (justFinishedTaskId != null && agent.currentTaskId == justFinishedTaskId) {
-            const next = D.queueForAgent(tasks, agent.id, agent.currentTaskId).find(isReady) || null;
+            const next = D.pickNextForAgent(tasks, agent.id, agent.currentTaskId, projects, current?.projectId);
             agent.currentTaskId = next ? next.id : null;
             changed = true;
         } else if (currentIsToBeTested) {
-            const next = D.queueForAgent(tasks, agent.id, agent.currentTaskId).find(isReady) || null;
+            const next = D.pickNextForAgent(tasks, agent.id, agent.currentTaskId, projects, current.projectId);
             agent.currentTaskId = next ? next.id : null;
             changed = true;
         }

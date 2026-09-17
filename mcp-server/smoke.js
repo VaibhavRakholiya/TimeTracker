@@ -491,6 +491,38 @@ await check('a queued task is promoted once the active one lands in To Be Tested
     await T.finish_task({ task: t3.taskKey }); // leave the agent clean for anything appended later
 });
 
+section('same-project task preferred over cross-project FIFO (TASK-573)');
+
+await check('finishing a task hands the agent its own project\'s queued work before an older cross-project one', async () => {
+    const hopAgent = (await T.create_agent({ name: 'Hop Tester' })).agent;
+
+    // P1 becomes current (Smoke Project). Q1 (Bare Project) is assigned next,
+    // so it's older in the queue than P2 (Smoke Project again). Pure FIFO
+    // would hand the agent Q1 — it should get P2 instead, since that's the
+    // project it was just working in.
+    const p1 = (await T.create_task({ projectId, title: 'Hop P1', agent: hopAgent.slug })).task;
+    assert.equal((await T.get_task({ task: p1.taskKey })).isActiveForAgent, true);
+    const q1 = (await T.create_task({ projectId: bareProjectId, title: 'Hop Q1', column: 'To Do', agent: hopAgent.slug })).task;
+    const p2 = (await T.create_task({ projectId, title: 'Hop P2', agent: hopAgent.slug })).task;
+
+    const r = await T.finish_task({ task: p1.taskKey });
+    assert.equal(r.agentNextTaskId, p2.id, 'same-project task should win even though it was queued after the cross-project one');
+
+    const nextTask = await T.get_task({ task: r.agentNextTaskId });
+    assert.equal(nextTask.taskKey, p2.taskKey);
+    assert.equal(nextTask.isActiveForAgent, true);
+
+    const mine = await T.list_tasks({ agent: hopAgent.slug });
+    const stillQueued = mine.find(t => t.taskKey === q1.taskKey);
+    assert.equal(stillQueued.queuePosition, 1, 'the cross-project task stays queued, just no longer first');
+
+    // clean up
+    await T.finish_task({ task: p2.taskKey });
+    const after = await T.get_task({ task: q1.taskKey });
+    assert.equal(after.isActiveForAgent, true, 'with nothing left in its own project, the agent falls back to the cross-project task');
+    await T.finish_task({ task: q1.taskKey });
+});
+
 // ── Cleanup ────────────────────────────────────────────────
 section('cleanup');
 await check('scratch namespace removed', async () => {
