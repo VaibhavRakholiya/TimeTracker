@@ -165,6 +165,11 @@ const State = (() => {
         // Everything else assigned to it and not yet finished sits in its queue.
         agent.currentTaskId = agent.currentTaskId === undefined || agent.currentTaskId === ''
             ? null : agent.currentTaskId;
+        // Whether a live terminal/Claude Desktop session has marked itself
+        // present via start_session — distinct from currentTaskId, which
+        // just means a task is claimed/queued (TASK-574). Mirrors
+        // mcp-server/src/domain.js hydrateAgent.
+        agent.sessionActive = agent.sessionActive === true;
         if (!agent.slug || (taken && taken.has(agent.slug))) agent.slug = slugifyAgent(agent.name, taken);
         if (taken) taken.add(agent.slug);
     }
@@ -650,7 +655,9 @@ const State = (() => {
                     task.assignedAt = new Date().toISOString();
                     if (agent.currentTaskId == null && !isBlockedColumn(task)) {
                         agent.currentTaskId = task.id;
-                        moveToInProgressColumn(task);
+                        // Claimed, but only moves to In Progress once a live
+                        // session is actually up to work it (TASK-574).
+                        if (agent.sessionActive) moveToInProgressColumn(task);
                     }
                 }
             }
@@ -689,7 +696,7 @@ const State = (() => {
                     if (agent && !('assignee' in fields)) _data.tasks[idx].assignee = agent.name;
                     if (agent && agent.currentTaskId == null && !isBlockedColumn(_data.tasks[idx])) {
                         agent.currentTaskId = id;
-                        moveToInProgressColumn(_data.tasks[idx]);
+                        if (agent.sessionActive) moveToInProgressColumn(_data.tasks[idx]);
                     }
                 } else {
                     _data.tasks[idx].assignedAt = null;
@@ -852,7 +859,7 @@ const State = (() => {
                     newTask.assignedAt = new Date().toISOString();
                     if (agent.currentTaskId == null && !isBlockedColumn(newTask)) {
                         agent.currentTaskId = newTask.id;
-                        moveToInProgressColumn(newTask);
+                        if (agent.sessionActive) moveToInProgressColumn(newTask);
                     }
                 }
             }
@@ -974,7 +981,10 @@ const State = (() => {
         const ready = queueForAgent(agentId, agent.currentTaskId).filter(t => !isBlockedColumn(t));
         const next = (preferProjectId != null && ready.find(t => t.projectId == preferProjectId)) || ready[0] || null;
         agent.currentTaskId = next ? next.id : null;
-        if (next) moveToInProgressColumn(next);
+        // Only moves to In Progress if the agent's session is actually live
+        // right now — otherwise it waits for Agents.startSession, same as a
+        // fresh claim would (TASK-574).
+        if (next && agent.sessionActive) moveToInProgressColumn(next);
         return next;
     }
 
@@ -1095,7 +1105,9 @@ const State = (() => {
             const startNow = agent.currentTaskId == null && !isBlockedColumn(task);
             if (startNow) {
                 agent.currentTaskId = task.id;
-                moveToInProgressColumn(task);
+                // Claimed, but only moves to In Progress once a live session
+                // is actually up to work it (TASK-574).
+                if (agent.sessionActive) moveToInProgressColumn(task);
             }
 
             save();
@@ -1122,13 +1134,48 @@ const State = (() => {
             return { freed: agent.currentTaskId !== taskId, next };
         },
 
-        /** Idle / working, and how deep its queue is — what the Settings row shows. */
+        /**
+         * Mark this agent's terminal/Claude Desktop session as live — mirrors
+         * mcp-server/src/tools.js start_session. Also moves its already-
+         * claimed active task to In Progress for the first time, if it
+         * hasn't been already (TASK-574).
+         */
+        startSession(agentId) {
+            const agent = this.get(agentId);
+            if (!agent) return null;
+            agent.sessionActive = true;
+            const task = agent.currentTaskId != null ? _data.tasks.find(t => t.id == agent.currentTaskId) : null;
+            if (task) moveToInProgressColumn(task);
+            save();
+            emit('agents:changed', agent);
+            return { agent, task: task || null };
+        },
+
+        /** Mirrors mcp-server/src/tools.js end_session. Leaves tasks untouched. */
+        endSession(agentId) {
+            const agent = this.get(agentId);
+            if (!agent) return null;
+            agent.sessionActive = false;
+            save();
+            emit('agents:changed', agent);
+            return { agent };
+        },
+
+        /**
+         * Idle / working, and how deep its queue is — what the Settings row
+         * shows. `working` stays assignment-based (mirrors
+         * mcp-server/src/domain.js agentStatus); `live` is whether a
+         * terminal/Claude Desktop session has actually marked itself present
+         * (TASK-574) — render the Working/Idle pill from `working && live`,
+         * not `working` alone.
+         */
         statusFor(id) {
             const agent = this.get(id);
             if (!agent) return null;
             const current = agent.currentTaskId != null ? _data.tasks.find(t => t.id == agent.currentTaskId) : null;
             return {
                 working:     current != null && !isToBeTestedColumn(current),
+                live:        agent.sessionActive === true,
                 currentTask: current || null,
                 queueLength: queueForAgent(id, agent.currentTaskId).length,
             };

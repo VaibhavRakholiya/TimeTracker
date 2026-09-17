@@ -164,6 +164,19 @@ register('update_agent',
         enabled:      z.boolean().optional(),
     }, T.update_agent);
 
+register('start_session',
+    'Mark that a live terminal/Claude Desktop session is up and working this agent — call this once, right ' +
+    'after adopting its systemPrompt and before starting real work on its active task. Until this is called, ' +
+    'a claimed task (currentTaskId set) still reads as idle on the board and stays out of "In Progress"; this ' +
+    'call is what actually moves it there. Call end_session when you stop working this agent.',
+    { agent: agentRef }, T.start_session);
+
+register('end_session',
+    'Mark that this agent no longer has a live session — call it when you finish working its queue, get ' +
+    'interrupted, or hand off, so the board stops showing it as live. Does not touch its assigned task(s); ' +
+    'call finish_task or move_task first if the active one is actually done.',
+    { agent: agentRef }, T.end_session);
+
 // Deleting tasks or agents is deliberately not exposed: the database has no
 // auth and no undo, so destruction stays a human action in the UI.
 

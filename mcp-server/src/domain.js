@@ -148,6 +148,10 @@ export function hydrateAgent(raw) {
     a.enabled       = a.enabled !== false;
     a.createdAt     = a.createdAt || new Date().toISOString();
     a.currentTaskId = a.currentTaskId === undefined || a.currentTaskId === '' ? null : a.currentTaskId;
+    // Whether a live terminal/Claude Desktop session has marked itself
+    // present via start_session — distinct from having a currentTaskId,
+    // which just means a task is claimed/queued (TASK-574).
+    a.sessionActive = a.sessionActive === true;
     return a;
 }
 
@@ -233,11 +237,23 @@ export function pickNextForAgent(tasks, agentId, excludeTaskId, projects, prefer
  * `projects` is optional for callers that only need queue bookkeeping and
  * never see a "To Be Tested" column, but passing it is what lets a task
  * sitting there stop counting as occupying the agent (TASK-572).
+ *
+ * `working` stays purely assignment-based (a current task in a workable
+ * column) — daemon.js and the queue-promotion logic need that signal
+ * regardless of whether any session has actually started on it yet, or
+ * nothing would ever get dispatched in the first place. `live` is the new,
+ * separate signal for whether a terminal/Claude Desktop session has marked
+ * itself present via start_session (TASK-574) — callers that render a
+ * user-facing "Working"/"Idle" label should show working only when both are
+ * true; `working && !live` means "assigned, waiting on a session to pick it
+ * up," not "in progress."
  */
 export function agentStatus(agent, tasks, projects) {
     const current = agent.currentTaskId != null ? (tasks || []).find(t => t.id == agent.currentTaskId) || null : null;
     const working = current != null && !isToBeTestedColumn(current, projects);
+    const live = agent.sessionActive === true;
     return {
+        live,
         working,
         currentTask: current,
         queueLength: queueForAgent(tasks, agent.id, agent.currentTaskId).length,

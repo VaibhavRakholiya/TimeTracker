@@ -184,6 +184,11 @@ await check('create_agent produces a slug', async () => {
     agent = r.agent;
     assert.equal(agent.slug, 'bug-triager');
     assert.equal(agent.enabled, true);
+    // Everything below this point expects the old claim-moves-immediately
+    // behavior — mark this agent live up front so the rest of the section
+    // isn't testing TASK-574's deferred-move behavior by accident. That gets
+    // its own dedicated section further down.
+    await T.start_session({ agent: agent.slug });
 });
 
 await check('list_agents exposes systemPrompt for profile adoption', async () => {
@@ -298,6 +303,7 @@ let busyAgent, taskA, taskB, taskC;
 
 await check('a task assigned to a free agent starts now and moves to In Progress', async () => {
     busyAgent = (await T.create_agent({ name: 'Queue Tester' })).agent;
+    await T.start_session({ agent: busyAgent.slug });
     const r = await T.create_task({ projectId, title: 'Queue A', agent: busyAgent.slug });
     taskA = r.task;
     assert.equal(r.startNow, true);
@@ -364,6 +370,7 @@ await check('moving the active task to a column named Done auto-finishes and pro
 
 await check('a project with no In Progress column: claiming does not throw and leaves the column alone', async () => {
     const bareAgent = (await T.create_agent({ name: 'Bare Tester' })).agent;
+    await T.start_session({ agent: bareAgent.slug });
     const r = await T.create_task({ projectId: bareProjectId, title: 'Bare Task', agent: bareAgent.slug });
     assert.equal(r.startNow, true);
     assert.equal(r.task.columnId, 'bare-todo', 'no In Progress column exists — task should stay where it was created');
@@ -395,6 +402,7 @@ section('backlog exclusion');
 
 await check('a task created in Backlog is not claimed — agent stays idle', async () => {
     const backlogAgent = (await T.create_agent({ name: 'Backlog Tester' })).agent;
+    await T.start_session({ agent: backlogAgent.slug });
     const r = await T.create_task({
         projectId: backlogProjectId, title: 'Sits in backlog', column: 'Backlog', agent: backlogAgent.slug,
     });
@@ -521,6 +529,78 @@ await check('finishing a task hands the agent its own project\'s queued work bef
     const after = await T.get_task({ task: q1.taskKey });
     assert.equal(after.isActiveForAgent, true, 'with nothing left in its own project, the agent falls back to the cross-project task');
     await T.finish_task({ task: q1.taskKey });
+});
+
+section('working requires a live session, not just a claimed task (TASK-574)');
+
+await check('a claimed task stays put and the agent reads idle until start_session', async () => {
+    const liveAgent = (await T.create_agent({ name: 'Live Tester' })).agent;
+    const r = await T.create_task({ projectId, title: 'Live 1', agent: liveAgent.slug, column: 'To Do' });
+    assert.equal(r.startNow, true, 'still claimed — currentTaskId is set');
+    assert.equal(r.task.columnId, 'col-todo', 'no live session yet, so it must not jump to In Progress');
+
+    const agents = await T.list_agents({});
+    const found = agents.find(a => a.id === liveAgent.id);
+    assert.equal(found.status, 'idle', 'a claimed-but-not-live task must not read as working');
+    assert.equal(found.live, false);
+    assert.equal(found.currentTaskKey, r.task.taskKey, 'still shows as the current task despite reading idle');
+});
+
+await check('start_session marks the agent live and moves its active task to In Progress', async () => {
+    const liveAgent = (await T.list_agents({})).find(a => a.slug === 'live-tester');
+    const r = await T.start_session({ agent: liveAgent.slug });
+    assert.equal(r.movedToColumn, 'In Progress');
+
+    const agents = await T.list_agents({});
+    const found = agents.find(a => a.id === liveAgent.id);
+    assert.equal(found.status, 'working');
+    assert.equal(found.live, true);
+
+    const task = await T.get_task({ task: r.currentTaskId });
+    assert.equal(task.columnName, 'In Progress');
+});
+
+await check('finishing a task while live promotes and moves the next one immediately', async () => {
+    const liveAgent = (await T.list_agents({})).find(a => a.slug === 'live-tester');
+    const t2 = (await T.create_task({ projectId, title: 'Live 2', agent: liveAgent.slug })).task;
+    assert.equal((await T.get_task({ task: t2.taskKey })).columnName, 'To Do', 'queued behind the active task, not claimed yet');
+
+    const r = await T.finish_task({ task: liveAgent.currentTaskKey });
+    assert.equal(r.agentNextTaskId, t2.id);
+    const next = await T.get_task({ task: t2.taskKey });
+    assert.equal(next.columnName, 'In Progress', 'the same live session should keep moving newly-promoted work forward');
+});
+
+await check('end_session drops the agent back to idle without touching its task', async () => {
+    const liveAgent = (await T.list_agents({})).find(a => a.slug === 'live-tester');
+    const activeTaskKey = liveAgent.currentTaskKey;
+
+    const r = await T.end_session({ agent: liveAgent.slug });
+    assert.equal(r.agentSlug, 'live-tester');
+
+    const agents = await T.list_agents({});
+    const found = agents.find(a => a.id === liveAgent.id);
+    assert.equal(found.status, 'idle');
+    assert.equal(found.live, false);
+    assert.equal(found.currentTaskKey, activeTaskKey, 'still assigned to the same task — just nobody live to work it');
+
+    const task = await T.get_task({ task: activeTaskKey });
+    assert.equal(task.columnName, 'In Progress', 'ending the session does not move the card back');
+
+    await T.finish_task({ task: activeTaskKey }); // leave the agent clean
+});
+
+await check('a task claimed while idle only moves once a new session starts', async () => {
+    const liveAgent = (await T.list_agents({})).find(a => a.slug === 'live-tester');
+    assert.equal(liveAgent.status, 'idle');
+    const t3 = (await T.create_task({ projectId, title: 'Live 3', agent: liveAgent.slug })).task;
+    assert.equal((await T.get_task({ task: t3.taskKey })).isActiveForAgent, true, 'claimed — the agent has nothing else current');
+    assert.equal((await T.get_task({ task: t3.taskKey })).columnName, 'To Do', 'but not moved — no live session claimed it');
+
+    await T.start_session({ agent: liveAgent.slug });
+    assert.equal((await T.get_task({ task: t3.taskKey })).columnName, 'In Progress');
+    await T.finish_task({ task: t3.taskKey });
+    await T.end_session({ agent: liveAgent.slug });
 });
 
 // ── Cleanup ────────────────────────────────────────────────

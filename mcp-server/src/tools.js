@@ -60,7 +60,7 @@ async function releaseAndClaim(agentId, { justFinishedTaskId, claimTaskId } = {}
     return store.mutate('agents', async (agentsList) => {
         const idx = agentsList.findIndex(a => a.id == agentId);
         if (idx === -1) {
-            return { next: undefined, result: { agentStatus: 'unassigned', startNow: false, queuePosition: null, currentTaskId: null } };
+            return { next: undefined, result: { agentStatus: 'unassigned', startNow: false, queuePosition: null, currentTaskId: null, sessionActive: false } };
         }
 
         const agent = D.hydrateAgent(agentsList[idx]);
@@ -120,6 +120,12 @@ async function releaseAndClaim(agentId, { justFinishedTaskId, claimTaskId } = {}
             result = { agentStatus: agent.currentTaskId != null ? 'active' : 'unassigned', startNow: false, queuePosition: null };
         }
         result.currentTaskId = agent.currentTaskId;
+        // Whether this agent's terminal/Claude Desktop session is actually
+        // live right now — callers use this to decide whether to move a
+        // freshly claimed/promoted task to "In Progress" immediately, or
+        // leave it for start_session to do once a session picks it up
+        // (TASK-574).
+        result.sessionActive = agent.sessionActive === true;
 
         if (!changed) return { next: undefined, result };
         const next = agentsList.slice();
@@ -129,11 +135,15 @@ async function releaseAndClaim(agentId, { justFinishedTaskId, claimTaskId } = {}
 }
 
 /**
- * Best-effort: once a task is confirmed active (currentTaskId), move it into
- * the project's "In Progress" column so the board shows what's actually being
- * worked without a human touching it — mirrors js/state.js moveToInProgressColumn.
- * Silent no-op if the project has no column with that exact name. This is a
- * third, independent CAS write in the same non-atomic chain documented for
+ * Best-effort: once a task is confirmed active (currentTaskId) *and* a live
+ * session has picked it up, move it into the project's "In Progress" column
+ * so the board shows what's actually being worked — mirrors js/state.js
+ * moveToInProgressColumn. Callers only reach this when the agent's
+ * sessionActive flag is true (see start_session and the `sessionActive`
+ * result from releaseAndClaim) — a claimed-but-not-yet-live task stays in
+ * its assigned column until a real session starts on it (TASK-574). Silent
+ * no-op if the project has no column with that exact name. This is a third,
+ * independent CAS write in the same non-atomic chain documented for
  * releaseAndClaim — if it fails or is skipped, the task is still correctly
  * assigned and active, just visually still in its old column.
  */
@@ -186,8 +196,14 @@ export async function list_agents({ includeDisabled = false } = {}) {
                 // Included so Claude can adopt the profile without a second call.
                 systemPrompt: a.systemPrompt,
                 // 'idle' means assign_task will start work immediately; 'working'
-                // means a new assignment queues behind currentTaskKey.
-                status: s.working ? 'working' : 'idle',
+                // means a new assignment queues behind currentTaskKey. Requires a
+                // *live* session (start_session), not just a claimed task — an
+                // agent with work assigned but nobody actually running it yet
+                // reads as idle here, even though a new assignment would still
+                // queue behind currentTaskKey once a session does pick it up
+                // (TASK-574).
+                status: (s.working && s.live) ? 'working' : 'idle',
+                live: s.live,
                 currentTaskKey: s.currentTask?.taskKey || null,
                 queueLength: s.queueLength,
                 assignedTaskCount: tasks.filter(t => t.agentId == a.id).length,
@@ -326,9 +342,12 @@ export async function create_task(args) {
 
     // A task created already pointed at an agent joins its queue the same way
     // assign_task does — claimed immediately if the agent is free.
-    let queue = { agentStatus: 'unassigned', startNow: false, queuePosition: null, currentTaskId: null };
+    let queue = { agentStatus: 'unassigned', startNow: false, queuePosition: null, currentTaskId: null, sessionActive: false };
     if (owner.agentId != null) queue = await releaseAndClaim(owner.agentId, { claimTaskId: created.id });
-    const moved = queue.startNow ? await moveToInProgressIfActive(created.id) : { moved: false };
+    // Claimed (startNow) just means it's now this agent's currentTaskId — the
+    // card only actually moves to "In Progress" once a live session is up to
+    // work it (TASK-574); until then it stays wherever it was created.
+    const moved = (queue.startNow && queue.sessionActive) ? await moveToInProgressIfActive(created.id) : { moved: false };
     // The response should reflect where the card actually ended up, not the
     // column it was created in a moment before being claimed and moved.
     if (moved.moved) created.columnId = moved.columnId;
@@ -337,8 +356,10 @@ export async function create_task(args) {
         task: created, agentSlug: owner.agentSlug,
         agentStatus: queue.agentStatus, startNow: queue.startNow, queuePosition: queue.queuePosition,
         hint: queue.startNow
-            ? `${owner.agentSlug} is free — begin this task now.` +
-              (moved.moved ? ` The card moved to "${moved.columnName}".` : '')
+            ? (queue.sessionActive
+                ? `${owner.agentSlug} is free and live — begin this task now.` +
+                  (moved.moved ? ` The card moved to "${moved.columnName}".` : '')
+                : `${owner.agentSlug} is free and claimed this task, but has no live session right now — it will move to "In Progress" once one starts (see start_session).`)
             : queue.agentStatus === 'backlog'
                 ? `This task is in the Backlog column, so ${owner.agentSlug} will not start it automatically. Move it to a workable column (e.g. "To Do") first.`
                 : queue.agentStatus === 'queued'
@@ -433,7 +454,10 @@ export async function move_task({ task: ref, column }) {
     let moved = { moved: false };
     if (moveResult.freesAgent) {
         queue = await releaseAndClaim(moveResult.task.agentId, { justFinishedTaskId: moveResult.task.id });
-        if (queue.currentTaskId != null) moved = await moveToInProgressIfActive(queue.currentTaskId);
+        // Only move the promoted task to In Progress if the agent's session
+        // is actually live to work it now (TASK-574) — otherwise it waits
+        // for start_session, same as a fresh claim would.
+        if (queue.currentTaskId != null && queue.sessionActive) moved = await moveToInProgressIfActive(queue.currentTaskId);
         if (queue.currentTaskId == null && movedByAgent) {
             await postChatMessage(moveResult.task.projectId, {
                 author: movedByAgent.name, authorType: 'agent',
@@ -495,13 +519,14 @@ export async function assign_task({ task: ref, agent, assignee }) {
     if (oldAgentId != null && oldAgentId != owner.agentId) {
         const freed = await releaseAndClaim(oldAgentId, { justFinishedTaskId: task.id });
         // Pulling this task off its old agent may have promoted a different
-        // one there — that one just became active too.
-        if (freed.currentTaskId != null) await moveToInProgressIfActive(freed.currentTaskId);
+        // one there — that one only starts moving now if that agent's
+        // session is actually live (TASK-574).
+        if (freed.currentTaskId != null && freed.sessionActive) await moveToInProgressIfActive(freed.currentTaskId);
     }
 
-    let queue = { agentStatus: 'unassigned', startNow: false, queuePosition: null, currentTaskId: null };
+    let queue = { agentStatus: 'unassigned', startNow: false, queuePosition: null, currentTaskId: null, sessionActive: false };
     if (owner.agentId != null) queue = await releaseAndClaim(owner.agentId, { claimTaskId: task.id });
-    const moved = queue.startNow ? await moveToInProgressIfActive(task.id) : { moved: false };
+    const moved = (queue.startNow && queue.sessionActive) ? await moveToInProgressIfActive(task.id) : { moved: false };
 
     return {
         taskKey: task.taskKey, assignee: task.assignee,
@@ -509,8 +534,10 @@ export async function assign_task({ task: ref, agent, assignee }) {
         agentStatus: queue.agentStatus, startNow: queue.startNow, queuePosition: queue.queuePosition,
         movedToColumn: moved.moved ? moved.columnName : null,
         hint: queue.startNow
-            ? `${owner.agentSlug} is free — begin this task now.` +
-              (moved.moved ? ` The card moved to "${moved.columnName}".` : '')
+            ? (queue.sessionActive
+                ? `${owner.agentSlug} is free and live — begin this task now.` +
+                  (moved.moved ? ` The card moved to "${moved.columnName}".` : '')
+                : `${owner.agentSlug} is free and claimed this task, but has no live session right now — it will move to "In Progress" once one starts (see start_session).`)
             : queue.agentStatus === 'backlog'
                 ? `This task is in the "${queue.blockedColumnName || 'Backlog'}" column, so ${owner.agentSlug} will not start it automatically even though it's free. Move it to a workable column (e.g. "To Do") first, then it can be claimed.`
                 : queue.agentStatus === 'queued'
@@ -548,7 +575,11 @@ export async function finish_task({ task: ref }) {
     }
 
     const queue = await releaseAndClaim(task.agentId, { justFinishedTaskId: task.id });
-    const moved = queue.currentTaskId != null
+    // The same session that just finished is presumably still live, so the
+    // next promoted task (if any) moves to In Progress right away; if the
+    // agent's session isn't actually marked live, it waits for start_session
+    // like any other promotion (TASK-574).
+    const moved = (queue.currentTaskId != null && queue.sessionActive)
         ? await moveToInProgressIfActive(queue.currentTaskId)
         : { moved: false };
 
@@ -722,6 +753,62 @@ export async function update_agent(args) {
     }
 
     return { agent: updated.agent, tasksRenamed: tasksTouched, hint: REFRESH_HINT };
+}
+
+/**
+ * Mark that a live terminal/Claude Desktop session is actually up and
+ * working this agent — call this once, right after adopting its
+ * systemPrompt and before starting real work on its active task (TASK-574).
+ * A task can be claimed (currentTaskId set) long before any session picks
+ * it up; the board should read that as "idle" until this is called, which
+ * is also what actually moves the card to "In Progress" for the first time.
+ * Call end_session when you stop working this agent, whether it finished
+ * its queue, got interrupted, or is handing off — otherwise the board keeps
+ * showing it as live after nobody's there.
+ */
+export async function start_session({ agent: ref }) {
+    const agentsList = await store.read('agents');
+    const record = D.resolveAgent(agentsList.map(D.hydrateAgent), ref);
+    if (!record) throw new Error(`No agent matches "${ref}". Use list_agents to see available agents.`);
+
+    await store.mutate('agents', (agents) => {
+        const idx = agents.findIndex(a => a.id == record.id);
+        if (idx === -1) return { next: undefined, result: null };
+        const next = agents.slice();
+        next[idx] = { ...D.hydrateAgent(agents[idx]), sessionActive: true };
+        return { next, result: null };
+    });
+
+    // A live session picking up its already-claimed task is what actually
+    // starts the work — move the card to In Progress now, not at claim time.
+    const moved = record.currentTaskId != null
+        ? await moveToInProgressIfActive(record.currentTaskId)
+        : { moved: false };
+
+    return {
+        agentSlug: record.slug,
+        currentTaskId: record.currentTaskId,
+        movedToColumn: moved.moved ? moved.columnName : null,
+        hint: record.currentTaskId != null
+            ? `${record.slug} is now live.` + (moved.moved ? ` Its active task moved to "${moved.columnName}".` : ' Its active task is already in a working column.') + ` ${REFRESH_HINT}`
+            : `${record.slug} is now live, but has no active task right now.`,
+    };
+}
+
+export async function end_session({ agent: ref }) {
+    const agentsList = await store.read('agents');
+    const record = D.resolveAgent(agentsList.map(D.hydrateAgent), ref);
+    if (!record) throw new Error(`No agent matches "${ref}". Use list_agents to see available agents.`);
+
+    await store.mutate('agents', (agents) => {
+        const idx = agents.findIndex(a => a.id == record.id);
+        if (idx === -1) return { next: undefined, result: null };
+        const next = agents.slice();
+        next[idx] = { ...D.hydrateAgent(agents[idx]), sessionActive: false };
+        return { next, result: null };
+    });
+
+    return { agentSlug: record.slug, hint: `${record.slug} is now marked idle (no live session).` };
 }
 
 // ── Helpers ────────────────────────────────────────────────

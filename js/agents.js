@@ -308,7 +308,10 @@ const Agents = (() => {
                 ? `<img src="${a.avatar}" alt="" />`
                 : escHtml(a.emoji || a.name.charAt(0).toUpperCase());
             const status = State.Agents.statusFor(a.id);
-            const statusHtml = status.working
+            // "Working" requires a live session, not just a claimed task
+            // (TASK-574) — an assigned-but-nobody's-there task still reads
+            // as Idle here.
+            const statusHtml = (status.working && status.live)
                 ? `<span class="agent-row-pill agent-row-pill--working" title="${escHtml(status.currentTask?.title || '')}">
                        Working on ${escHtml(status.currentTask?.taskKey || 'a task')}
                    </span>${status.queueLength ? `<span class="agent-row-pill">+${status.queueLength} queued</span>` : ''}`
@@ -396,7 +399,7 @@ const Agents = (() => {
                         <div class="agent-dash-name">${escHtml(a.name)}</div>
                         <div class="agent-row-meta">${a.role ? escHtml(a.role) : escHtml(a.slug)}</div>
                     </div>
-                    ${status.working
+                    ${(status.working && status.live)
                         ? '<span class="agent-row-pill agent-row-pill--working">Working</span>'
                         : '<span class="agent-row-pill agent-row-pill--idle">Idle</span>'}
                 </div>

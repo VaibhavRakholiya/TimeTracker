@@ -48,6 +48,15 @@ turn" actually gets decided:
 - A task an agent moved into a column literally named "To Be Tested" frees
   the agent the same way, without marking the task finished — it's waiting
   on a human, not back in the queue for rework.
+- Claiming a task (`startNow: true`) only means it's now that agent's
+  `currentTaskId` — the card does not move to "In Progress" and the agent
+  does not read as *working* until a live session actually calls
+  `start_session`. An agent can have a claimed task sitting untouched in its
+  original column for a while (nobody's terminal open yet, or the daemon
+  hasn't spawned one) — `list_agents` reports that as idle (`live: false`),
+  not working, even though `currentTaskKey` is set. Call `end_session` when
+  you stop working an agent (queue empty, interrupted, handing off) so the
+  board doesn't keep showing it as live.
 
 Walkthrough:
 
@@ -63,7 +72,9 @@ Walkthrough:
    `list_agents` to read the agent's `systemPrompt` and current status,
    `assign_task` for each task, and adopts the profile for whichever one comes
    back `startNow: true` — either following the system prompt directly, or
-   spawning a subagent seeded with it. Anything that queued waits; nothing
+   spawning a subagent seeded with it. Before doing the real work it calls
+   `start_session`, which is what actually moves the card to "In Progress"
+   and makes the agent read as *working*. Anything that queued waits; nothing
    works on it until the active task calls `finish_task`.
 
 4. **Results land on the board** — `add_comment` (authored as the agent),
@@ -72,7 +83,10 @@ Walkthrough:
 5. **Claude signals it's done** — `finish_task`, or `move_task` straight into a
    column named exactly `"Done"` (which finishes it automatically). Either way
    the response names the task that got promoted next, if any, so the same
-   session can keep going down the queue without you doing anything.
+   session can keep going down the queue without you doing anything — and,
+   since the session is already live, that next task moves to "In Progress"
+   immediately too. When there's nothing left (or the session is stopping for
+   any other reason), it calls `end_session`.
 
 6. **You pull it in** — Settings → Data → **Refresh from Cloud**, or reload.
    The board shows the moved card, the agent's chip and status, and the
@@ -86,9 +100,13 @@ the **live Claude Code session** reads `startNow: true` (or `agentNextTaskId`
 from `finish_task`) and acts on it in that same turn, because that is what it
 was told to do. If no Claude Code session is attached, a task can sit
 claimed-but-untouched, or queued, indefinitely — assignment changes *whose
-turn it is*, not *whether anyone is working*. Keep the session open (or ask
-Claude to keep working the queue) for a whole agent's backlog to actually get
-done in one sitting.
+turn it is*, not *whether anyone is working*. `start_session`/`end_session`
+(TASK-574) make that gap visible on the board instead of just in this
+explanation: `list_agents`/the Settings row read *idle* for exactly that
+claimed-but-untouched state (`live: false`), not *working*, and the card
+stays out of "In Progress" until a session actually calls `start_session`.
+Keep the session open (or ask Claude to keep working the queue) for a whole
+agent's backlog to actually get done in one sitting.
 
 An optional daemon (`npm run daemon`, see below) closes this gap if you leave
 it running.
@@ -239,5 +257,6 @@ the script refuses to run against the live namespace. It also diffs the task
 shape in `src/domain.js` / `src/tools.js` against `js/state.js` and fails on
 drift, since those invariants are deliberately duplicated (see `.cursorrules`),
 and covers the queue mechanics — claim-if-free, queue-if-busy, same-project-
-preferred promotion on `finish_task`, and the auto-finish-on-move-to-"Done"
-and free-on-move-to-"To Be Tested" heuristics.
+preferred promotion on `finish_task`, the auto-finish-on-move-to-"Done" and
+free-on-move-to-"To Be Tested" heuristics, and start_session/end_session
+gating the working/idle status and the move to "In Progress".
