@@ -174,6 +174,27 @@ export function isBacklogColumn(task, projects) {
     return !!col && String(col.name).trim().toLowerCase() === 'backlog';
 }
 
+/**
+ * A task sitting in "In Review" or "To Be Tested" is mid-review, not open
+ * work — an agent should only ever pick up something still in "To Do" (or
+ * whatever pre-review column a project uses). Mirrors js/state.js
+ * isReviewColumn (TASK-571).
+ */
+export function isReviewColumn(task, projects) {
+    if (!task) return false;
+    const project = (projects || []).find(p => p.id == task.projectId);
+    if (!project) return false;
+    const col = (project.columns || []).find(c => c.id === task.columnId);
+    if (!col) return false;
+    const name = String(col.name).trim().toLowerCase();
+    return name === 'in review' || name === 'to be tested';
+}
+
+/** Not open work for an agent to pick up on its own: Backlog, In Review, To Be Tested. */
+export function isBlockedColumn(task, projects) {
+    return isBacklogColumn(task, projects) || isReviewColumn(task, projects);
+}
+
 export function agentStatus(agent, tasks) {
     const working = agent.currentTaskId != null;
     const current = working ? (tasks || []).find(t => t.id == agent.currentTaskId) || null : null;

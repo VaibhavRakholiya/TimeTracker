@@ -648,7 +648,7 @@ const State = (() => {
                 const agent = Agents.get(task.agentId);
                 if (agent) {
                     task.assignedAt = new Date().toISOString();
-                    if (agent.currentTaskId == null && !isBacklogColumn(task)) {
+                    if (agent.currentTaskId == null && !isBlockedColumn(task)) {
                         agent.currentTaskId = task.id;
                         moveToInProgressColumn(task);
                     }
@@ -687,7 +687,7 @@ const State = (() => {
                     // An agentId always wins the assignee string, unless the
                     // caller explicitly passed its own — same rule as create().
                     if (agent && !('assignee' in fields)) _data.tasks[idx].assignee = agent.name;
-                    if (agent && agent.currentTaskId == null && !isBacklogColumn(_data.tasks[idx])) {
+                    if (agent && agent.currentTaskId == null && !isBlockedColumn(_data.tasks[idx])) {
                         agent.currentTaskId = id;
                         moveToInProgressColumn(_data.tasks[idx]);
                     }
@@ -839,7 +839,7 @@ const State = (() => {
                 const agent = Agents.get(newTask.agentId);
                 if (agent) {
                     newTask.assignedAt = new Date().toISOString();
-                    if (agent.currentTaskId == null && !isBacklogColumn(newTask)) {
+                    if (agent.currentTaskId == null && !isBlockedColumn(newTask)) {
                         agent.currentTaskId = newTask.id;
                         moveToInProgressColumn(newTask);
                     }
@@ -911,11 +911,32 @@ const State = (() => {
         return !!col && String(col.name).trim().toLowerCase() === 'backlog';
     }
 
+    /**
+     * A task sitting in "In Review" or "To Be Tested" is mid-review, not open
+     * work — an agent should only ever pick up something still in "To Do" (or
+     * whatever pre-review column a project uses). Mirrors mcp-server/src/domain.js
+     * isReviewColumn (TASK-571).
+     */
+    function isReviewColumn(task) {
+        if (!task) return false;
+        const proj = _data.projects.find(p => p.id == task.projectId);
+        if (!proj) return false;
+        const col = (proj.columns || []).find(c => c.id === task.columnId);
+        if (!col) return false;
+        const name = String(col.name).trim().toLowerCase();
+        return name === 'in review' || name === 'to be tested';
+    }
+
+    /** Not open work for an agent to pick up on its own: Backlog, In Review, To Be Tested. */
+    function isBlockedColumn(task) {
+        return isBacklogColumn(task) || isReviewColumn(task);
+    }
+
     /** The agent just went idle — hand it the next queued, workable task, if any. */
     function promoteNextForAgent(agentId) {
         const agent = _data.agents.find(a => a.id == agentId);
         if (!agent) return null;
-        const next = queueForAgent(agentId, agent.currentTaskId).find(t => !isBacklogColumn(t)) || null;
+        const next = queueForAgent(agentId, agent.currentTaskId).find(t => !isBlockedColumn(t)) || null;
         agent.currentTaskId = next ? next.id : null;
         if (next) moveToInProgressColumn(next);
         return next;
@@ -1029,7 +1050,7 @@ const State = (() => {
             task.assignedAt  = new Date().toISOString();
             task.agentDoneAt = null;
 
-            const startNow = agent.currentTaskId == null && !isBacklogColumn(task);
+            const startNow = agent.currentTaskId == null && !isBlockedColumn(task);
             if (startNow) {
                 agent.currentTaskId = task.id;
                 moveToInProgressColumn(task);

@@ -435,6 +435,26 @@ await check('moving a task out of Backlog lets it be claimed on reassignment', a
     assert.equal(r.startNow, true, 'now that it is out of Backlog, it should claim normally');
 });
 
+section('review-column exclusion (TASK-571)');
+
+await check('a task in In Review is not claimed — agent stays idle', async () => {
+    const reviewAgent = (await T.create_agent({ name: 'Review Tester' })).agent;
+    const r = await T.create_task({
+        projectId, title: 'Awaiting review', column: 'In Review', agent: reviewAgent.slug,
+    });
+    assert.equal(r.startNow, false);
+    assert.equal(r.agentStatus, 'backlog', 'blocked columns reuse the same status agents already know to wait on');
+    assert.equal(r.task.columnId, 'col-review', 'it must stay put, not get moved to In Progress');
+});
+
+await check('a To Do task is claimed ahead of an already-assigned In Review task', async () => {
+    const reviewAgent = (await T.list_agents({})).find(a => a.slug === 'review-tester');
+    const r = await T.create_task({
+        projectId, title: 'Ready to go', column: 'To Do', agent: reviewAgent.slug,
+    });
+    assert.equal(r.startNow, true);
+});
+
 // ── Cleanup ────────────────────────────────────────────────
 section('cleanup');
 await check('scratch namespace removed', async () => {
