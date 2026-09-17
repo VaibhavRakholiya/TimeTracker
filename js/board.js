@@ -289,7 +289,6 @@ const Board = (() => {
 
             colTasks.forEach(t => {
                 const due = Tasks.formatDueDate(t.dueDate);
-                const done = Tasks.isDoneColumn(t);
                 const running = t.isTimerRunning;
                 const labelHtml = (t.labels || []).length
                     ? `<div class="row-label-wrap">${(t.labels || []).map(lid => {
@@ -308,7 +307,7 @@ const Board = (() => {
                     <td>
                         <div class="row-title-wrap">
                             ${Tasks.priorityDot(t.priority)}
-                            <span class="row-title${done ? ' is-done' : ''}">${escHtml(t.title)}</span>
+                            <span class="row-title">${escHtml(t.title)}</span>
                         </div>
                         ${labelHtml}
                     </td>

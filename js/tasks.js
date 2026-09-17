@@ -264,7 +264,6 @@ const Tasks = (() => {
         const due      = formatDueDate(task.dueDate);
         const subs     = subtaskProgress(task);
         const running  = task.isTimerRunning;
-        const done     = isDoneColumn(task);
 
         const labelHtml = (task.labels || []).length
             ? `<div class="task-card-labels">${getTaskLabels(task, allLabels)}</div>`
@@ -289,11 +288,11 @@ const Tasks = (() => {
             ? `<span class="task-meta-item"><i class="fa-regular fa-clock"></i> ${formatHours(task.timeSpent)}</span>`
             : '';
 
-        return `<div class="task-card${done ? ' done' : ''}"
+        return `<div class="task-card"
                      data-task-id="${task.id}"
                      draggable="true">
             <div class="task-card-header">
-                <div class="task-card-title${done ? ' completed' : ''}">${escHtml(task.title)}</div>
+                <div class="task-card-title">${escHtml(task.title)}</div>
             </div>
             ${labelHtml}
             <div class="task-card-footer">
