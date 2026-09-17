@@ -115,6 +115,7 @@
         </section>
     </main>
 
+    <script src="firebase-rest-integration.js"></script>
     <script>
         // ── Theme toggle ──────────────────────────────────────
         const themeToggle = document.getElementById('themeToggle');
@@ -158,7 +159,27 @@
         const loginSpinner = document.getElementById('loginSpinner');
         const errorText    = document.getElementById('loginErrorText');
 
-        const CREDENTIALS = { Vaibhav: 'password123', Aakash: 'password123' };
+        // Credentials live in Firebase now (flowboard_credentials, same
+        // /timetracker/<dataType>.json convention as everything else this app
+        // syncs) instead of a plaintext object shipped in this file (TASK-581).
+        // Passwords are stored as SHA-256 hex digests, never plaintext — the
+        // RTDB rules here are open like the rest of this app's data, so this
+        // is about not shipping the secret in source control, not real secret
+        // storage; a hash at least means a leaked database dump isn't the
+        // password directly.
+        async function sha256Hex(text) {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function loadCredentials() {
+            for (let attempt = 0; attempt < 20 && !window.firebaseRESTIntegration; attempt++) {
+                await new Promise(r => setTimeout(r, 100)); // firebase-rest-integration.js inits on DOMContentLoaded
+            }
+            if (!window.firebaseRESTIntegration) throw new Error('Firebase integration did not load.');
+            const creds = await window.firebaseRESTIntegration.loadData('flowboard_credentials');
+            return creds && typeof creds === 'object' ? creds : {};
+        }
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -178,10 +199,21 @@
             loginSpinner.classList.remove('is-hidden');
             loginBtn.disabled = true;
 
-            // Simulate auth delay
-            await new Promise(r => setTimeout(r, 500));
+            let ok = false;
+            try {
+                const [credentials, passwordHash] = await Promise.all([loadCredentials(), sha256Hex(password)]);
+                ok = credentials[username] != null && credentials[username] === passwordHash;
+            } catch (err) {
+                console.error('Login: could not reach Firebase for credentials', err);
+                loginBtnText.style.display = 'inline';
+                loginSpinner.classList.add('is-hidden');
+                loginBtn.disabled = false;
+                errorText.textContent = 'Could not reach the server. Check your connection and try again.';
+                loginError.classList.add('visible');
+                return;
+            }
 
-            if (CREDENTIALS[username] && CREDENTIALS[username] === password) {
+            if (ok) {
                 localStorage.setItem('isLoggedIn', 'true');
                 localStorage.setItem('username', username);
                 localStorage.setItem('loginTime', new Date().toISOString());
