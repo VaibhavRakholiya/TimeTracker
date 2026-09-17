@@ -435,6 +435,10 @@ const UI = (() => {
                     <span class="desc-tool-sep"></span>
                     <button type="button" class="desc-tool-btn" data-cmd="insertUnorderedList" title="Bullet list"><i class="fa-solid fa-list-ul"></i></button>
                     <button type="button" class="desc-tool-btn" data-cmd="insertOrderedList" title="Numbered list"><i class="fa-solid fa-list-ol"></i></button>
+                    <button type="button" class="desc-tool-btn" id="panelDescImage-${tid}" title="Insert image">
+                        <i class="fa-solid fa-image"></i>
+                    </button>
+                    <input type="file" id="panelDescImageInput-${tid}" accept="image/*" class="sr-only" />
                     <span class="desc-tool-sep"></span>
                     <button type="button" class="desc-tool-btn" id="panelDescCopy-${tid}" title="Copy description">
                         <i class="fa-solid fa-copy"></i>
@@ -645,6 +649,45 @@ const UI = (() => {
 
             const speechBtn = q('panelDescSpeech');
             if (speechBtn) SpeechToText.attach(speechBtn, descEl);
+
+            // Insert image — capture the caret before the file dialog steals
+            // focus, then restore it once a file comes back.
+            let pendingImageRange = null;
+            q('panelDescImage')?.addEventListener('mousedown', e => {
+                e.preventDefault();
+                descEl.focus();
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0 && descEl.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+                    pendingImageRange = sel.getRangeAt(0).cloneRange();
+                } else {
+                    pendingImageRange = document.createRange();
+                    pendingImageRange.selectNodeContents(descEl);
+                    pendingImageRange.collapse(false);
+                }
+            });
+            q('panelDescImage')?.addEventListener('click', () => {
+                q('panelDescImageInput')?.click();
+            });
+            q('panelDescImageInput')?.addEventListener('change', async e => {
+                const file = e.target.files && e.target.files[0];
+                e.target.value = '';
+                if (!file) return;
+                if (!file.type.startsWith('image/')) {
+                    toast('Please choose an image file', 'warning');
+                    return;
+                }
+                try {
+                    const dataUrl = await Tasks.resizeImageForDescription(file);
+                    descEl.focus();
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    if (pendingImageRange) sel.addRange(pendingImageRange);
+                    document.execCommand('insertHTML', false, `<img src="${dataUrl}" alt="">`);
+                    State.Tasks.update(task.id, { description: Tasks.getDescriptionFromElement(descEl) });
+                } catch (err) {
+                    toast('Could not read that image', 'error');
+                }
+            });
 
             descEl.addEventListener('paste', e => {
                 e.preventDefault();

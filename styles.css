@@ -2100,6 +2100,14 @@ body.task-panel-fullscreen #content-area {
     font-style: italic;
 }
 
+.panel-description img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-md);
+    margin: var(--sp-1) 0;
+    display: block;
+}
+
 .panel-description:focus {
     border-color: var(--border-focus);
     background: var(--input-bg-focus);

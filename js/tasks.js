@@ -89,8 +89,15 @@ const Tasks = (() => {
 
     const DESC_ALLOWED_TAGS = new Set([
         'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE',
-        'UL', 'OL', 'LI', 'P', 'BR', 'A', 'DIV',
+        'UL', 'OL', 'LI', 'P', 'BR', 'A', 'DIV', 'IMG',
     ]);
+
+    // Description images are stored inline as data URLs (same pattern as
+    // agent avatars in js/agents.js), so the only other src we allow is a
+    // plain http(s) link — never anything that could run script.
+    function isSafeImageSrc(src) {
+        return /^data:image\/(png|jpe?g|gif|webp);base64,/i.test(src) || /^https?:\/\//i.test(src);
+    }
 
     function normalizeDescription(text) {
         if (!text) return '';
@@ -118,10 +125,16 @@ const Tasks = (() => {
                     if (child.tagName === 'A' && attr.name === 'href') {
                         const href = attr.value.trim();
                         if (!/^https?:\/\//i.test(href)) child.removeAttribute('href');
+                    } else if (child.tagName === 'IMG' && (attr.name === 'src' || attr.name === 'alt')) {
+                        if (attr.name === 'src' && !isSafeImageSrc(attr.value.trim())) child.removeAttribute('src');
                     } else {
                         child.removeAttribute(attr.name);
                     }
                 });
+                if (child.tagName === 'IMG' && !child.getAttribute('src')) {
+                    node.removeChild(child);
+                    continue;
+                }
                 walk(child);
             }
         }
@@ -133,7 +146,39 @@ const Tasks = (() => {
     function descriptionHasFormatting(html) {
         const probe = document.createElement('div');
         probe.innerHTML = html;
-        return !!probe.querySelector('b, strong, i, em, u, s, strike, ul, ol, a');
+        return !!probe.querySelector('b, strong, i, em, u, s, strike, ul, ol, a, img');
+    }
+
+    // Downscales an uploaded image before it's inlined as a data URL in the
+    // description, same reasoning as the agent avatar flow in js/agents.js:
+    // keeps the shared Firebase record small.
+    const DESC_IMAGE_MAX_DIM = 1000;
+
+    function resizeImageForDescription(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const { naturalWidth: w, naturalHeight: h } = img;
+                    if (w <= DESC_IMAGE_MAX_DIM && h <= DESC_IMAGE_MAX_DIM) {
+                        resolve(reader.result);
+                        return;
+                    }
+                    const scale  = DESC_IMAGE_MAX_DIM / Math.max(w, h);
+                    const canvas = document.createElement('canvas');
+                    canvas.width  = Math.round(w * scale);
+                    canvas.height = Math.round(h * scale);
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const isPng = /png/i.test(file.type);
+                    resolve(canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', 0.85));
+                };
+                img.onerror = () => reject(new Error('Could not read image'));
+                img.src = reader.result;
+            };
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+        });
     }
 
     function setDescriptionElement(el, stored) {
@@ -709,7 +754,7 @@ const Tasks = (() => {
         escHtml, hexToRgba, isDoneColumn, subtaskProgress,
         PRIORITIES, priorityDot, priorityLabel, priorityOptions,
         normalizeDescription, setDescriptionElement, getDescriptionFromElement,
-        bindDescriptionTabKey, sanitizeDescriptionHtml,
+        bindDescriptionTabKey, sanitizeDescriptionHtml, resizeImageForDescription,
     };
 })();
 
