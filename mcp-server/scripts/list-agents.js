@@ -8,10 +8,10 @@
 import { read } from '../src/store.js';
 import { hydrateAgent, agentStatus } from '../src/domain.js';
 
-const [rawAgents, tasks] = await Promise.all([read('agents'), read('tasks')]);
+const [rawAgents, tasks, projects] = await Promise.all([read('agents'), read('tasks'), read('projects')]);
 const agents = rawAgents.map(hydrateAgent).filter(a => a.enabled !== false);
 
 for (const a of agents) {
-    const status = agentStatus(a, tasks).working ? 'working' : 'idle';
+    const status = agentStatus(a, tasks, projects).working ? 'working' : 'idle';
     console.log(`${a.slug}\t${a.name}\t${a.role || ''}\t${status}`);
 }

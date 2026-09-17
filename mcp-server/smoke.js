@@ -121,10 +121,11 @@ await store.mutate('projects', () => ({
         id: projectId, name: 'Smoke Project', description: '', emoji: '', color: '#6366f1',
         position: 1000, labels: [],
         columns: [
-            { id: 'col-todo',   name: 'To Do',       color: '#6b7280', position: 0, wipLimit: null },
-            { id: 'col-ip',     name: 'In Progress', color: '#3b82f6', position: 1, wipLimit: null },
-            { id: 'col-review', name: 'In Review',   color: '#f59e0b', position: 2, wipLimit: null },
-            { id: 'col-done',   name: 'Done',        color: '#22c55e', position: 3, wipLimit: null },
+            { id: 'col-todo',   name: 'To Do',         color: '#6b7280', position: 0, wipLimit: null },
+            { id: 'col-ip',     name: 'In Progress',   color: '#3b82f6', position: 1, wipLimit: null },
+            { id: 'col-review', name: 'In Review',     color: '#f59e0b', position: 2, wipLimit: null },
+            { id: 'col-tbt',    name: 'To Be Tested',  color: '#a855f7', position: 3, wipLimit: null },
+            { id: 'col-done',   name: 'Done',          color: '#22c55e', position: 4, wipLimit: null },
         ],
         createdAt: new Date().toISOString(),
     }],
@@ -171,7 +172,7 @@ await check('list_projects returns the seeded project with columns', async () =>
     const projects = await T.list_projects();
     const p = projects.find(x => x.id === projectId);
     assert.ok(p, 'seeded project not found');
-    assert.equal(p.columns.length, 4);
+    assert.equal(p.columns.length, 5);
     assert.equal(p.columns[0].name, 'To Do');
 });
 
@@ -206,7 +207,7 @@ await check('create_task refuses an invalid project', async () => {
 await check('create_task refuses an unknown column, naming the valid ones', async () => {
     await assert.rejects(
         () => T.create_task({ projectId, title: 'x', column: 'Nowhere' }),
-        /Available: To Do, In Progress, In Review, Done/);
+        /Available: To Do, In Progress, In Review, To Be Tested, Done/);
 });
 
 await check('assign_task by slug sets agentId and mirrors the name', async () => {
@@ -453,6 +454,41 @@ await check('a To Do task is claimed ahead of an already-assigned In Review task
         projectId, title: 'Ready to go', column: 'To Do', agent: reviewAgent.slug,
     });
     assert.equal(r.startNow, true);
+});
+
+section('To Be Tested does not occupy the agent (TASK-572)');
+
+await check('moving the active task to To Be Tested frees the agent without finishing it', async () => {
+    const tbtAgent = (await T.create_agent({ name: 'TBT Tester' })).agent;
+    const t1 = (await T.create_task({ projectId, title: 'TBT 1', agent: tbtAgent.slug })).task;
+
+    const r = await T.move_task({ task: t1.taskKey, column: 'To Be Tested' });
+    assert.equal(r.agentFreed, true, 'To Be Tested should free the agent the same way Done does');
+    assert.equal(r.agentNextTaskId, null, 'nothing queued yet — the agent should go idle');
+
+    const agents = await T.list_agents({});
+    assert.equal(agents.find(a => a.id === tbtAgent.id).status, 'idle',
+        'a task waiting in To Be Tested must not count as the agent working something');
+
+    const full = await T.get_task({ task: t1.taskKey });
+    assert.equal(full.agentDoneAt, null, 'unlike Done, this is not a finish — the task stays open pending review');
+    assert.equal(full.agentId, tbtAgent.id, 'it stays assigned to the agent that did the work');
+});
+
+await check('a queued task is promoted once the active one lands in To Be Tested', async () => {
+    const tbtAgent = (await T.list_agents({})).find(a => a.slug === 'tbt-tester');
+    const t2 = (await T.create_task({ projectId, title: 'TBT 2', agent: tbtAgent.slug })).task;
+    assert.equal((await T.get_task({ task: t2.taskKey })).isActiveForAgent, true,
+        'the agent was idle after the previous test, so this should claim immediately');
+
+    const r = await T.move_task({ task: t2.taskKey, column: 'To Be Tested' });
+    assert.equal(r.agentFreed, true);
+
+    const t3 = (await T.create_task({ projectId, title: 'TBT 3', agent: tbtAgent.slug })).task;
+    assert.equal((await T.get_task({ task: t3.taskKey })).isActiveForAgent, true,
+        'the agent should already be idle again — no need to wait for finish_task on the To Be Tested task');
+
+    await T.finish_task({ task: t3.taskKey }); // leave the agent clean for anything appended later
 });
 
 // ── Cleanup ────────────────────────────────────────────────

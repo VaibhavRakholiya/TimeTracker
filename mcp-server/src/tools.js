@@ -73,8 +73,21 @@ async function releaseAndClaim(agentId, { justFinishedTaskId, claimTaskId } = {}
         // in a real working column (e.g. "To Do") are.
         const isReady = t => !D.isBlockedColumn(D.hydrateTask(t), projects);
 
+        // A task sitting in "To Be Tested" is done from the agent's side and
+        // waiting on a human — it no longer occupies the agent, even if
+        // nobody called finish_task on it yet (TASK-572). Self-heals on every
+        // call, the same way the rest of this function does: whether that
+        // landed here via move_task's own release below, or a column change
+        // from somewhere else entirely (e.g. dragged on the board).
+        const current = agent.currentTaskId != null ? tasks.find(t => t.id == agent.currentTaskId) : null;
+        const currentIsToBeTested = current != null && D.isToBeTestedColumn(D.hydrateTask(current), projects);
+
         let changed = false;
         if (justFinishedTaskId != null && agent.currentTaskId == justFinishedTaskId) {
+            const next = D.queueForAgent(tasks, agent.id, agent.currentTaskId).find(isReady) || null;
+            agent.currentTaskId = next ? next.id : null;
+            changed = true;
+        } else if (currentIsToBeTested) {
             const next = D.queueForAgent(tasks, agent.id, agent.currentTaskId).find(isReady) || null;
             agent.currentTaskId = next ? next.id : null;
             changed = true;
@@ -161,12 +174,12 @@ export async function list_projects() {
 }
 
 export async function list_agents({ includeDisabled = false } = {}) {
-    const [rawAgents, rawTasks] = await Promise.all([store.read('agents'), store.read('tasks')]);
+    const [rawAgents, rawTasks, projects] = await Promise.all([store.read('agents'), store.read('tasks'), store.read('projects')]);
     const tasks = rawTasks.map(D.hydrateTask);
     return rawAgents.map(D.hydrateAgent)
         .filter(a => includeDisabled || a.enabled)
         .map(a => {
-            const s = D.agentStatus(a, tasks);
+            const s = D.agentStatus(a, tasks, projects);
             return {
                 id: a.id, slug: a.slug, name: a.name, emoji: a.emoji, color: a.color,
                 role: a.role, model: a.model, enabled: a.enabled,
@@ -386,7 +399,12 @@ export async function move_task({ task: ref, column }) {
         // finish_task tool, not a substitute for it (a "Shipped" or "QA"
         // column still needs an explicit finish_task call).
         const isDoneColumn = String(col.name).trim().toLowerCase() === 'done';
+        const isToBeTestedColumn = String(col.name).trim().toLowerCase() === 'to be tested';
         const autoFinish = isDoneColumn && found.agentId != null && found.agentDoneAt == null;
+        // Landing in "To Be Tested" frees the agent too, just without marking
+        // the task done — it's waiting on a human, not back in the queue for
+        // rework (TASK-572).
+        const freesAgent = autoFinish || (isToBeTestedColumn && found.agentId != null);
 
         const updated = {
             ...D.hydrateTask(found),
@@ -395,7 +413,7 @@ export async function move_task({ task: ref, column }) {
         };
         const next = tasks.slice();
         next[idx] = updated;
-        return { next, result: { task: updated, columnName: col.name, autoFinish } };
+        return { next, result: { task: updated, columnName: col.name, autoFinish, freesAgent } };
     });
 
     const isReviewColumn = String(moveResult.columnName).trim().toLowerCase().includes('review');
@@ -413,7 +431,7 @@ export async function move_task({ task: ref, column }) {
 
     let queue = null;
     let moved = { moved: false };
-    if (moveResult.autoFinish) {
+    if (moveResult.freesAgent) {
         queue = await releaseAndClaim(moveResult.task.agentId, { justFinishedTaskId: moveResult.task.id });
         if (queue.currentTaskId != null) moved = await moveToInProgressIfActive(queue.currentTaskId);
         if (queue.currentTaskId == null && movedByAgent) {
@@ -426,9 +444,9 @@ export async function move_task({ task: ref, column }) {
 
     return {
         taskKey: moveResult.task.taskKey, columnId: moveResult.task.columnId, columnName: moveResult.columnName,
-        agentFreed: moveResult.autoFinish,
+        agentFreed: moveResult.freesAgent,
         agentNextTaskId: queue?.currentTaskId ?? null,
-        hint: moveResult.autoFinish
+        hint: moveResult.freesAgent
             ? `Moving to "${moveResult.columnName}" freed the agent.` +
               (queue?.currentTaskId
                   ? ` It is now on task id ${queue.currentTaskId}` + (moved.moved ? ` (moved to "${moved.columnName}")` : '') + ` — call get_task to see it.`

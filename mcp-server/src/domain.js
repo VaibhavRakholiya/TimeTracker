@@ -195,9 +195,28 @@ export function isBlockedColumn(task, projects) {
     return isBacklogColumn(task, projects) || isReviewColumn(task, projects);
 }
 
-export function agentStatus(agent, tasks) {
-    const working = agent.currentTaskId != null;
-    const current = working ? (tasks || []).find(t => t.id == agent.currentTaskId) || null : null;
+/**
+ * A task sitting in a column literally named "To Be Tested" is done from the
+ * agent's side and waiting on a human — it stays assigned (still the agent's
+ * currentTaskId, still in its history) but no longer ties up the agent
+ * (TASK-572). Mirrors js/state.js isToBeTestedColumn.
+ */
+export function isToBeTestedColumn(task, projects) {
+    if (!task) return false;
+    const project = (projects || []).find(p => p.id == task.projectId);
+    if (!project) return false;
+    const col = (project.columns || []).find(c => c.id === task.columnId);
+    return !!col && String(col.name).trim().toLowerCase() === 'to be tested';
+}
+
+/**
+ * `projects` is optional for callers that only need queue bookkeeping and
+ * never see a "To Be Tested" column, but passing it is what lets a task
+ * sitting there stop counting as occupying the agent (TASK-572).
+ */
+export function agentStatus(agent, tasks, projects) {
+    const current = agent.currentTaskId != null ? (tasks || []).find(t => t.id == agent.currentTaskId) || null : null;
+    const working = current != null && !isToBeTestedColumn(current, projects);
     return {
         working,
         currentTask: current,

@@ -42,12 +42,12 @@ function log(...args) {
 }
 
 async function pollOnce() {
-    const [rawAgents, rawTasks] = await Promise.all([read('agents'), read('tasks')]);
+    const [rawAgents, rawTasks, projects] = await Promise.all([read('agents'), read('tasks'), read('projects')]);
     const tasks = rawTasks.map(hydrateTask);
     const agents = rawAgents.map(hydrateAgent).filter(a => a.enabled);
 
     for (const agent of agents) {
-        const status = agentStatus(agent, tasks);
+        const status = agentStatus(agent, tasks, projects);
         const activeTaskId = status.working ? status.currentTask.id : null;
 
         if (!seeded) {

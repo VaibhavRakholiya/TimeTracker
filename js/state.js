@@ -696,6 +696,17 @@ const State = (() => {
                 }
             }
 
+            // Dragging an agent's active task into "To Be Tested" frees the
+            // agent, same as move_task on the MCP side — it's waiting on a
+            // human now, not tying up the agent (TASK-572). Not a finish:
+            // agentDoneAt stays untouched, the task just stops being "current".
+            if (fields.columnId && fields.columnId !== oldTask.columnId
+                && _data.tasks[idx].agentId != null
+                && isToBeTestedColumn(_data.tasks[idx])) {
+                const agent = Agents.get(_data.tasks[idx].agentId);
+                if (agent && agent.currentTaskId == id) promoteNextForAgent(agent.id);
+            }
+
             save();
             if (fields.columnId && fields.columnId !== oldTask.columnId) {
                 addActivity('task_moved', _data.tasks[idx].title, `→ column`);
@@ -932,6 +943,20 @@ const State = (() => {
         return isBacklogColumn(task) || isReviewColumn(task);
     }
 
+    /**
+     * A task sitting in a column literally named "To Be Tested" is done from
+     * the agent's side and waiting on a human — it stays assigned, but no
+     * longer ties up the agent (TASK-572). Mirrors mcp-server/src/domain.js
+     * isToBeTestedColumn.
+     */
+    function isToBeTestedColumn(task) {
+        if (!task) return false;
+        const proj = _data.projects.find(p => p.id == task.projectId);
+        if (!proj) return false;
+        const col = (proj.columns || []).find(c => c.id === task.columnId);
+        return !!col && String(col.name).trim().toLowerCase() === 'to be tested';
+    }
+
     /** The agent just went idle — hand it the next queued, workable task, if any. */
     function promoteNextForAgent(agentId) {
         const agent = _data.agents.find(a => a.id == agentId);
@@ -1045,6 +1070,12 @@ const State = (() => {
             const oldAgentId = task.agentId ?? null;
             if (oldAgentId != null && oldAgentId != agentId) this.releaseTask(oldAgentId, taskId);
 
+            // A task left sitting in "To Be Tested" no longer occupies its
+            // agent, even if nobody explicitly freed it yet (TASK-572) —
+            // self-heal here the same way releaseTask does.
+            const current = agent.currentTaskId != null ? _data.tasks.find(t => t.id == agent.currentTaskId) : null;
+            if (current && isToBeTestedColumn(current)) promoteNextForAgent(agentId);
+
             task.agentId     = agent.id;
             task.assignee    = agent.name;
             task.assignedAt  = new Date().toISOString();
@@ -1086,7 +1117,7 @@ const State = (() => {
             if (!agent) return null;
             const current = agent.currentTaskId != null ? _data.tasks.find(t => t.id == agent.currentTaskId) : null;
             return {
-                working:     agent.currentTaskId != null,
+                working:     current != null && !isToBeTestedColumn(current),
                 currentTask: current || null,
                 queueLength: queueForAgent(id, agent.currentTaskId).length,
             };
