@@ -69,7 +69,7 @@ const Chat = (() => {
         });
         return `<div class="${cls}">
             <div class="chat-message-head">
-                <span class="chat-message-author">${escHtml(m.author || 'System')}</span>
+                <span class="chat-message-author">${m.authorType === 'question' ? '<i class="fa-solid fa-circle-question"></i> ' : ''}${escHtml(m.author || 'System')}</span>
                 <span class="chat-message-time">${escHtml(time)}</span>
             </div>
             <div class="chat-message-text">${UI.linkify(m.text)}</div>
@@ -86,7 +86,8 @@ const Chat = (() => {
 
         fresh.forEach(m => {
             const proj = State.Projects.get(m.projectId);
-            UI.toast(m.text, 'info', proj ? `${proj.name} · ${m.author}` : m.author);
+            const isQuestion = m.authorType === 'question';
+            UI.toast(m.text, isQuestion ? 'warning' : 'info', proj ? `${proj.name} · ${m.author}` : m.author);
         });
 
         if (!('Notification' in window)) return;
@@ -94,9 +95,12 @@ const Chat = (() => {
         if (Notification.permission !== 'granted') return;
         fresh.forEach(m => {
             const proj = State.Projects.get(m.projectId);
-            new Notification(proj ? `${proj.name} — ${m.author}` : m.author, {
+            const isQuestion = m.authorType === 'question';
+            const title = proj ? `${proj.name} — ${m.author}` : m.author;
+            new Notification(isQuestion ? `❓ ${title}` : title, {
                 body: m.text,
                 tag:  `flowboard-chat-${m.id}`,
+                requireInteraction: isQuestion,
             });
         });
     }

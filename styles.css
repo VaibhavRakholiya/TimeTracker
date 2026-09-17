@@ -3911,9 +3911,10 @@ input.form-control--inline { padding: 5px 10px; }
     padding: var(--sp-3);
 }
 
-.chat-message--agent   { border-left: 3px solid var(--primary); }
-.chat-message--system  { border-left: 3px solid var(--text-disabled); background: var(--surface-overlay); }
-.chat-message--user    { border-left: 3px solid #22c55e; }
+.chat-message--agent    { border-left: 3px solid var(--primary); }
+.chat-message--system   { border-left: 3px solid var(--text-disabled); background: var(--surface-overlay); }
+.chat-message--user     { border-left: 3px solid #22c55e; }
+.chat-message--question { border-left: 3px solid #f59e0b; background: rgba(245, 158, 11, 0.08); }
 
 .chat-message-head {
     display: flex;

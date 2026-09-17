@@ -551,11 +551,11 @@ export async function finish_task({ task: ref }) {
     };
 }
 
-export async function add_comment({ task: ref, text, author }) {
+export async function add_comment({ task: ref, text, author, needsInput }) {
     if (!text || !String(text).trim()) throw new Error('text is required.');
     const agents = await store.read('agents');
 
-    return store.mutate('tasks', (tasks) => {
+    const outcome = await store.mutate('tasks', (tasks) => {
         const found = D.resolveTask(tasks, ref);
         if (!found) throw new Error(`No task matches "${ref}".`);
         const idx = tasks.indexOf(found);
@@ -574,8 +574,23 @@ export async function add_comment({ task: ref, text, author }) {
         const updated = { ...t, comments: [...t.comments, comment] };
         const next = tasks.slice();
         next[idx] = updated;
-        return { next, result: { taskKey: t.taskKey, comment, hint: REFRESH_HINT } };
+        return { next, result: { task: t, comment } };
     });
+
+    // TASK-570: a comment flagged needsInput is an agent asking a question or
+    // requesting permission — drop it into the project chat too, so it rides
+    // the existing chat pipeline's toast + desktop Notification (chat.js) as
+    // both an in-app and a system-wide alert, instead of sitting silent in a
+    // task's comment list until someone happens to open it.
+    if (needsInput) {
+        await postChatMessage(outcome.task.projectId, {
+            author: outcome.comment.author, authorType: 'question',
+            taskKey: outcome.task.taskKey,
+            text: `Needs your input on "${outcome.task.title}" (${outcome.task.taskKey}): ${outcome.comment.text}`,
+        });
+    }
+
+    return { taskKey: outcome.task.taskKey, comment: outcome.comment, hint: REFRESH_HINT };
 }
 
 export async function log_time({ task: ref, hours, seconds, date, note }) {

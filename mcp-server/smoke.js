@@ -271,6 +271,15 @@ await check('renaming an agent rewrites assignee on its tasks', async () => {
     assert.equal(full.agent.slug, 'bug-triager', 'slug must survive a rename — Claude may already use it');
 });
 
+await check('add_comment with needsInput also posts a question to project chat', async () => {
+    await T.add_comment({ task: task.taskKey, text: 'OK to delete the legacy migration table?', needsInput: true });
+    const chats = await store.read('chats');
+    const posted = chats.filter(c => c.projectId === projectId && c.authorType === 'question');
+    assert.equal(posted.length, 1);
+    assert.ok(posted[0].text.includes('OK to delete the legacy migration table?'));
+    assert.equal(posted[0].taskKey, task.taskKey);
+});
+
 await check('unknown agent fails with a usable message', async () => {
     await assert.rejects(() => T.assign_task({ task: task.taskKey, agent: 'ghost' }), /No agent matches/);
 });

@@ -119,8 +119,15 @@ register('assign_task',
 
 register('add_comment',
     'Add a comment to a task. This is how an agent reports its results back to the board. Author defaults ' +
-    'to the task\'s agent. This does not free the agent — call finish_task once you are actually done.',
-    { task: taskRef, text: z.string(), author: z.string().optional() }, T.add_comment);
+    'to the task\'s agent. This does not free the agent — call finish_task once you are actually done. ' +
+    'Set `needsInput: true` when the comment is a question for the user or asks for permission before ' +
+    'continuing — it also posts to the project chat, which triggers an in-app toast and a desktop ' +
+    'Notification so the user actually sees it instead of it sitting unread in the task.',
+    {
+        task: taskRef, text: z.string(), author: z.string().optional(),
+        needsInput: z.boolean().optional().describe(
+            'True if this comment asks the user a question or requests permission — triggers an in-app + system notification.'),
+    }, T.add_comment);
 
 register('log_time', 'Log time against a task. Pass hours or seconds.',
     {
