@@ -122,6 +122,83 @@ const UI = (() => {
     }
 
     // ══════════════════════════════════════════════════════
+    // CONFETTI (TASK-600 — celebrates a task landing in Done)
+    // ══════════════════════════════════════════════════════
+    const CONFETTI_DURATION_MS = 2200;
+
+    /**
+     * A short canvas-based burst, no library. Skipped entirely under
+     * prefers-reduced-motion, same as every other animation in the app
+     * (see the global @media rule in styles.css).
+     */
+    function celebrateConfetti() {
+        if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+
+        const canvas = document.createElement('canvas');
+        canvas.className = 'confetti-canvas';
+        canvas.width  = window.innerWidth;
+        canvas.height = window.innerHeight;
+        document.body.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
+
+        const style = getComputedStyle(document.documentElement);
+        const colors = ['--primary', '--accent-2', '--chart-3', '--chart-4', '--status-done']
+            .map(v => style.getPropertyValue(v).trim())
+            .filter(Boolean);
+
+        const COUNT = 140;
+        const particles = Array.from({ length: COUNT }, () => ({
+            x: Math.random() * canvas.width,
+            y: -20 - Math.random() * canvas.height * 0.3,
+            size: 6 + Math.random() * 6,
+            color: colors[Math.floor(Math.random() * colors.length)] || '#22c55e',
+            vx: (Math.random() - 0.5) * 3,
+            vy: 3 + Math.random() * 4,
+            rotation: Math.random() * Math.PI * 2,
+            vr: (Math.random() - 0.5) * 0.3,
+        }));
+
+        const start = performance.now();
+        let frameId;
+
+        function frame(now) {
+            const elapsed = now - start;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.06; // gravity
+                p.rotation += p.vr;
+
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rotation);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+                ctx.restore();
+            });
+
+            if (elapsed < CONFETTI_DURATION_MS) {
+                frameId = requestAnimationFrame(frame);
+            } else {
+                cancelAnimationFrame(frameId);
+                canvas.remove();
+            }
+        }
+        frameId = requestAnimationFrame(frame);
+
+        // Keep the burst covering the viewport through a resize (e.g. rotating
+        // a tablet mid-animation) instead of leaving stale-sized particles.
+        const onResize = () => {
+            canvas.width  = window.innerWidth;
+            canvas.height = window.innerHeight;
+        };
+        window.addEventListener('resize', onResize);
+        setTimeout(() => window.removeEventListener('resize', onResize), CONFETTI_DURATION_MS);
+    }
+
+    // ══════════════════════════════════════════════════════
     // CONFIRM DIALOG
     // ══════════════════════════════════════════════════════
     /**
@@ -1802,9 +1879,19 @@ const UI = (() => {
         });
 
         // Tasks changed → refresh panel if open
-        State.on('tasks:changed', ({ type, task }) => {
+        State.on('tasks:changed', ({ type, task, oldTask }) => {
             if (task && isTaskPanelOpen(task.id) && type === 'update') {
                 // Lightweight refresh: update title/status without re-rendering
+            }
+
+            // A task landing in Done (however it got moved — kanban drag, the
+            // list-view status dropdown, or the task panel) gets a one-off
+            // celebration. Only on the transition into Done, not every edit
+            // to a task that was already sitting there (TASK-600).
+            if (type === 'update' && task && oldTask
+                && task.columnId !== oldTask.columnId
+                && window.Tasks?.isDoneColumn(task) && !window.Tasks.isDoneColumn(oldTask)) {
+                celebrateConfetti();
             }
         });
 
@@ -2096,7 +2183,7 @@ const UI = (() => {
     }
 
     return {
-        init, toast, confirm,
+        init, toast, confirm, celebrateConfetti,
         openTaskPanel, closeTaskPanel, getOpenTaskId, isTaskPanelOpen,
         toggleTaskPanelFullscreen, exitTaskPanelFullscreen,
         openCommandPalette, closeCommandPalette,

@@ -78,6 +78,7 @@
     --z-scrim: 400;
     --z-modal: 500;
     --z-toast: 600;
+    --z-confetti: 700;
 
     /* Easing */
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -2550,6 +2551,14 @@ body.task-panel-fullscreen #content-area {
     text-align: center;
     color: var(--text-tertiary);
     font-size: var(--text-base);
+}
+
+/* ── 15b. CONFETTI (TASK-600) ────────────────────────────── */
+.confetti-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-confetti);
+    pointer-events: none;
 }
 
 /* ── 16. TOAST NOTIFICATIONS ─────────────────────────────── */
