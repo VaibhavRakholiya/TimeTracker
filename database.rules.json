@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "timetracker": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}

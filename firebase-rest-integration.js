@@ -15,11 +15,35 @@ class FirebaseRESTIntegration {
         this.testConnection();
     }
 
+    // Firebase ID token for the signed-in user, required once database rules
+    // reject unauthenticated requests (TASK-589). `currentUser` can still be
+    // null immediately after page load even for a persisted session, since
+    // Firebase restores auth state asynchronously — in that case we wait for
+    // the SDK's first onAuthStateChanged emission instead of guessing.
+    async getIdToken() {
+        const user = firebase.auth().currentUser || await new Promise((resolve) => {
+            const unsubscribe = firebase.auth().onAuthStateChanged((u) => {
+                unsubscribe();
+                resolve(u);
+            });
+        });
+        return user ? await user.getIdToken() : null;
+    }
+
+    // Appends the signed-in user's ID token so RTDB REST calls pass rules
+    // that require `auth != null`. Falls back to the bare URL when signed
+    // out, letting the request fail with Firebase's own permission error
+    // rather than masking it here.
+    async withAuth(url) {
+        const token = await this.getIdToken();
+        return token ? `${url}?auth=${encodeURIComponent(token)}` : url;
+    }
+
     // Test Firebase connection
     async testConnection() {
         try {
             console.log(`🔍 Testing connection to: ${this.databaseURL}/.json`);
-            const response = await fetch(`${this.databaseURL}/.json`, {
+            const response = await fetch(await this.withAuth(`${this.databaseURL}/.json`), {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'
@@ -50,8 +74,8 @@ class FirebaseRESTIntegration {
             const url = `${this.databaseURL}/timetracker/${dataType}.json`;
             console.log(`💾 Saving ${dataType} to: ${url}`);
             console.log(`📦 Data to save:`, data);
-            
-            const response = await fetch(url, {
+
+            const response = await fetch(await this.withAuth(url), {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
@@ -85,8 +109,8 @@ class FirebaseRESTIntegration {
         try {
             const url = `${this.databaseURL}/timetracker/${dataType}.json`;
             console.log(`📥 Loading ${dataType} from: ${url}`);
-            
-            const response = await fetch(url, {
+
+            const response = await fetch(await this.withAuth(url), {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'
@@ -234,7 +258,7 @@ class FirebaseRESTIntegration {
         
         // Test 1: Basic connection
         try {
-            const response = await fetch(`${this.databaseURL}/.json`);
+            const response = await fetch(await this.withAuth(`${this.databaseURL}/.json`));
             console.log(`📡 Basic connection test: ${response.status}`);
             if (response.ok) {
                 const data = await response.json();
@@ -252,18 +276,18 @@ class FirebaseRESTIntegration {
                 testId: Math.random().toString(36).substr(2, 9)
             };
             
-            const response = await fetch(`${this.databaseURL}/timetracker/test.json`, {
+            const response = await fetch(await this.withAuth(`${this.databaseURL}/timetracker/test.json`), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(testData)
             });
-            
+
             console.log(`📡 Save test response: ${response.status}`);
             if (response.ok) {
                 console.log('✅ Test data saved successfully!');
-                
+
                 // Test 3: Read it back
-                const readResponse = await fetch(`${this.databaseURL}/timetracker/test.json`);
+                const readResponse = await fetch(await this.withAuth(`${this.databaseURL}/timetracker/test.json`));
                 if (readResponse.ok) {
                     const readData = await readResponse.json();
                     console.log('📦 Test data read back:', readData);

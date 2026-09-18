@@ -44,20 +44,43 @@ const FIREBASE_DATABASE_URL = "https://your-project-id-default-rtdb.firebaseio.c
 
 1. Go to "Realtime Database" in your Firebase console
 2. Click on the "Rules" tab
-3. Replace the default rules with these rules:
+3. Replace the default rules with the contents of [`database.rules.json`](./database.rules.json) in this repo:
 
 ```json
 {
   "rules": {
     "timetracker": {
-      ".read": true,
-      ".write": true
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }
 ```
 
-**Note**: These rules allow public read/write access. For production, consider implementing more restrictive rules.
+**Note (TASK-589)**: These rules require a signed-in Firebase Auth user for every
+read and write — the database URL alone no longer grants access, closing the
+gap where anyone with the URL could bypass `login.html` entirely via a direct
+REST call. `firebase-rest-integration.js` attaches the signed-in user's ID
+token (`?auth=<idToken>`) to every request it makes, so the app keeps working
+once these rules are published; a session that isn't signed in gets Firebase's
+own permission-denied response instead of falling through to reading/writing
+the database.
+
+**This repo has no `firebase.json`/CLI project wired up**, so these rules are
+not deployed automatically — they must be pasted into the console's Rules tab
+by hand (or you can run `firebase deploy --only database` yourself after
+`firebase init` if you set up the CLI).
+
+**⚠️ Also review before publishing**: this same database backs the FlowBoard
+agent board (`timetracker/flowboard_projects`, `flowboard_tasks`,
+`flowboard_agents`, `flowboard_chats`), read and written by the `mcp-server/`
+FlowBoard MCP tool that Claude Code agents (including the one that wrote this
+change) use directly over unauthenticated REST — it has no Firebase Auth
+session and no ID token to send. Publishing these rules as written will lock
+those agents out of the board along with anyone else, so they will need
+either a scoped rule exemption for the `flowboard_*` keys or a service-account
+based auth path for `mcp-server/src/store.js` *before* this is published,
+not after.
 
 4. Click "Publish"
 
