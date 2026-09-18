@@ -4037,9 +4037,18 @@ input.form-control--inline { padding: 5px 10px; }
     animation: agent-dash-pulse 1.8s ease-in-out infinite;
 }
 
+/*
+ * A visible glow ring needs spread and opacity to be *up* at the same time —
+ * the original version paired them inversely at every keyframe stop (spread
+ * 0 whenever opacity was high, opacity 0 whenever spread was > 0), so the
+ * ring was only ever visible for an instant while interpolating between
+ * stops, not held (TASK-609: "not visible clearly"). Holding a wide,
+ * high-opacity ring across the 20%-80% range, with the fade confined to the
+ * short edges, is what actually reads as a pulse.
+ */
 @keyframes agent-dash-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-inprogress) 45%, transparent); }
-    50%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--status-inprogress) 0%, transparent); }
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-inprogress) 0%, transparent); }
+    20%, 80% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--status-inprogress) 60%, transparent); }
 }
 
 .agent-dash-head-main { min-width: 0; flex: 1; }
