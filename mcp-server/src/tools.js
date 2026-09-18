@@ -112,7 +112,7 @@ async function releaseAndClaim(agentId, { justFinishedTaskId, claimTaskId } = {}
             } else if (agent.currentTaskId == claimTaskId) {
                 result = { agentStatus: 'active', startNow: false, queuePosition: 0 };
             } else {
-                const queue = D.queueForAgent(tasks, agent.id, agent.currentTaskId);
+                const queue = D.queueForAgent(tasks, agent.id, agent.currentTaskId, projects);
                 const pos = queue.findIndex(t => t.id == claimTaskId);
                 result = { agentStatus: 'queued', startNow: false, queuePosition: pos === -1 ? queue.length : pos + 1 };
             }
@@ -256,7 +256,7 @@ export async function list_tasks(args = {}) {
             } else if (t.id == agentRecord.currentTaskId) {
                 summary.queuePosition = 0;
             } else {
-                const q = D.queueForAgent(tasks, agentId, agentRecord.currentTaskId);
+                const q = D.queueForAgent(tasks, agentId, agentRecord.currentTaskId, projects);
                 const i = q.findIndex(x => x.id === t.id);
                 summary.queuePosition = i === -1 ? null : i + 1;
             }

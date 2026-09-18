@@ -156,12 +156,32 @@ export function hydrateAgent(raw) {
 }
 
 /**
- * Pending work for an agent, oldest assignment first, excluding whatever it's
- * actively on and anything already marked done. Mirrors js/state.js queueForAgent.
+ * A task sitting in a column literally named "Done" is finished, whether or
+ * not agentDoneAt ever got stamped for it — a belt-and-suspenders check for
+ * queueForAgent below, independent of whichever code path moved it there
+ * (TASK-605). Mirrors js/state.js isDoneColumnExact.
  */
-export function queueForAgent(tasks, agentId, excludeTaskId) {
+export function isDoneColumn(task, projects) {
+    if (!task) return false;
+    const project = (projects || []).find(p => p.id == task.projectId);
+    if (!project) return false;
+    const col = (project.columns || []).find(c => c.id === task.columnId);
+    return !!col && String(col.name).trim().toLowerCase() === 'done';
+}
+
+/**
+ * Pending work for an agent, oldest assignment first, excluding whatever it's
+ * actively on and anything already marked done — by agentDoneAt, or by
+ * simply sitting in the project's "Done" column (TASK-605), so a task that
+ * lands there without agentDoneAt getting stamped self-heals out of the
+ * queue the same way the rest of this module does. `projects` is optional
+ * for callers that don't have it handy; passing it is what enables the
+ * column check. Mirrors js/state.js queueForAgent.
+ */
+export function queueForAgent(tasks, agentId, excludeTaskId, projects) {
     return (tasks || [])
-        .filter(t => t.agentId == agentId && t.agentDoneAt == null && t.id != excludeTaskId)
+        .filter(t => t.agentId == agentId && t.agentDoneAt == null && t.id != excludeTaskId
+            && !isDoneColumn(hydrateTask(t), projects))
         .sort((a, b) => new Date(a.assignedAt || a.createdAt) - new Date(b.assignedAt || b.createdAt));
 }
 
@@ -225,7 +245,7 @@ export function isToBeTestedColumn(task, projects) {
  * Mirrors js/state.js pickNextForAgent.
  */
 export function pickNextForAgent(tasks, agentId, excludeTaskId, projects, preferProjectId) {
-    const ready = queueForAgent(tasks, agentId, excludeTaskId).filter(t => !isBlockedColumn(hydrateTask(t), projects));
+    const ready = queueForAgent(tasks, agentId, excludeTaskId, projects).filter(t => !isBlockedColumn(hydrateTask(t), projects));
     if (preferProjectId != null) {
         const sameProject = ready.find(t => t.projectId == preferProjectId);
         if (sameProject) return sameProject;
@@ -256,7 +276,7 @@ export function agentStatus(agent, tasks, projects) {
         live,
         working,
         currentTask: current,
-        queueLength: queueForAgent(tasks, agent.id, agent.currentTaskId).length,
+        queueLength: queueForAgent(tasks, agent.id, agent.currentTaskId, projects).length,
     };
 }
 

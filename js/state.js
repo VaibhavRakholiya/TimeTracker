@@ -908,11 +908,15 @@ const State = (() => {
     /**
      * Tasks assigned to an agent, still pending, in the order they should be
      * worked — oldest assignment first. Excludes the agent's own current task
-     * (that one is active, not queued) and anything the agent already finished.
+     * (that one is active, not queued) and anything the agent already
+     * finished — by agentDoneAt, or by simply sitting in the project's
+     * "Done" column (TASK-605), so a task that lands there without
+     * agentDoneAt getting stamped self-heals out of the queue instead of
+     * lingering because of whichever code path moved it.
      */
     function queueForAgent(agentId, excludeTaskId) {
         return _data.tasks
-            .filter(t => t.agentId == agentId && t.agentDoneAt == null && t.id != excludeTaskId)
+            .filter(t => t.agentId == agentId && t.agentDoneAt == null && t.id != excludeTaskId && !isDoneColumnExact(t))
             .sort((a, b) => new Date(a.assignedAt || a.createdAt) - new Date(b.assignedAt || b.createdAt));
     }
 
