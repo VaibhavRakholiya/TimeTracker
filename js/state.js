@@ -908,15 +908,18 @@ const State = (() => {
     /**
      * Tasks assigned to an agent, still pending, in the order they should be
      * worked — oldest assignment first. Excludes the agent's own current task
-     * (that one is active, not queued) and anything the agent already
-     * finished — by agentDoneAt, or by simply sitting in the project's
-     * "Done" column (TASK-605), so a task that lands there without
-     * agentDoneAt getting stamped self-heals out of the queue instead of
-     * lingering because of whichever code path moved it.
+     * (that one is active, not queued), anything the agent already finished
+     * (agentDoneAt), and — as of TASK-607 — anything not currently sitting in
+     * a column literally named "To Do": Backlog, In Review, To Be Tested and
+     * Done all drop out of the queue the moment a task lands there, whether
+     * that move came from the board (kanban drag, status dropdown, task
+     * panel) or an agent's own move_task, since this is the single listing
+     * both sides read from. Superseded the narrower Done-only check from
+     * TASK-605 — "To Do" is a positive allowlist that already covers it.
      */
     function queueForAgent(agentId, excludeTaskId) {
         return _data.tasks
-            .filter(t => t.agentId == agentId && t.agentDoneAt == null && t.id != excludeTaskId && !isDoneColumnExact(t))
+            .filter(t => t.agentId == agentId && t.agentDoneAt == null && t.id != excludeTaskId && isToDoColumn(t))
             .sort((a, b) => new Date(a.assignedAt || a.createdAt) - new Date(b.assignedAt || b.createdAt));
     }
 
@@ -938,8 +941,9 @@ const State = (() => {
     /**
      * A task sitting in a column literally named "Backlog" is assigned but
      * not ready — several real projects here use it as the stage before
-     * "To Do". It stays in an agent's queue, it just never becomes the active
-     * task until a human moves it somewhere else.
+     * "To Do". It stays assigned to the agent and keeps its place once moved
+     * to "To Do", but as of TASK-607 it no longer shows in the queue listing
+     * itself (see queueForAgent) until then.
      */
     function isBacklogColumn(task) {
         if (!task) return false;
@@ -996,6 +1000,19 @@ const State = (() => {
         if (!proj) return false;
         const col = (proj.columns || []).find(c => c.id === task.columnId);
         return !!col && String(col.name).trim().toLowerCase() === 'done';
+    }
+
+    /**
+     * Exact-match "To Do" — the only column a task can sit in and still show
+     * up in queueForAgent's listing (TASK-607). Mirrors mcp-server/src/domain.js
+     * isToDoColumn.
+     */
+    function isToDoColumn(task) {
+        if (!task) return false;
+        const proj = _data.projects.find(p => p.id == task.projectId);
+        if (!proj) return false;
+        const col = (proj.columns || []).find(c => c.id === task.columnId);
+        return !!col && String(col.name).trim().toLowerCase() === 'to do';
     }
 
     /**

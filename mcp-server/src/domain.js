@@ -157,9 +157,9 @@ export function hydrateAgent(raw) {
 
 /**
  * A task sitting in a column literally named "Done" is finished, whether or
- * not agentDoneAt ever got stamped for it — a belt-and-suspenders check for
- * queueForAgent below, independent of whichever code path moved it there
- * (TASK-605). Mirrors js/state.js isDoneColumnExact.
+ * not agentDoneAt ever got stamped for it (TASK-605). Mirrors js/state.js
+ * isDoneColumnExact. Still used by tools.js move_task's autoFinish check;
+ * queueForAgent below now uses the stronger isToDoColumn allowlist instead.
  */
 export function isDoneColumn(task, projects) {
     if (!task) return false;
@@ -170,18 +170,33 @@ export function isDoneColumn(task, projects) {
 }
 
 /**
+ * Exact-match "To Do" — the only column a task can sit in and still show up
+ * in queueForAgent's listing (TASK-607). Mirrors js/state.js isToDoColumn.
+ */
+export function isToDoColumn(task, projects) {
+    if (!task) return false;
+    const project = (projects || []).find(p => p.id == task.projectId);
+    if (!project) return false;
+    const col = (project.columns || []).find(c => c.id === task.columnId);
+    return !!col && String(col.name).trim().toLowerCase() === 'to do';
+}
+
+/**
  * Pending work for an agent, oldest assignment first, excluding whatever it's
- * actively on and anything already marked done — by agentDoneAt, or by
- * simply sitting in the project's "Done" column (TASK-605), so a task that
- * lands there without agentDoneAt getting stamped self-heals out of the
- * queue the same way the rest of this module does. `projects` is optional
- * for callers that don't have it handy; passing it is what enables the
- * column check. Mirrors js/state.js queueForAgent.
+ * actively on (excludeTaskId), anything already marked done (agentDoneAt),
+ * and — as of TASK-607 — anything not currently sitting in a column
+ * literally named "To Do". Backlog, In Review, To Be Tested and Done all
+ * drop out of the queue the moment a task lands there, whether that move
+ * came from the board or an agent's own move_task, since this is the single
+ * listing both sides read from (tools.js list_tasks queuePosition, and
+ * js/state.js's Agent Activity dashboard). `projects` is required to apply
+ * the column check — omitting it means nothing passes. Mirrors js/state.js
+ * queueForAgent.
  */
 export function queueForAgent(tasks, agentId, excludeTaskId, projects) {
     return (tasks || [])
         .filter(t => t.agentId == agentId && t.agentDoneAt == null && t.id != excludeTaskId
-            && !isDoneColumn(hydrateTask(t), projects))
+            && isToDoColumn(hydrateTask(t), projects))
         .sort((a, b) => new Date(a.assignedAt || a.createdAt) - new Date(b.assignedAt || b.createdAt));
 }
 
