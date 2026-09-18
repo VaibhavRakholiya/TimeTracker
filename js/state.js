@@ -714,6 +714,22 @@ const State = (() => {
                 if (agent && agent.currentTaskId == id) promoteNextForAgent(agent.id, _data.tasks[idx].projectId);
             }
 
+            // Dragging an agent's active task into a column literally named
+            // "Done" finishes it — mirrors mcp-server/src/tools.js move_task's
+            // autoFinish, which only the MCP path had until now. Without this,
+            // a task moved to Done through the web UI (kanban drag, the
+            // list-view status dropdown, or the task panel) kept agentDoneAt
+            // null forever and left the agent's currentTaskId stuck pointing
+            // at a task that was already finished (TASK-602).
+            if (fields.columnId && fields.columnId !== oldTask.columnId
+                && _data.tasks[idx].agentId != null
+                && _data.tasks[idx].agentDoneAt == null
+                && isDoneColumnExact(_data.tasks[idx])) {
+                const agent = Agents.get(_data.tasks[idx].agentId);
+                _data.tasks[idx].agentDoneAt = new Date().toISOString();
+                if (agent && agent.currentTaskId == id) promoteNextForAgent(agent.id, _data.tasks[idx].projectId);
+            }
+
             save();
             if (fields.columnId && fields.columnId !== oldTask.columnId) {
                 addActivity('task_moved', _data.tasks[idx].title, `→ column`);
@@ -962,6 +978,20 @@ const State = (() => {
         if (!proj) return false;
         const col = (proj.columns || []).find(c => c.id === task.columnId);
         return !!col && String(col.name).trim().toLowerCase() === 'to be tested';
+    }
+
+    /**
+     * Exact-match "Done", not the looser Tasks.isDoneColumn (which matches
+     * any name containing "done"). Mirrors mcp-server/src/tools.js move_task's
+     * isDoneColumn check, since this drives the same auto-finish behavior
+     * that function already has — see Tasks.update below (TASK-602).
+     */
+    function isDoneColumnExact(task) {
+        if (!task) return false;
+        const proj = _data.projects.find(p => p.id == task.projectId);
+        if (!proj) return false;
+        const col = (proj.columns || []).find(c => c.id === task.columnId);
+        return !!col && String(col.name).trim().toLowerCase() === 'done';
     }
 
     /**
