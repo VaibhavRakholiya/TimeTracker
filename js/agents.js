@@ -374,16 +374,27 @@ const Agents = (() => {
                 ? `<img src="${a.avatar}" alt="" />`
                 : escHtml(a.emoji || a.name.charAt(0).toUpperCase());
 
+            const isWorking = status.working && status.live;
+
+            // Project name goes in its own non-shrinking span so it survives
+            // the title's ellipsis truncation instead of being cut off with it
+            // (TASK-606) — a long title alone would otherwise swallow it.
+            const taskLine = t => {
+                const proj = t.projectId ? State.Projects.get(t.projectId) : null;
+                return `<span class="agent-dash-task-title">${escHtml(t.taskKey || '')} — ${escHtml(t.title)}</span>${proj
+                    ? `<span class="agent-dash-task-project">${escHtml(proj.name)}</span>` : ''}`;
+            };
+
             const currentHtml = status.currentTask
                 ? `<button type="button" class="agent-dash-task" data-open-task="${status.currentTask.id}">
-                       ${escHtml(status.currentTask.taskKey || '')} — ${escHtml(status.currentTask.title)}
+                       ${taskLine(status.currentTask)}
                    </button>`
                 : `<p class="agent-dash-empty">Nothing in progress</p>`;
 
             const queueHtml = queue.length
                 ? `<ul class="agent-dash-queue">${queue.slice(0, 4).map(t => `
                        <li><button type="button" class="agent-dash-task" data-open-task="${t.id}">
-                           ${escHtml(t.taskKey || '')} — ${escHtml(t.title)}
+                           ${taskLine(t)}
                        </button></li>`).join('')}
                        ${queue.length > 4 ? `<li class="text-muted text-sm">+${queue.length - 4} more</li>` : ''}
                    </ul>`
@@ -392,15 +403,15 @@ const Agents = (() => {
             return `
             <div class="agent-dash-card${a.enabled === false ? ' agent-dash-card--disabled' : ''}">
                 <div class="agent-dash-head">
-                    <div class="task-card-assignee task-card-assignee--agent agent-row-avatar"
+                    <div class="task-card-assignee task-card-assignee--agent agent-row-avatar agent-dash-avatar${isWorking ? ' agent-dash-avatar--working' : ''}"
                          style="background:${hexToRgba(a.color, 0.15)};color:${a.color};border-color:${hexToRgba(a.color, 0.4)};"
                          aria-hidden="true">${badge}</div>
                     <div class="agent-dash-head-main">
                         <div class="agent-dash-name">${escHtml(a.name)}</div>
                         <div class="agent-row-meta">${a.role ? escHtml(a.role) : escHtml(a.slug)}</div>
                     </div>
-                    ${(status.working && status.live)
-                        ? '<span class="agent-row-pill agent-row-pill--working">Working</span>'
+                    ${isWorking
+                        ? '<span class="agent-row-pill agent-row-pill--working agent-row-pill--pulse"><span class="agent-row-pill-dot"></span>Working</span>'
                         : '<span class="agent-row-pill agent-row-pill--idle">Idle</span>'}
                 </div>
                 <div class="agent-dash-section">

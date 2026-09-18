@@ -4022,10 +4022,31 @@ input.form-control--inline { padding: 5px 10px; }
     gap: var(--sp-3);
 }
 
+/* Bigger than the compact Settings list row (TASK-606) — this card is the
+   whole point of the Agent Activity tab, so the avatar and name carry more
+   visual weight here than in a dense list. */
+.agent-dash-avatar {
+    width: 56px;
+    height: 56px;
+    font-size: var(--text-xl);
+    flex-shrink: 0;
+    transition: box-shadow 0.3s ease;
+}
+
+.agent-dash-avatar--working {
+    animation: agent-dash-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes agent-dash-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-inprogress) 45%, transparent); }
+    50%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--status-inprogress) 0%, transparent); }
+}
+
 .agent-dash-head-main { min-width: 0; flex: 1; }
 
 .agent-dash-name {
     font-weight: var(--fw-semibold);
+    font-size: var(--text-lg);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4045,7 +4066,9 @@ input.form-control--inline { padding: 5px 10px; }
 }
 
 .agent-dash-task {
-    display: block;
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-2);
     width: 100%;
     text-align: left;
     background: none;
@@ -4054,12 +4077,17 @@ input.form-control--inline { padding: 5px 10px; }
     color: var(--text);
     font-size: var(--text-sm);
     cursor: pointer;
+}
+
+.agent-dash-task:hover { color: var(--primary); }
+
+.agent-dash-task-title {
+    min-width: 0;
+    flex: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
-.agent-dash-task:hover { color: var(--primary); }
 
 .agent-dash-queue {
     list-style: none;
@@ -4122,6 +4150,31 @@ input.form-control--inline { padding: 5px 10px; }
 
 .agent-row-pill--idle {
     color: var(--text-secondary);
+}
+
+.agent-row-pill--pulse {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.agent-row-pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--status-inprogress);
+    animation: agent-row-dot-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes agent-row-dot-blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.25; }
+}
+
+.agent-dash-task-project {
+    flex-shrink: 0;
+    font-size: var(--text-2xs);
+    color: var(--text-tertiary);
 }
 
 .agent-row-count {
